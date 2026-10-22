@@ -53,7 +53,9 @@ describe("bootstrap do primeiro SUPER_ADMIN", () => {
     `;
     expect(role).toEqual([{ role: "SUPER_ADMIN", kind: "STAFF" }]);
 
-    const audit = await runtime<{ metadata: unknown; actor: string | null; type: string }[]>`
+    const audit = await runtime<
+      { metadata: unknown; actor: string | null; type: string }[]
+    >`
       select metadata, pg_typeof(metadata) as type, actor_user_id::text as actor
       from audit.audit_log
       where action = 'user.bootstrap' and entity_id = ${first.userId}::uuid
