@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pedidos</title>
+    <style>
+      body {
+        font-family: Georgia, serif;
+        margin: 0;
+      }
+      .grade {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 16px;
+        padding: 24px;
+      }
+      .item {
+        margin-bottom: 8px;
+      }
+      .acao {
+        font-family: Georgia, serif;
+        padding: 8px 12px;
+        background: #f4f1ea;
+        color: #1a1a1a;
+        border: 1px solid #1a1a1a;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="grade">
+      <aside>
+        <button class="acao" type="button" id="atualizar">Atualizar</button>
+        <button class="acao" type="button" id="exportar">Exportar CSV</button>
+      </aside>
+      <section>
+        <h1>Pedidos</h1>
+        <ul id="itens">
+          <li class="item" data-nome="Caderno" data-preco="12.50">Caderno — 12,50</li>
+          <li class="item" data-nome="Caneta" data-preco="3.00">Caneta — 3,00</li>
+        </ul>
+      </section>
+    </main>
+    <script>
+      (function () {
+        var botao = document.getElementById("exportar");
+        var lista = document.getElementById("itens");
+
+        function valorCsv(valor) {
+          var texto = String(valor == null ? "" : valor);
+          if (/^[=+\-@]/.test(texto)) {
+            texto = "'" + texto;
+          }
+          if (/[",\n\r]/.test(texto)) {
+            return '"' + texto.replace(/"/g, '""') + '"';
+          }
+          return texto;
+        }
+
+        function precoValido(preco) {
+          return /^\d+([.,]\d+)?$/.test(preco);
+        }
+
+        function lerItens() {
+          if (!lista) {
+            throw new Error("Lista de itens não encontrada.");
+          }
+          var elementos = lista.querySelectorAll(".item");
+          var itens = [];
+          for (var i = 0; i < elementos.length; i++) {
+            var elemento = elementos[i];
+            var nome = (elemento.getAttribute("data-nome") || "").trim();
+            var preco = (elemento.getAttribute("data-preco") || "").trim();
+            if (!nome || preco === "") {
+              throw new Error("Há um item sem nome ou preço. Nada foi exportado.");
+            }
+            if (!precoValido(preco)) {
+              throw new Error("Há um preço inválido. Nada foi exportado.");
+            }
+            itens.push({ nome: nome, preco: preco });
+          }
+          return itens;
+        }
+
+        function montarCsv(itens) {
+          var linhas = ["nome,preco"];
+          for (var i = 0; i < itens.length; i++) {
+            linhas.push(valorCsv(itens[i].nome) + "," + valorCsv(itens[i].preco));
+          }
+          return linhas.join("\r\n");
+        }
+
+        function baixarCsv(conteudo) {
+          if (
+            typeof Blob !== "function" ||
+            !window.URL ||
+            typeof window.URL.createObjectURL !== "function"
+          ) {
+            throw new Error("Este navegador não conseguiu gerar o arquivo.");
+          }
+          var blob = new Blob([conteudo], { type: "text/csv;charset=utf-8" });
+          var url = window.URL.createObjectURL(blob);
+          var link = document.createElement("a");
+          link.href = url;
+          link.download = "pedidos.csv";
+          document.body.appendChild(link);
+          try {
+            link.click();
+          } finally {
+            if (link.parentNode) {
+              link.parentNode.removeChild(link);
+            }
+            window.URL.revokeObjectURL(url);
+          }
+        }
+
+        if (!botao) {
+          return;
+        }
+
+        botao.addEventListener("click", function () {
+          try {
+            var itens = lerItens();
+            if (!itens.length) {
+              window.alert("Não há itens para exportar.");
+              return;
+            }
+            baixarCsv(montarCsv(itens));
+          } catch (erro) {
+            window.alert(
+              erro && erro.message ? erro.message : "Não foi possível exportar o CSV.",
+            );
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

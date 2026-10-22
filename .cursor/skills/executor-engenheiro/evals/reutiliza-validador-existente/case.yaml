@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: reutiliza-validador-existente
+expected_outcome: |
+  criar_usuario passa a recusar nome vazio e e-mail inválido reutilizando
+  validar.py. Nenhuma dependência nova, inclusive pydantic, é instalada ou
+  declarada. Há teste do caminho feliz, de nome vazio e de e-mail inválido.
+  O relatório final traz as seções obrigatórias e um status permitido.
+context:
+  scaffold_script: place-files.sh

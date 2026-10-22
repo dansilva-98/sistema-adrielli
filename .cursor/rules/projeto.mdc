@@ -1,0 +1,16 @@
+---
+description: Regras da plataforma Ana Aprender. Vale para toda tarefa no repositório.
+alwaysApply: true
+---
+
+# Plataforma Ana Aprender
+
+Leia `docs/specs/00-regras-do-projeto.md` antes de implementar. O épico em execução está em `docs/specs/`.
+
+- Implemente só o escopo do épico. O que não estiver na spec vira pergunta em `docs/specs/PERGUNTAS.md`.
+- Não altere a arquitetura aprovada: Next.js, pnpm, Tailwind, shadcn, Drizzle, Supabase, Zod, Sentry, Vitest e Playwright.
+- Regra de negócio só no servidor. Acesso negado por padrão.
+- Sem dados pessoais em logs. Segredos só em variável de ambiente de servidor.
+- Migrations versionadas. Sem exclusão em cascata no schema `clinic`.
+- Código e colunas em inglês. Interface em português do Brasil.
+- Ao terminar, entregue o relatório de status do executor com a evidência dos critérios de aceite.

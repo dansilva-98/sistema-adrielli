@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pedidos</title>
+    <style>
+      body {
+        font-family: Georgia, serif;
+        margin: 0;
+      }
+      .grade {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 16px;
+        padding: 24px;
+      }
+      .item {
+        margin-bottom: 8px;
+      }
+      .acao {
+        font-family: Georgia, serif;
+        padding: 8px 12px;
+        background: #f4f1ea;
+        color: #1a1a1a;
+        border: 1px solid #1a1a1a;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="grade">
+      <aside>
+        <button class="acao" type="button" id="atualizar">Atualizar</button>
+      </aside>
+      <section>
+        <h1>Pedidos</h1>
+        <ul id="itens">
+          <li class="item" data-nome="Caderno" data-preco="12.50">Caderno — 12,50</li>
+          <li class="item" data-nome="Caneta" data-preco="3.00">Caneta — 3,00</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

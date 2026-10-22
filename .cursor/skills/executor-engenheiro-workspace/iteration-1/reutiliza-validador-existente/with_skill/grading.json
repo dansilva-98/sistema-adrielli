@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "criar_usuario com nome vazio e e-mail a@b.com levanta ValueError.",
+      "passed": true,
+      "evidence": "ValueError: nome é obrigatório"
+    },
+    {
+      "text": "criar_usuario com nome Ana e e-mail nao-e-email levanta ValueError.",
+      "passed": true,
+      "evidence": "ValueError: email inválido"
+    },
+    {
+      "text": "criar_usuario com nome Ana e e-mail ana@exemplo.com retorna nome Ana e e-mail ana@exemplo.com.",
+      "passed": true,
+      "evidence": "Retorno: {'nome': 'Ana', 'email': 'ana@exemplo.com'}."
+    },
+    {
+      "text": "cadastro.py usa campo_obrigatorio e formato_email definidos em validar.py.",
+      "passed": true,
+      "evidence": "cadastro.py importa campo_obrigatorio e formato_email de validar.py."
+    },
+    {
+      "text": "requirements.txt não declara pydantic nem outro pacote de terceiros, e cadastro.py não importa pydantic.",
+      "passed": true,
+      "evidence": "requirements.txt não declara pacotes e cadastro.py não importa pydantic."
+    },
+    {
+      "text": "Existe um teste do caminho feliz, um teste de nome vazio e um teste de e-mail inválido.",
+      "passed": true,
+      "evidence": "Caminho feliz: True. Nome vazio: True. E-mail inválido: True. Arquivos: ['test_cadastro.py']."
+    },
+    {
+      "text": "O relatório final contém as seções Status, O que foi implementado, Arquivos alterados, Banco / migrations, APIs alteradas, Dependências adicionadas, Testes executados, Resultado dos testes, Evidências, Riscos conhecidos, Itens não concluídos e Próximos passos recomendados, e o status é exatamente uma destas classificações: CONCLUÍDO E TESTADO, CONCLUÍDO COM PENDÊNCIAS, PARCIALMENTE IMPLEMENTADO ou BLOQUEADO.",
+      "passed": true,
+      "evidence": "RELATORIO.md tem as doze seções e o status CONCLUÍDO E TESTADO."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 0,
+    "total": 7,
+    "pass_rate": 1.0
+  }
+}

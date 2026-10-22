@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: corrige-desconto-cupom-vazio
+expected_outcome: |
+  calcular_total deixa de aplicar 10% quando o cupom é vazio ou só espaços,
+  e continua aplicando o desconto para o cupom PROMO. A correção permanece
+  na função existente, com teste de regressão para cupom vazio. O relatório
+  final traz as seções obrigatórias e um status permitido.
+context:
+  scaffold_script: place-files.sh

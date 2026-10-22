@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Subir Supabase local
+        run: supabase start
+      - name: Escrever ambiente local
+        run: node scripts/write-local-env.mjs
+      - name: Lint
+        run: pnpm lint
+      - name: Prettier
+        run: pnpm format:check
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Testes de unidade
+        run: pnpm test
+      - name: Migrations
+        run: pnpm db:migrate
+      - name: Testes de integração
+        run: pnpm test:integration
+      - name: Build
+        run: pnpm build
+      - name: Varrer segredo no bundle
+        run: pnpm check:bundle
+      - name: Instalar navegador do Playwright
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Teste de fumaça
+        run: pnpm test:e2e
