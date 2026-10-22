@@ -46,6 +46,12 @@ export default async function setup(): Promise<void> {
     await sql.unsafe(
       "DROP SCHEMA IF EXISTS identity, content, commerce, clinic, audit, drizzle CASCADE",
     );
+    await sql.unsafe(`
+      CREATE SCHEMA IF NOT EXISTS auth;
+      CREATE TABLE IF NOT EXISTS auth.users (
+        id uuid PRIMARY KEY
+      );
+    `);
     const db = drizzle(sql);
     await migrate(db, { migrationsFolder: "src/db/migrations" });
   } finally {

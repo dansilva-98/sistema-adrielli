@@ -1,5 +1,5 @@
-export { identity } from "./identity";
+export { identity, staffRole, userKind, userRoles, users } from "./identity";
 export { content } from "./content";
 export { commerce } from "./commerce";
 export { clinic } from "./clinic";
-export { audit } from "./audit";
+export { audit, auditLog } from "./audit";

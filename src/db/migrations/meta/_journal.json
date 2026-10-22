@@ -22,6 +22,13 @@
       "when": 1792701000000,
       "tag": "0002_app_runtime",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792707444244,
+      "tag": "0003_identity_tables",
+      "breakpoints": true
     }
   ]
 }
