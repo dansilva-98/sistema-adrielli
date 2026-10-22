@@ -4,7 +4,7 @@ test("a home responde 200 e mostra a marca", async ({ page }) => {
   const response = await page.goto("/");
   expect(response?.status()).toBe(200);
   await expect(
-    page.getByRole("banner").getByRole("link", { name: "Ana Aprender" }),
+    page.getByRole("banner").getByRole("link", { name: "Adrielli Flores" }),
   ).toBeVisible();
 });
 

@@ -20,7 +20,7 @@ export function PublicHeader() {
     <header className="border-b border-border bg-surface">
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4">
         <Link href="/" className="font-serif text-2xl text-text">
-          Ana Aprender
+          Adrielli Flores
         </Link>
         <button
           type="button"

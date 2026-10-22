@@ -31,7 +31,7 @@ export function assertSeedAllowed(appEnv: string | undefined, databaseUrl: strin
   assertLocalDatabaseAllowed(appEnv, databaseUrl);
 }
 
-export const TEST_DATABASE_NAME = "ana_aprender_test";
+export const TEST_DATABASE_NAME = "adrielli_flores_test";
 
 export function databaseName(databaseUrl: string): string {
   let pathname: string;
@@ -52,7 +52,7 @@ export function assertTestDatabaseUrl(
   assertLocalDatabaseAllowed(appEnv, databaseUrl);
   if (databaseName(databaseUrl) !== TEST_DATABASE_NAME) {
     throw new Error(
-      "Recusado: TEST_DATABASE_URL precisa usar o banco ana_aprender_test.",
+      "Recusado: TEST_DATABASE_URL precisa usar o banco adrielli_flores_test.",
     );
   }
 }

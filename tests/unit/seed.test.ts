@@ -36,9 +36,9 @@ describe("guarda do banco local", () => {
 
   it("recusa TEST_DATABASE_URL apontando para o banco postgres", () => {
     const testDatabaseUrl =
-      "postgresql://postgres:postgres@127.0.0.1:54322/ana_aprender_test";
+      "postgresql://postgres:postgres@127.0.0.1:54322/adrielli_flores_test";
     expect(() => assertTestDatabaseUrl("development", localDatabaseUrl)).toThrow(
-      /ana_aprender_test/,
+      /adrielli_flores_test/,
     );
     expect(() => assertTestDatabaseUrl("staging", testDatabaseUrl)).toThrow(
       /development/,

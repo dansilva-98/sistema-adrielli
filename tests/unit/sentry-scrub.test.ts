@@ -6,7 +6,7 @@ describe("scrubSentryEvent", () => {
   it("remove corpo, cookies, autorização, query string e campos sensíveis", () => {
     const original = {
       request: {
-        url: "https://anaaprender.example/equipe/entrar?token=abc&email=pessoa@example.com",
+        url: "https://adrielliflores.example/equipe/entrar?token=abc&email=pessoa@example.com",
         query_string: "token=abc",
         data: { password: "segredo", note: "manter" },
         cookies: { session: "cookie-secreto" },
@@ -23,7 +23,7 @@ describe("scrubSentryEvent", () => {
         nested: { code: "123456", token: "abc", ok: true },
       },
       user: { email: "pessoa@example.com", id: "user-1" },
-      message: "falha em https://anaaprender.example/rota?password=segredo",
+      message: "falha em https://adrielliflores.example/rota?password=segredo",
       detail: "SMTP recusou pessoa@example.com",
     };
 
@@ -37,7 +37,7 @@ describe("scrubSentryEvent", () => {
     expect(scrubbed.request.headers.Authorization).toBeUndefined();
     expect(scrubbed.request.headers.Cookie).toBeUndefined();
     expect(scrubbed.request.headers["Content-Type"]).toBe("application/json");
-    expect(scrubbed.request.url).toBe("https://anaaprender.example/equipe/entrar");
+    expect(scrubbed.request.url).toBe("https://adrielliflores.example/equipe/entrar");
     expect(scrubbed.extra.email).toBeUndefined();
     expect(scrubbed.extra.phone).toBeUndefined();
     expect(scrubbed.extra.cpf).toBeUndefined();
@@ -50,7 +50,7 @@ describe("scrubSentryEvent", () => {
     expect(serialized).not.toContain("Bearer segredo");
     expect(serialized).not.toContain("cookie-secreto");
     expect(serialized).not.toContain("password=segredo");
-    expect(scrubbed.message).toBe("falha em https://anaaprender.example/rota");
+    expect(scrubbed.message).toBe("falha em https://adrielliflores.example/rota");
     expect(scrubbed.detail).toBe("SMTP recusou [redacted]");
   });
 });

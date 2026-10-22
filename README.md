@@ -1,4 +1,4 @@
-# Ana Aprender
+# Adrielli Flores
 
 Monólito modular da plataforma. Este repositório está no E0: fundação, sem login e sem tabela de negócio.
 
@@ -21,7 +21,7 @@ pnpm db:seed
 pnpm dev
 ```
 
-Abra `http://127.0.0.1:3000`. A home mostra o cabeçalho com a marca Ana Aprender, os links e o rodapé. Ainda não há conteúdo de página.
+Abra `http://127.0.0.1:3000`. A home mostra o cabeçalho com a marca Adrielli Flores, os links e o rodapé. Ainda não há conteúdo de página.
 
 `pnpm env:local` só escreve `.env.local` se o arquivo não existir. Apague o arquivo para gerá-lo de novo. Ele não é commitado.
 
@@ -36,7 +36,7 @@ Se o Supabase local ainda não estiver no ar, copie `.env.example` para `.env.lo
 | `pnpm lint`                 | ESLint, inclusive as fronteiras de módulo              |
 | `pnpm typecheck`            | Tipos do Next e `tsc`                                  |
 | `pnpm test`                 | Testes de unidade                                      |
-| `pnpm test:integration`     | Schemas e papel `anon`, no banco `ana_aprender_test`   |
+| `pnpm test:integration`     | Schemas e papel `anon`, no banco `adrielli_flores_test`   |
 | `pnpm test:e2e`             | Home, cabeçalhos e larguras 360 e 1280                 |
 | `pnpm db:generate`          | Gera migration do Drizzle                              |
 | `pnpm db:migrate`           | Aplica migrations                                      |
@@ -48,7 +48,7 @@ Se o Supabase local ainda não estiver no ar, copie `.env.example` para `.env.lo
 
 Estão em `.env.example`. Valor ausente ou inválido impede a subida e a mensagem cita o nome da variável, não o valor.
 
-`DATABASE_URL` é a conexão do runtime e, neste épico, também das migrations. O E1 separa a URL de migration. `TEST_DATABASE_URL` aponta para o banco `ana_aprender_test`, usado só pelos testes de integração.
+`DATABASE_URL` é a conexão do runtime e, neste épico, também das migrations. O E1 separa a URL de migration. `TEST_DATABASE_URL` aponta para o banco `adrielli_flores_test`, usado só pelos testes de integração.
 
 No ambiente local, use a conexão direta do Supabase (no exemplo, porta 54322). Em produção, `DATABASE_URL` deve usar o pooler do Supabase em modo transação, porta 6543. O cliente já abre essa conexão com `prepare: false` e `max: 1`.
 
