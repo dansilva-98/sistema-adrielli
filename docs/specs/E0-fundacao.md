@@ -103,7 +103,7 @@ Direção aprovada: visual editorial, sério e acolhedor; terracota como cor pri
 - Fontes via `next/font`: serifada para títulos, sans-serif para textos e controles.
 - shadcn/ui inicializado com: Button, Input, Label, Textarea, Select, Checkbox, Dialog (confirmação), Toast, Table, Card, Badge, Skeleton, Form (com React Hook Form + Zod).
 - Verificar contraste mínimo WCAG AA dos pares texto/fundo dos tokens; registrar o resultado no PR.
-- Layout do site público (`app/(public)/layout.tsx`): header com a marca "Ana Aprender" e os links Início, Sobre, Serviços, Materiais, Contato, rodapé simples, responsivo até 360 px de largura. As páginas ainda não têm conteúdo: a home mostra apenas o layout.
+- Layout do site público (`app/(public)/layout.tsx`): header com a marca "Adrielli Flores" e os links Início, Sobre, Serviços, Materiais, Contato, rodapé simples, responsivo até 360 px de largura. As páginas ainda não têm conteúdo: a home mostra apenas o layout.
 
 ## Critérios de aceite
 

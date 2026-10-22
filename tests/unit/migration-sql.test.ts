@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-describe("migration inicial", () => {
-  it("cria os cinco schemas e revoga anon e authenticated", () => {
-    const sql = readFileSync("src/db/migrations/0000_init_schemas.sql", "utf8");
+describe("migration de privilégios", () => {
+  it("revoga anon e authenticated nos cinco schemas", () => {
+    const sql = readFileSync("src/db/migrations/0001_restrict_api_roles.sql", "utf8");
     for (const schema of ["identity", "content", "commerce", "clinic", "audit"]) {
       expect(sql).toContain(`'${schema}'`);
     }

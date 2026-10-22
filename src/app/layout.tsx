@@ -20,8 +20,8 @@ const serif = Newsreader({
 
 export const metadata: Metadata = {
   metadataBase: new URL(clientEnv.NEXT_PUBLIC_SITE_URL),
-  title: "Ana Aprender",
-  description: "Ana Aprender",
+  title: "Adrielli Flores",
+  description: "Adrielli Flores",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

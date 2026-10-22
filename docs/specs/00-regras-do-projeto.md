@@ -1,4 +1,4 @@
-# Regras do projeto — Plataforma Ana Aprender
+# Regras do projeto — Plataforma Adrielli Flores
 
 Leia este arquivo antes de qualquer especificação de épico. Ele vale para todas as tarefas.
 Sugestão: salvar como `docs/specs/00-regras-do-projeto.md` no repositório e também como regra do Cursor (`.cursor/rules/projeto.mdc`).
@@ -6,6 +6,19 @@ Sugestão: salvar como `docs/specs/00-regras-do-projeto.md` no repositório e ta
 ## 1. Contexto em uma frase
 
 Plataforma de uma psicopedagoga com quatro áreas separadas — site público, marketplace de materiais digitais, painel administrativo (`/admin`) e painel do consultório (`/consultorio`) — num único app (monolito modular). O consultório guarda dados de saúde de crianças: segurança e autorização não são opcionais.
+
+## 1.1 Nome do projeto (decisão de 22/10)
+
+A marca é **Adrielli Flores**. Ela substitui "Ana Aprender" em todo lugar. Use sempre estes identificadores:
+
+| Uso                                                          | Valor                  |
+| ------------------------------------------------------------ | ---------------------- |
+| Marca na interface, títulos e e-mails                        | Adrielli Flores        |
+| Slug (pacote, `project_id` do Supabase, nomes em kebab-case) | `adrielli-flores`      |
+| Identificadores em snake_case (bancos, papéis)               | `adrielli_flores`      |
+| Banco dos testes de integração                               | `adrielli_flores_test` |
+
+Renomear um identificador técnico também é uma mudança de infraestrutura. Trocar o `project_id` cria um stack local novo, e o volume antigo deve ser preservado. Trocar o nome do banco de testes deixa o banco antigo para trás. Siga a regra 11: nada de reset ou exclusão sem autorização, e backup antes.
 
 ## 2. Regras de trabalho
 
@@ -19,6 +32,14 @@ Plataforma de uma psicopedagoga com quatro áreas separadas — site público, m
 8. **Sem dados pessoais em logs**: nada de nome, e-mail, telefone, conteúdo clínico, tokens, códigos de login ou payloads de pagamento.
 9. **Segredos só em variáveis de ambiente do servidor.** Nenhuma chave de serviço no código, no repositório ou no bundle do navegador. Só variáveis com prefixo `NEXT_PUBLIC_` chegam ao navegador, e nenhuma delas pode ser segredo.
 10. **Migrations**: toda mudança de banco é uma migration versionada, revisável e com reversão possível. Nada de alterar o banco manualmente. Nenhuma migration destrutiva sem estar explicitamente na especificação.
+11. **Comandos destrutivos só com autorização explícita da responsável no chat, um por vez.** Isso vale mesmo quando uma especificação ou auditoria mandar executá-los. Pare, explique o que será apagado e espere o "sim". A lista inclui:
+    - `supabase db reset`, `supabase stop --no-backup`, `supabase db push --include-all` em banco remoto;
+    - `docker volume rm`, `docker system prune`, `docker compose down -v`;
+    - `DROP DATABASE`, `DROP SCHEMA`, `DROP TABLE`, `TRUNCATE`, e `DELETE`/`UPDATE` sem `WHERE`, executados à mão;
+    - `git push --force`, `git reset --hard`, `git clean -fd`;
+    - `rm -rf` fora de `node_modules`, `.next`, `coverage`, `test-results` e `playwright-report`.
+
+    Antes de qualquer um deles, mesmo autorizado, faça um backup do banco local com `pnpm db:backup` e informe o caminho do arquivo gerado. A única exceção é o setup dos testes de integração, que só atua no banco de testes (`adrielli_flores_test`) e é protegido por guarda no código.
 
 ## 3. Stack aprovada
 

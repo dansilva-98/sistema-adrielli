@@ -36,7 +36,8 @@ function stripUrl(url: string): string {
 function scrubString(value: string): string {
   const withoutSecrets = value
     .replace(/postgres(?:ql)?:\/\/[^\s'"]+/gi, "[redacted]")
-    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]");
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted]");
   return withoutSecrets.replace(/https?:\/\/[^\s'"]+/gi, (url) => stripUrl(url));
 }
 

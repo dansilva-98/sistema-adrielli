@@ -5,8 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1761120000000,
+      "when": 1792694596409,
       "tag": "0000_init_schemas",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792694609885,
+      "tag": "0001_restrict_api_roles",
       "breakpoints": true
     }
   ]

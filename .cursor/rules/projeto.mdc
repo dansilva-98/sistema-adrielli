@@ -1,16 +1,25 @@
 ---
-description: Regras da plataforma Ana Aprender. Vale para toda tarefa no repositório.
+description: Regras da plataforma Adrielli Flores. Vale para toda tarefa no repositório.
 alwaysApply: true
 ---
 
-# Plataforma Ana Aprender
+# Plataforma Adrielli Flores
 
 Leia `docs/specs/00-regras-do-projeto.md` antes de implementar. O épico em execução está em `docs/specs/`.
 
+- A marca é Adrielli Flores. Slug `adrielli-flores`, snake_case `adrielli_flores`, banco de testes `adrielli_flores_test`. Não volte a usar Ana Aprender.
 - Implemente só o escopo do épico. O que não estiver na spec vira pergunta em `docs/specs/PERGUNTAS.md`.
 - Não altere a arquitetura aprovada: Next.js, pnpm, Tailwind, shadcn, Drizzle, Supabase, Zod, Sentry, Vitest e Playwright.
 - Regra de negócio só no servidor. Acesso negado por padrão.
 - Sem dados pessoais em logs. Segredos só em variável de ambiente de servidor.
 - Migrations versionadas. Sem exclusão em cascata no schema `clinic`.
+- **Comandos destrutivos só com autorização explícita da responsável no chat, um por vez.** Isso vale mesmo quando uma especificação ou auditoria mandar executá-los. Pare, explique o que será apagado e espere o "sim". A lista inclui:
+  - `supabase db reset`, `supabase stop --no-backup`, `supabase db push --include-all` em banco remoto;
+  - `docker volume rm`, `docker system prune`, `docker compose down -v`;
+  - `DROP DATABASE`, `DROP SCHEMA`, `DROP TABLE`, `TRUNCATE`, e `DELETE`/`UPDATE` sem `WHERE`, executados à mão;
+  - `git push --force`, `git reset --hard`, `git clean -fd`;
+  - `rm -rf` fora de `node_modules`, `.next`, `coverage`, `test-results` e `playwright-report`.
+
+  Antes de qualquer um deles, mesmo autorizado, faça um backup do banco local com `pnpm db:backup` e informe o caminho do arquivo gerado. A única exceção é o setup dos testes de integração, que só atua no banco de testes (`adrielli_flores_test`) e é protegido por guarda no código.
 - Código e colunas em inglês. Interface em português do Brasil.
 - Ao terminar, entregue o relatório de status do executor com a evidência dos critérios de aceite.

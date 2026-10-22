@@ -1,0 +1,24 @@
+{
+  "id": "ffaa31b3-3e7c-47c7-9372-6951c0e6fa6d",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {},
+  "enums": {},
+  "schemas": {
+    "audit": "audit",
+    "clinic": "clinic",
+    "commerce": "commerce",
+    "content": "content",
+    "identity": "identity"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

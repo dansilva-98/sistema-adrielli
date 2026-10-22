@@ -1,11 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 function readStatus() {
-  const result = spawnSync("pnpm", ["exec", "supabase", "status", "-o", "env"], {
-    encoding: "utf8",
-    shell: true,
-  });
+  const binary = join(
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "supabase.cmd" : "supabase",
+  );
+  const result =
+    process.platform === "win32"
+      ? spawnSync(`"${binary}" status -o env`, { encoding: "utf8", shell: true })
+      : spawnSync(binary, ["status", "-o", "env"], { encoding: "utf8" });
   if (result.status !== 0) {
     console.error("supabase status falhou. Rode pnpm exec supabase start antes.");
     process.exit(1);
@@ -30,9 +36,17 @@ if (existsSync(".env.local")) {
   process.exit(0);
 }
 
+function withDatabase(connectionString, databaseName) {
+  const url = new URL(connectionString);
+  url.pathname = `/${databaseName}`;
+  return url.toString();
+}
+
 const status = readStatus();
+const databaseUrl = valueOf(status, "DB_URL");
 const lines = [
-  `DATABASE_URL=${valueOf(status, "DB_URL")}`,
+  `DATABASE_URL=${databaseUrl}`,
+  `TEST_DATABASE_URL=${withDatabase(databaseUrl, "adrielli_flores_test")}`,
   `NEXT_PUBLIC_SUPABASE_URL=${valueOf(status, "API_URL")}`,
   `NEXT_PUBLIC_SUPABASE_ANON_KEY=${valueOf(status, "ANON_KEY")}`,
   `SUPABASE_SERVICE_ROLE_KEY=${valueOf(status, "SERVICE_ROLE_KEY")}`,

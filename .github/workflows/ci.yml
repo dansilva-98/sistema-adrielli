@@ -18,7 +18,7 @@ jobs:
           cache: pnpm
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.121.0
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
       - name: Subir Supabase local
@@ -35,6 +35,15 @@ jobs:
         run: pnpm test
       - name: Migrations
         run: pnpm db:migrate
+      - name: Histórico do Drizzle sem divergência
+        run: |
+          pnpm db:generate
+          changes=$(git status --porcelain src/db/migrations)
+          if [ -n "$changes" ]; then
+            echo "$changes"
+            git diff -- src/db/migrations
+            exit 1
+          fi
       - name: Testes de integração
         run: pnpm test:integration
       - name: Build

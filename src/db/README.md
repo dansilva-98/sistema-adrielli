@@ -27,6 +27,18 @@ O papel dono da migration continua com acesso. No E1, o runtime passa a usar `ap
 
 - `pnpm db:generate` gera a migration a partir de `src/db/schema`.
 - `pnpm db:migrate` aplica as migrations usando `DATABASE_URL`.
-- `pnpm db:seed` só executa quando `APP_ENV=development`. Neste épico não há tabela de negócio para popular.
+- `pnpm db:seed` só executa quando `APP_ENV=development` e o host de `DATABASE_URL` é `127.0.0.1` ou `localhost`. Neste épico não há tabela de negócio para popular.
+- `pnpm db:backup` grava um dump local em `backups/` e só roda com `APP_ENV=development`.
+- `pnpm test:integration` usa `TEST_DATABASE_URL`, no banco `adrielli_flores_test`. É esse banco que o setup apaga e migra de novo. O banco `postgres` de desenvolvimento não entra nesse caminho.
 
 Não use `supabase db reset` como caminho das migrations da aplicação: ele só aplica `supabase/migrations`. O histórico deste projeto está em `src/db/migrations`.
+
+## Rollback da migration inicial
+
+Só num ambiente sem dados de negócio. Apaga os cinco schemas da aplicação e o schema `drizzle`, onde fica a tabela de histórico do Drizzle:
+
+```sql
+DROP SCHEMA IF EXISTS identity, content, commerce, clinic, audit, drizzle CASCADE;
+```
+
+Em staging ou produção não há rollback automático. Reverter lá exige backup e uma decisão explícita.

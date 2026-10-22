@@ -2,14 +2,10 @@ name: Production
 
 on:
   workflow_dispatch:
-    inputs:
-      deployment_url:
-        description: URL do deployment da Vercel a promover
-        required: true
-        type: string
 
 jobs:
-  promote:
+  deploy:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -34,8 +30,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SENTRY_DSN }}
           NEXT_PUBLIC_SITE_URL: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SITE_URL }}
-      - name: Promover deployment
-        run: pnpm dlx vercel@latest promote "${{ inputs.deployment_url }}" --yes
+      - name: Deploy de produção na Vercel
+        run: pnpm dlx vercel@65.1.0 deploy --prod --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

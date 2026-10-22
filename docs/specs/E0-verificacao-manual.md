@@ -39,10 +39,11 @@ Para demonstrar, abra um PR com um teste que falha e confirme que o merge fica b
 
 ## A7 — Staging e produção
 
-- Merge em `main` dispara `.github/workflows/staging.yml`: migration no banco de staging e deploy na Vercel com `--target=staging`.
-- Produção só em `.github/workflows/production.yml`, disparo manual. O job usa o ambiente `production`.
-- Em Settings → Environments → production, marque required reviewers. Sem essa aprovação o workflow não promove.
+- Push em `main` dispara `.github/workflows/staging.yml`: migration no banco de staging e `vercel deploy` (Preview). O plano Hobby não tem ambiente customizado; as variáveis desse deploy ficam no escopo Preview da Vercel.
+- Produção só em `.github/workflows/production.yml`, disparo manual. O job usa o ambiente `production` e, depois das migrations, roda `vercel deploy --prod`.
+- Em Settings → Environments → production, marque required reviewers. Sem essa aprovação o workflow não publica.
 - Nenhuma action aplica migration de produção no push.
+- `vercel.json` desliga o deploy automático da integração Git.
 
 ## A12 — Segredo fora do bundle
 
