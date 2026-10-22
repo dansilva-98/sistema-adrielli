@@ -51,6 +51,7 @@ export default async function setup(): Promise<void> {
       CREATE TABLE IF NOT EXISTS auth.users (
         id uuid PRIMARY KEY
       );
+      TRUNCATE auth.users;
     `);
     const db = drizzle(sql);
     await migrate(db, { migrationsFolder: "src/db/migrations" });
