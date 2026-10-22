@@ -42,6 +42,7 @@ Se o Supabase local ainda não estiver no ar, copie `.env.example` para `.env.lo
 | `pnpm db:migrate`           | Aplica migrations                                       |
 | `pnpm db:seed`              | Só com `APP_ENV=development` e banco em localhost       |
 | `pnpm db:backup`            | Dump local em `backups/`, só em development             |
+| `pnpm admin:bootstrap`      | Cria o primeiro SUPER_ADMIN; recusa se já existir um    |
 | `pnpm check:bundle`         | Falha se a service role key aparecer em `.next/static`  |
 
 ## Variáveis

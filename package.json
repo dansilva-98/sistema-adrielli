@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate && node --experimental-strip-types src/db/sync-app-runtime-password.ts",
     "db:seed": "node --experimental-strip-types src/db/seed.ts",
     "db:backup": "node scripts/backup-local-db.mjs",
+    "admin:bootstrap": "node --experimental-strip-types src/modules/identity/admin-bootstrap.ts",
     "env:local": "node scripts/write-local-env.mjs",
     "check:bundle": "node scripts/check-client-bundle.mjs"
   },
