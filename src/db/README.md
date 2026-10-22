@@ -27,6 +27,16 @@ O papel dono da migration continua com acesso. No E1, o runtime passa a usar `ap
 
 - `pnpm db:generate` gera a migration a partir de `src/db/schema`.
 - `pnpm db:migrate` aplica as migrations usando `DATABASE_URL`.
-- `pnpm db:seed` só executa quando `APP_ENV=development`. Neste épico não há tabela de negócio para popular.
+- `pnpm db:seed` só executa quando `APP_ENV=development` e o host de `DATABASE_URL` é `127.0.0.1` ou `localhost`. Neste épico não há tabela de negócio para popular. A mesma guarda vale para o setup dos testes de integração, que apaga os schemas antes de migrar.
 
 Não use `supabase db reset` como caminho das migrations da aplicação: ele só aplica `supabase/migrations`. O histórico deste projeto está em `src/db/migrations`.
+
+## Rollback da migration inicial
+
+Só num ambiente sem dados de negócio. Apaga os cinco schemas da aplicação e o schema `drizzle`, onde fica a tabela de histórico do Drizzle:
+
+```sql
+DROP SCHEMA IF EXISTS identity, content, commerce, clinic, audit, drizzle CASCADE;
+```
+
+Em staging ou produção não há rollback automático. Reverter lá exige backup e uma decisão explícita.

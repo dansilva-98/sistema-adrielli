@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
+import { assertLocalDatabaseAllowed } from "../../src/db/seed";
 import { parseServerEnv } from "../../src/lib/env";
 
 export default async function setup(): Promise<void> {
@@ -11,6 +12,8 @@ export default async function setup(): Promise<void> {
   else if (existsSync(".env")) loadEnvFile(".env");
 
   const env = parseServerEnv(process.env);
+  assertLocalDatabaseAllowed(env.APP_ENV, env.DATABASE_URL);
+
   const sql = postgres(env.DATABASE_URL, { max: 1, prepare: false, connect_timeout: 5 });
 
   try {

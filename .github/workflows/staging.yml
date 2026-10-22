@@ -31,7 +31,7 @@ jobs:
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.STAGING_NEXT_PUBLIC_SENTRY_DSN }}
           NEXT_PUBLIC_SITE_URL: ${{ secrets.STAGING_NEXT_PUBLIC_SITE_URL }}
       - name: Deploy de staging na Vercel
-        run: pnpm dlx vercel@latest deploy --target=staging --yes
+        run: pnpm dlx vercel@65.1.0 deploy --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

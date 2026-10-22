@@ -24,6 +24,7 @@ describe("scrubSentryEvent", () => {
       },
       user: { email: "pessoa@example.com", id: "user-1" },
       message: "falha em https://anaaprender.example/rota?password=segredo",
+      detail: "SMTP recusou pessoa@example.com",
     };
 
     const scrubbed = scrubSentryEvent(original);
@@ -50,5 +51,6 @@ describe("scrubSentryEvent", () => {
     expect(serialized).not.toContain("cookie-secreto");
     expect(serialized).not.toContain("password=segredo");
     expect(scrubbed.message).toBe("falha em https://anaaprender.example/rota");
+    expect(scrubbed.detail).toBe("SMTP recusou [redacted]");
   });
 });

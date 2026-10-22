@@ -1,6 +1,0 @@
-{
-  "total_tokens": null,
-  "duration_ms": 45000,
-  "total_duration_seconds": 45.0,
-  "timing_source": "transcript CreationTime 07:41:55 to LastWriteTime 07:42:40; the completion notification did not include a token count"
-}

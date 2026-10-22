@@ -3,10 +3,32 @@ import { loadEnvFile } from "node:process";
 
 import { parseServerEnv } from "../lib/env.ts";
 
-export function assertSeedAllowed(appEnv: string | undefined): void {
+const LOCAL_DATABASE_HOSTS = new Set(["127.0.0.1", "localhost"]);
+
+export function assertLocalDatabaseAllowed(
+  appEnv: string | undefined,
+  databaseUrl: string,
+): void {
   if (appEnv !== "development") {
-    throw new Error("db:seed recusado: só executa quando APP_ENV=development.");
+    throw new Error("Recusado: só executa quando APP_ENV=development.");
   }
+
+  let host: string;
+  try {
+    host = new URL(databaseUrl).hostname.toLowerCase();
+  } catch {
+    throw new Error("Recusado: DATABASE_URL inválida.");
+  }
+
+  if (!LOCAL_DATABASE_HOSTS.has(host)) {
+    throw new Error(
+      "Recusado: o host da DATABASE_URL precisa ser 127.0.0.1 ou localhost.",
+    );
+  }
+}
+
+export function assertSeedAllowed(appEnv: string | undefined, databaseUrl: string): void {
+  assertLocalDatabaseAllowed(appEnv, databaseUrl);
 }
 
 function loadLocalEnv(): void {
@@ -17,7 +39,7 @@ function loadLocalEnv(): void {
 async function main(): Promise<void> {
   loadLocalEnv();
   const env = parseServerEnv(process.env);
-  assertSeedAllowed(env.APP_ENV);
+  assertSeedAllowed(env.APP_ENV, env.DATABASE_URL);
   console.log("Seed concluído. Não há tabelas de negócio para popular neste épico.");
 }
 

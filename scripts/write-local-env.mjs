@@ -1,11 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 function readStatus() {
-  const result = spawnSync("pnpm", ["exec", "supabase", "status", "-o", "env"], {
-    encoding: "utf8",
-    shell: true,
-  });
+  const binary = join(
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "supabase.cmd" : "supabase",
+  );
+  const result =
+    process.platform === "win32"
+      ? spawnSync(`"${binary}" status -o env`, { encoding: "utf8", shell: true })
+      : spawnSync(binary, ["status", "-o", "env"], { encoding: "utf8" });
   if (result.status !== 0) {
     console.error("supabase status falhou. Rode pnpm exec supabase start antes.");
     process.exit(1);
