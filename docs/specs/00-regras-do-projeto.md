@@ -11,12 +11,12 @@ Plataforma de uma psicopedagoga com quatro áreas separadas — site público, m
 
 A marca é **Adrielli Flores**. Ela substitui "Ana Aprender" em todo lugar. Use sempre estes identificadores:
 
-| Uso                                                          | Valor                   |
-| ------------------------------------------------------------ | ----------------------- |
-| Marca na interface, títulos e e-mails                        | Adrielli Flores         |
-| Slug (pacote, `project_id` do Supabase, nomes em kebab-case) | `adrielli-flores`       |
-| Identificadores em snake_case (bancos, papéis)               | `adrielli_flores`       |
-| Banco dos testes de integração                               | `adrielli_flores_test`  |
+| Uso                                                          | Valor                  |
+| ------------------------------------------------------------ | ---------------------- |
+| Marca na interface, títulos e e-mails                        | Adrielli Flores        |
+| Slug (pacote, `project_id` do Supabase, nomes em kebab-case) | `adrielli-flores`      |
+| Identificadores em snake_case (bancos, papéis)               | `adrielli_flores`      |
+| Banco dos testes de integração                               | `adrielli_flores_test` |
 
 Renomear um identificador técnico também é uma mudança de infraestrutura. Trocar o `project_id` cria um stack local novo, e o volume antigo deve ser preservado. Trocar o nome do banco de testes deixa o banco antigo para trás. Siga a regra 11: nada de reset ou exclusão sem autorização, e backup antes.
 

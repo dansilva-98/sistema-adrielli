@@ -29,20 +29,20 @@ Se o Supabase local ainda não estiver no ar, copie `.env.example` para `.env.lo
 
 ## Scripts
 
-| Comando                     | Função                                                 |
-| --------------------------- | ------------------------------------------------------ |
-| `pnpm dev`                  | Servidor de desenvolvimento                            |
-| `pnpm build` / `pnpm start` | Build e servidor de produção                           |
-| `pnpm lint`                 | ESLint, inclusive as fronteiras de módulo              |
-| `pnpm typecheck`            | Tipos do Next e `tsc`                                  |
-| `pnpm test`                 | Testes de unidade                                      |
-| `pnpm test:integration`     | Schemas e papel `anon`, no banco `adrielli_flores_test`   |
-| `pnpm test:e2e`             | Home, cabeçalhos e larguras 360 e 1280                 |
-| `pnpm db:generate`          | Gera migration do Drizzle                              |
-| `pnpm db:migrate`           | Aplica migrations                                      |
-| `pnpm db:seed`              | Só com `APP_ENV=development` e banco em localhost      |
-| `pnpm db:backup`            | Dump local em `backups/`, só em development            |
-| `pnpm check:bundle`         | Falha se a service role key aparecer em `.next/static` |
+| Comando                     | Função                                                  |
+| --------------------------- | ------------------------------------------------------- |
+| `pnpm dev`                  | Servidor de desenvolvimento                             |
+| `pnpm build` / `pnpm start` | Build e servidor de produção                            |
+| `pnpm lint`                 | ESLint, inclusive as fronteiras de módulo               |
+| `pnpm typecheck`            | Tipos do Next e `tsc`                                   |
+| `pnpm test`                 | Testes de unidade                                       |
+| `pnpm test:integration`     | Schemas e papel `anon`, no banco `adrielli_flores_test` |
+| `pnpm test:e2e`             | Home, cabeçalhos e larguras 360 e 1280                  |
+| `pnpm db:generate`          | Gera migration do Drizzle                               |
+| `pnpm db:migrate`           | Aplica migrations                                       |
+| `pnpm db:seed`              | Só com `APP_ENV=development` e banco em localhost       |
+| `pnpm db:backup`            | Dump local em `backups/`, só em development             |
+| `pnpm check:bundle`         | Falha se a service role key aparecer em `.next/static`  |
 
 ## Variáveis
 
