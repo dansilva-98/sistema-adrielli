@@ -48,7 +48,7 @@ Se o Supabase local ainda não estiver no ar, copie `.env.example` para `.env.lo
 
 Estão em `.env.example`. Valor ausente ou inválido impede a subida e a mensagem cita o nome da variável, não o valor.
 
-`DATABASE_URL` é a conexão do runtime e, neste épico, também das migrations. O E1 separa a URL de migration. `TEST_DATABASE_URL` aponta para o banco `adrielli_flores_test`, usado só pelos testes de integração.
+`DATABASE_URL` é a conexão de runtime, com o papel `app_runtime`. `MIGRATIONS_DATABASE_URL` é a conexão do dono, usada só pelo `drizzle-kit` e pelo CI. A senha de `app_runtime` em staging e produção fica fora do repositório: os segredos são `STAGING_MIGRATIONS_DATABASE_URL` e `PRODUCTION_MIGRATIONS_DATABASE_URL`. `TEST_DATABASE_URL` aponta para o banco `adrielli_flores_test` com o mesmo papel de runtime.
 
 No ambiente local, use a conexão direta do Supabase (no exemplo, porta 54322). Em produção, `DATABASE_URL` deve usar o pooler do Supabase em modo transação, porta 6543. O cliente já abre essa conexão com `prepare: false` e `max: 1`.
 

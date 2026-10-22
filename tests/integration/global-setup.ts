@@ -4,21 +4,31 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
-import { assertTestDatabaseUrl, TEST_DATABASE_NAME } from "../../src/db/seed";
+import { syncAppRuntimePassword } from "../../src/db/sync-app-runtime-password";
+import {
+  assertLocalDatabaseAllowed,
+  assertRuntimeDatabaseUrl,
+  assertTestDatabaseUrl,
+  TEST_DATABASE_NAME,
+} from "../../src/db/seed";
 
 export default async function setup(): Promise<void> {
   if (existsSync(".env.local")) loadEnvFile(".env.local");
   else if (existsSync(".env")) loadEnvFile(".env");
 
   const testUrl = process.env.TEST_DATABASE_URL;
+  const migrationsUrl = process.env.MIGRATIONS_DATABASE_URL;
   if (!testUrl) throw new Error("Recusado: TEST_DATABASE_URL ausente.");
+  if (!migrationsUrl) throw new Error("Recusado: MIGRATIONS_DATABASE_URL ausente.");
   assertTestDatabaseUrl(process.env.APP_ENV, testUrl);
-  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+  assertRuntimeDatabaseUrl(process.env.APP_ENV, testUrl);
+  assertLocalDatabaseAllowed(process.env.APP_ENV, migrationsUrl);
   console.log(`Banco de testes: ${new URL(testUrl).pathname.slice(1)}`);
 
-  await ensureTestDatabase(testUrl);
+  const ownerTestUrl = withDatabase(migrationsUrl, TEST_DATABASE_NAME);
+  await ensureTestDatabase(migrationsUrl);
 
-  const sql = postgres(testUrl, { max: 1, prepare: false, connect_timeout: 5 });
+  const sql = postgres(ownerTestUrl, { max: 1, prepare: false, connect_timeout: 5 });
 
   try {
     await sql.unsafe(`
@@ -41,10 +51,22 @@ export default async function setup(): Promise<void> {
   } finally {
     await sql.end({ timeout: 5 });
   }
+
+  await syncAppRuntimePassword({
+    appEnv: process.env.APP_ENV,
+    ownerUrl: ownerTestUrl,
+    runtimeUrl: testUrl,
+  });
 }
 
-async function ensureTestDatabase(testUrl: string): Promise<void> {
-  const admin = new URL(testUrl);
+function withDatabase(connectionString: string, databaseName: string): string {
+  const url = new URL(connectionString);
+  url.pathname = `/${databaseName}`;
+  return url.toString();
+}
+
+async function ensureTestDatabase(migrationsUrl: string): Promise<void> {
+  const admin = new URL(migrationsUrl);
   admin.pathname = "/postgres";
   const sql = postgres(admin.toString(), { max: 1, prepare: false, connect_timeout: 5 });
 

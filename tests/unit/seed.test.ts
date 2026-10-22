@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertLocalDatabaseAllowed,
+  assertRuntimeDatabaseUrl,
   assertSeedAllowed,
   assertTestDatabaseUrl,
 } from "../../src/db/seed";
@@ -49,5 +50,15 @@ describe("guarda do banco local", () => {
       /development/,
     );
     expect(() => assertTestDatabaseUrl("development", testDatabaseUrl)).not.toThrow();
+  });
+
+  it("recusa URL de runtime que não usa o papel app_runtime", () => {
+    const runtimeUrl =
+      "postgresql://app_runtime:app-runtime-local@127.0.0.1:54322/adrielli_flores_test";
+    expect(() => assertRuntimeDatabaseUrl("development", localDatabaseUrl)).toThrow(
+      /app_runtime/,
+    );
+    expect(() => assertRuntimeDatabaseUrl("staging", runtimeUrl)).toThrow(/development/);
+    expect(() => assertRuntimeDatabaseUrl("development", runtimeUrl)).not.toThrow();
   });
 });

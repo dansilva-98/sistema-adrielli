@@ -14,7 +14,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "drizzle-kit migrate && node --experimental-strip-types src/db/sync-app-runtime-password.ts",
     "db:seed": "node --experimental-strip-types src/db/seed.ts",
     "db:backup": "node scripts/backup-local-db.mjs",
     "env:local": "node scripts/write-local-env.mjs",

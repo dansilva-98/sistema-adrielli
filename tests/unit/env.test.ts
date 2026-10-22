@@ -4,7 +4,8 @@ import { formatEnvError, parseClientEnv, parseServerEnv } from "@/lib/env";
 import { z } from "zod";
 
 const validServer = {
-  DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+  DATABASE_URL: "postgresql://app_runtime:app-runtime-local@127.0.0.1:54322/postgres",
+  MIGRATIONS_DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
   SUPABASE_SERVICE_ROLE_KEY: "service-role",
   SENTRY_DSN: "https://public@o0.ingest.sentry.io/0",
   APP_ENV: "development",
@@ -20,6 +21,9 @@ const validClient = {
 describe("env", () => {
   it("aceita o conjunto válido", () => {
     expect(parseServerEnv(validServer).APP_ENV).toBe("development");
+    expect(parseServerEnv(validServer).MIGRATIONS_DATABASE_URL).toContain(
+      "postgres:postgres@",
+    );
     expect(parseClientEnv(validClient).NEXT_PUBLIC_SITE_URL).toBe(
       "http://127.0.0.1:3000",
     );
@@ -44,6 +48,7 @@ describe("env", () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       expect(message).toContain("DATABASE_URL");
+      expect(message).toContain("MIGRATIONS_DATABASE_URL");
       expect(message).not.toContain(secret);
     }
   });

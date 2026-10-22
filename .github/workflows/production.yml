@@ -23,6 +23,7 @@ jobs:
         run: pnpm exec drizzle-kit migrate
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          MIGRATIONS_DATABASE_URL: ${{ secrets.PRODUCTION_MIGRATIONS_DATABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
           SENTRY_DSN: ${{ secrets.PRODUCTION_SENTRY_DSN }}
           APP_ENV: production
