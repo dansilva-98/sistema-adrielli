@@ -31,6 +31,32 @@ export function assertSeedAllowed(appEnv: string | undefined, databaseUrl: strin
   assertLocalDatabaseAllowed(appEnv, databaseUrl);
 }
 
+export const TEST_DATABASE_NAME = "ana_aprender_test";
+
+export function databaseName(databaseUrl: string): string {
+  let pathname: string;
+  try {
+    pathname = new URL(databaseUrl).pathname;
+  } catch {
+    throw new Error("Recusado: URL de banco inválida.");
+  }
+  const name = pathname.replace(/^\//, "").split("/")[0] ?? "";
+  if (!name) throw new Error("Recusado: URL de banco sem nome.");
+  return decodeURIComponent(name);
+}
+
+export function assertTestDatabaseUrl(
+  appEnv: string | undefined,
+  databaseUrl: string,
+): void {
+  assertLocalDatabaseAllowed(appEnv, databaseUrl);
+  if (databaseName(databaseUrl) !== TEST_DATABASE_NAME) {
+    throw new Error(
+      "Recusado: TEST_DATABASE_URL precisa usar o banco ana_aprender_test.",
+    );
+  }
+}
+
 function loadLocalEnv(): void {
   if (existsSync(".env.local")) loadEnvFile(".env.local");
   else if (existsSync(".env")) loadEnvFile(".env");

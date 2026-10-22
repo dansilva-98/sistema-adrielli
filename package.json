@@ -16,6 +16,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "node --experimental-strip-types src/db/seed.ts",
+    "db:backup": "node scripts/backup-local-db.mjs",
     "env:local": "node scripts/write-local-env.mjs",
     "check:bundle": "node scripts/check-client-bundle.mjs"
   },

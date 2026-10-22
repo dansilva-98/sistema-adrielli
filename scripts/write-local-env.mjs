@@ -36,9 +36,17 @@ if (existsSync(".env.local")) {
   process.exit(0);
 }
 
+function withDatabase(connectionString, databaseName) {
+  const url = new URL(connectionString);
+  url.pathname = `/${databaseName}`;
+  return url.toString();
+}
+
 const status = readStatus();
+const databaseUrl = valueOf(status, "DB_URL");
 const lines = [
-  `DATABASE_URL=${valueOf(status, "DB_URL")}`,
+  `DATABASE_URL=${databaseUrl}`,
+  `TEST_DATABASE_URL=${withDatabase(databaseUrl, "ana_aprender_test")}`,
   `NEXT_PUBLIC_SUPABASE_URL=${valueOf(status, "API_URL")}`,
   `NEXT_PUBLIC_SUPABASE_ANON_KEY=${valueOf(status, "ANON_KEY")}`,
   `SUPABASE_SERVICE_ROLE_KEY=${valueOf(status, "SERVICE_ROLE_KEY")}`,

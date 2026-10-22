@@ -19,6 +19,14 @@ Plataforma de uma psicopedagoga com quatro áreas separadas — site público, m
 8. **Sem dados pessoais em logs**: nada de nome, e-mail, telefone, conteúdo clínico, tokens, códigos de login ou payloads de pagamento.
 9. **Segredos só em variáveis de ambiente do servidor.** Nenhuma chave de serviço no código, no repositório ou no bundle do navegador. Só variáveis com prefixo `NEXT_PUBLIC_` chegam ao navegador, e nenhuma delas pode ser segredo.
 10. **Migrations**: toda mudança de banco é uma migration versionada, revisável e com reversão possível. Nada de alterar o banco manualmente. Nenhuma migration destrutiva sem estar explicitamente na especificação.
+11. **Comandos destrutivos só com autorização explícita da responsável no chat, um por vez.** Isso vale mesmo quando uma especificação ou auditoria mandar executá-los. Pare, explique o que será apagado e espere o "sim". A lista inclui:
+    - `supabase db reset`, `supabase stop --no-backup`, `supabase db push --include-all` em banco remoto;
+    - `docker volume rm`, `docker system prune`, `docker compose down -v`;
+    - `DROP DATABASE`, `DROP SCHEMA`, `DROP TABLE`, `TRUNCATE`, e `DELETE`/`UPDATE` sem `WHERE`, executados à mão;
+    - `git push --force`, `git reset --hard`, `git clean -fd`;
+    - `rm -rf` fora de `node_modules`, `.next`, `coverage`, `test-results` e `playwright-report`.
+
+    Antes de qualquer um deles, mesmo autorizado, faça um backup do banco local com `pnpm db:backup` e informe o caminho do arquivo gerado. A única exceção é o setup dos testes de integração, que só atua no banco de testes (`ana_aprender_test`) e é protegido por guarda no código.
 
 ## 3. Stack aprovada
 

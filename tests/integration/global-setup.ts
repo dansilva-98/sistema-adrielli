@@ -4,17 +4,19 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
-import { assertLocalDatabaseAllowed } from "../../src/db/seed";
-import { parseServerEnv } from "../../src/lib/env";
+import { assertTestDatabaseUrl, TEST_DATABASE_NAME } from "../../src/db/seed";
 
 export default async function setup(): Promise<void> {
   if (existsSync(".env.local")) loadEnvFile(".env.local");
   else if (existsSync(".env")) loadEnvFile(".env");
 
-  const env = parseServerEnv(process.env);
-  assertLocalDatabaseAllowed(env.APP_ENV, env.DATABASE_URL);
+  const testUrl = process.env.TEST_DATABASE_URL;
+  if (!testUrl) throw new Error("Recusado: TEST_DATABASE_URL ausente.");
+  assertTestDatabaseUrl(process.env.APP_ENV, testUrl);
 
-  const sql = postgres(env.DATABASE_URL, { max: 1, prepare: false, connect_timeout: 5 });
+  await ensureTestDatabase(testUrl);
+
+  const sql = postgres(testUrl, { max: 1, prepare: false, connect_timeout: 5 });
 
   try {
     await sql.unsafe(`
@@ -34,6 +36,25 @@ export default async function setup(): Promise<void> {
     );
     const db = drizzle(sql);
     await migrate(db, { migrationsFolder: "src/db/migrations" });
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+async function ensureTestDatabase(testUrl: string): Promise<void> {
+  const admin = new URL(testUrl);
+  admin.pathname = "/postgres";
+  const sql = postgres(admin.toString(), { max: 1, prepare: false, connect_timeout: 5 });
+
+  try {
+    const rows = await sql<{ exists: boolean }[]>`
+      select exists (
+        select 1 from pg_database where datname = ${TEST_DATABASE_NAME}
+      ) as exists
+    `;
+    if (!rows[0]?.exists) {
+      await sql.unsafe(`CREATE DATABASE ${TEST_DATABASE_NAME}`);
+    }
   } finally {
     await sql.end({ timeout: 5 });
   }

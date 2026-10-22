@@ -3,8 +3,7 @@ import { loadEnvFile } from "node:process";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { closeDatabase, pingDatabase } from "@/db/client";
-import { parseServerEnv } from "@/lib/env";
+import { assertTestDatabaseUrl } from "../../src/db/seed";
 
 const SCHEMAS = ["audit", "clinic", "commerce", "content", "identity"];
 
@@ -13,7 +12,10 @@ describe("schemas e papel anon", () => {
 
   beforeAll(() => {
     if (existsSync(".env.local")) loadEnvFile(".env.local");
-    sql = postgres(parseServerEnv(process.env).DATABASE_URL, {
+    const testUrl = process.env.TEST_DATABASE_URL;
+    if (!testUrl) throw new Error("Recusado: TEST_DATABASE_URL ausente.");
+    assertTestDatabaseUrl(process.env.APP_ENV, testUrl);
+    sql = postgres(testUrl, {
       max: 1,
       prepare: false,
       connect_timeout: 5,
@@ -22,7 +24,6 @@ describe("schemas e papel anon", () => {
 
   afterAll(async () => {
     await sql.end({ timeout: 5 });
-    await closeDatabase();
   });
 
   it("cria os cinco schemas", async () => {
@@ -46,7 +47,8 @@ describe("schemas e papel anon", () => {
     }
   });
 
-  it("responde ok quando o banco aceita a conexão", async () => {
-    await expect(pingDatabase()).resolves.toBe(true);
+  it("responde ok quando o banco de testes aceita a conexão", async () => {
+    const rows = await sql<{ ok: number }[]>`select 1 as ok`;
+    expect(Number(rows[0]?.ok)).toBe(1);
   });
 });
