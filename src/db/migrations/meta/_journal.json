@@ -15,6 +15,13 @@
       "when": 1792694609885,
       "tag": "0001_restrict_api_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792701000000,
+      "tag": "0002_app_runtime",
+      "breakpoints": true
     }
   ]
 }

@@ -44,6 +44,13 @@ A equipe entra com e-mail, senha e MFA; cada área (`/admin`, `/consultorio`) s�
 - Separar as variáveis: `DATABASE_URL` (runtime, `app_runtime`) e `MIGRATIONS_DATABASE_URL` (dono, usado só pelo drizzle-kit e pelo CI). Atualizar `env.ts`, `.env.example`, pipeline e README.
 - A senha de `app_runtime` em staging e produção é definida pela responsável, fora do repositório.
 
+### T1.1b — Backup local inclui os usuários de autenticação
+
+Herdado da auditoria do E0, rodada 3. Hoje o `pnpm db:backup` usa `supabase db dump`, que por padrão não inclui o schema `auth`. Como `identity.users` passa a referenciar `auth.users`, um backup sem esses usuários não restaura.
+
+- O `db:backup` passa a incluir os dados de `auth.users`, e de `auth.identities` e `auth.mfa_factors` se forem usados.
+- Teste manual descrito no PR: num banco local de rascunho criado só para isso (nunca o de desenvolvimento nem o de testes), restaurar o backup e conferir que `identity.users` e `auth.users` voltam consistentes.
+
 ### T1.2 — Tabelas
 
 `identity.users`

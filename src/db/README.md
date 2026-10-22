@@ -26,7 +26,7 @@ O papel dono da migration continua com acesso. No E1, o runtime passa a usar `ap
 ## Comandos
 
 - `pnpm db:generate` gera a migration a partir de `src/db/schema`.
-- `pnpm db:migrate` aplica as migrations usando `DATABASE_URL`.
+- `pnpm db:migrate` aplica as migrations usando `MIGRATIONS_DATABASE_URL`. Em `development`, o comando seguinte alinha a senha local de `app_runtime` com `DATABASE_URL`. Fora de development a senha não é alterada.
 - `pnpm db:seed` só executa quando `APP_ENV=development` e o host de `DATABASE_URL` é `127.0.0.1` ou `localhost`. Neste épico não há tabela de negócio para popular.
 - `pnpm db:backup` grava um dump local em `backups/` e só roda com `APP_ENV=development`.
 - `pnpm test:integration` usa `TEST_DATABASE_URL`, no banco `adrielli_flores_test`. É esse banco que o setup apaga e migra de novo. O banco `postgres` de desenvolvimento não entra nesse caminho.

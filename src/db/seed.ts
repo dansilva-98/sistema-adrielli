@@ -32,6 +32,7 @@ export function assertSeedAllowed(appEnv: string | undefined, databaseUrl: strin
 }
 
 export const TEST_DATABASE_NAME = "adrielli_flores_test";
+export const APP_RUNTIME_ROLE = "app_runtime";
 
 export function databaseName(databaseUrl: string): string {
   let pathname: string;
@@ -43,6 +44,27 @@ export function databaseName(databaseUrl: string): string {
   const name = pathname.replace(/^\//, "").split("/")[0] ?? "";
   if (!name) throw new Error("Recusado: URL de banco sem nome.");
   return decodeURIComponent(name);
+}
+
+export function databaseUser(databaseUrl: string): string {
+  let username: string;
+  try {
+    username = new URL(databaseUrl).username;
+  } catch {
+    throw new Error("Recusado: URL de banco inválida.");
+  }
+  if (!username) throw new Error("Recusado: URL de banco sem usuário.");
+  return decodeURIComponent(username);
+}
+
+export function assertRuntimeDatabaseUrl(
+  appEnv: string | undefined,
+  databaseUrl: string,
+): void {
+  assertLocalDatabaseAllowed(appEnv, databaseUrl);
+  if (databaseUser(databaseUrl) !== APP_RUNTIME_ROLE) {
+    throw new Error("Recusado: a URL de runtime precisa usar o papel app_runtime.");
+  }
 }
 
 export function assertTestDatabaseUrl(
