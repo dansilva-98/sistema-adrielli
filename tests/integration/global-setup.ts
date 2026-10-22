@@ -13,6 +13,8 @@ export default async function setup(): Promise<void> {
   const testUrl = process.env.TEST_DATABASE_URL;
   if (!testUrl) throw new Error("Recusado: TEST_DATABASE_URL ausente.");
   assertTestDatabaseUrl(process.env.APP_ENV, testUrl);
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+  console.log(`Banco de testes: ${new URL(testUrl).pathname.slice(1)}`);
 
   await ensureTestDatabase(testUrl);
 

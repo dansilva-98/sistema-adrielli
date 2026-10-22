@@ -13,6 +13,13 @@ Leia `docs/specs/00-regras-do-projeto.md` antes de implementar. O épico em exec
 - Regra de negócio só no servidor. Acesso negado por padrão.
 - Sem dados pessoais em logs. Segredos só em variável de ambiente de servidor.
 - Migrations versionadas. Sem exclusão em cascata no schema `clinic`.
-- Comandos destrutivos (`supabase db reset`, `supabase stop --no-backup`, `docker volume rm`, `docker system prune`, `git push --force`, `git reset --hard`, `rm -rf` fora de pastas geradas) só com autorização explícita no chat, um por vez, e só depois de `pnpm db:backup`. O `DROP SCHEMA` dos testes de integração só vale no banco `adrielli_flores_test`.
+- **Comandos destrutivos só com autorização explícita da responsável no chat, um por vez.** Isso vale mesmo quando uma especificação ou auditoria mandar executá-los. Pare, explique o que será apagado e espere o "sim". A lista inclui:
+  - `supabase db reset`, `supabase stop --no-backup`, `supabase db push --include-all` em banco remoto;
+  - `docker volume rm`, `docker system prune`, `docker compose down -v`;
+  - `DROP DATABASE`, `DROP SCHEMA`, `DROP TABLE`, `TRUNCATE`, e `DELETE`/`UPDATE` sem `WHERE`, executados à mão;
+  - `git push --force`, `git reset --hard`, `git clean -fd`;
+  - `rm -rf` fora de `node_modules`, `.next`, `coverage`, `test-results` e `playwright-report`.
+
+  Antes de qualquer um deles, mesmo autorizado, faça um backup do banco local com `pnpm db:backup` e informe o caminho do arquivo gerado. A única exceção é o setup dos testes de integração, que só atua no banco de testes (`adrielli_flores_test`) e é protegido por guarda no código.
 - Código e colunas em inglês. Interface em português do Brasil.
 - Ao terminar, entregue o relatório de status do executor com a evidência dos critérios de aceite.
