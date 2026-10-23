@@ -156,10 +156,25 @@ export async function expiredAuditCount(userId: string): Promise<number> {
   }
 }
 
+export async function staffIdByEmail(email: string): Promise<string | null> {
+  const sql = ownerSql();
+  try {
+    const rows = await sql<{ id: string }[]>`
+      select id from identity.users where email = ${email}
+    `;
+    return rows[0]?.id ?? null;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
 export async function removeStaff(userId: string): Promise<void> {
   loadLocalEnv();
   const sql = ownerSql();
   try {
+    await sql`
+      update identity.user_roles set granted_by = null where granted_by = ${userId}::uuid
+    `;
     await sql`delete from identity.user_roles where user_id = ${userId}::uuid`;
     await sql`delete from identity.users where id = ${userId}::uuid`;
   } finally {

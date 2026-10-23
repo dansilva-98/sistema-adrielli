@@ -6,10 +6,9 @@ export const instant = false;
 export default async function AdminPage() {
   await requireStaff({ roles: ADMIN_ROLES });
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <main className="mx-auto w-full max-w-[28rem] px-4 py-16">
-        <h1 className="text-3xl">Administração</h1>
-      </main>
-    </div>
+    <section className="flex flex-col gap-2">
+      <h2 className="text-xl">Dashboard</h2>
+      <p>Em construção</p>
+    </section>
   );
 }

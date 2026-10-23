@@ -11,6 +11,7 @@ import {
 import { decideStaffAccess } from "@/modules/identity/guard";
 import { sameOrigin } from "@/modules/identity/origin";
 import {
+  guardPrecedesAreaMarkup,
   isGuardedRouteFile,
   sourceDeclaresOriginGuard,
   sourceDeclaresStaffGuard,
@@ -224,6 +225,7 @@ describe("origem e varredura das rotas", () => {
       const source = readFileSync(file, "utf8");
       expect(sourceDeclaresStaffGuard(source), file).toBe(true);
       expect(sourceDeclaresOriginGuard(source), file).toBe(true);
+      expect(guardPrecedesAreaMarkup(source), file).toBe(true);
     }
   });
 });

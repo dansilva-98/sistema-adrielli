@@ -7,6 +7,12 @@ export function sourceDeclaresStaffGuard(source: string): boolean {
   return source.includes("requireStaff(") || source.includes("assertRole(");
 }
 
+export function guardPrecedesAreaMarkup(source: string): boolean {
+  const guardAt = source.indexOf("await requireStaff(");
+  const markupAt = source.search(/<[A-Za-z]/);
+  return guardAt >= 0 && (markupAt === -1 || guardAt < markupAt);
+}
+
 export function sourceDeclaresOriginGuard(source: string): boolean {
   const mutates = /\bexport\s+(?:async\s+)?function\s+(?:POST|PUT|PATCH|DELETE)\b/.test(
     source,
