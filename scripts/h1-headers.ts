@@ -14,7 +14,7 @@ const lines = ["/*", ...headers.map((header) => `  ${header.key}: ${header.value
 writeFileSync("public/_headers", `${lines.join("\n")}\n`);
 console.log("cabecalhos do arquivo estatico gravados");
 
-function required(name) {
+function required(name: string) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Variável ausente: ${name}`);
   return value;
