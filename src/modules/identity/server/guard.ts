@@ -1,6 +1,6 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
@@ -13,7 +13,11 @@ import {
   type StaffAccessDecision,
   type StaffAccessReason,
 } from "@/modules/identity/guard";
-import { readStaffSession, STAFF_SESSION_COOKIE } from "@/modules/identity/staff-session";
+import {
+  clientIp,
+  readStaffSession,
+  STAFF_SESSION_COOKIE,
+} from "@/modules/identity/staff-session";
 import { sessionIdFromAccessToken } from "@/modules/identity/supabase-sign-in";
 
 import { loadStaffProfile, writeStaffAudit } from "./directory";
@@ -82,11 +86,13 @@ function redirectFor(decision: Extract<StaffAccessDecision, { ok: false }>): nev
 
 async function denyIfForbidden(decision: StaffAccessDecision): Promise<void> {
   if (decision.ok || decision.reason !== "forbidden") return;
+  const headerStore = await headers();
   await writeStaffAudit({
     action: "access.denied",
     actorUserId: decision.userId,
     entityType: "user",
     entityId: decision.userId,
+    ip: clientIp(headerStore.get("x-forwarded-for")),
     metadata: {},
   });
 }

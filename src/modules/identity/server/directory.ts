@@ -4,40 +4,26 @@ import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { auditLog, userRoles, users } from "@/db/schema";
+import { userRoles, users } from "@/db/schema";
 import type { AuditAction } from "@/db/audit-actions";
+import { recordAudit, type AuditEvent } from "@/modules/audit/record";
 import { isStaffRole, type StaffRole } from "@/modules/identity/access";
 import type { StaffProfile } from "@/modules/identity/login";
 
-const metadataSchema = { empty: {} as const };
+const nonBlocking = new Set<AuditAction>([
+  "auth.login.failure",
+  "auth.login.success",
+  "auth.logout",
+  "auth.session.expired",
+  "access.denied",
+]);
 
-export async function writeStaffAudit(input: {
-  action: AuditAction;
-  actorUserId?: string | null;
-  entityType?: string | null;
-  entityId?: string | null;
-  ip?: string | null;
-  metadata?: Record<string, never>;
-}): Promise<void> {
-  const metadata = input.metadata ?? metadataSchema.empty;
+export async function writeStaffAudit(input: AuditEvent): Promise<void> {
   try {
-    await db.insert(auditLog).values({
-      action: input.action,
-      actorUserId: input.actorUserId ?? null,
-      entityType: input.entityType ?? null,
-      entityId: input.entityId ?? null,
-      ip: input.ip ?? null,
-      metadata,
-    });
+    await recordAudit(input);
   } catch (error) {
     Sentry.captureException(error);
-    const blocksTheUser =
-      input.action !== "auth.login.failure" &&
-      input.action !== "auth.login.success" &&
-      input.action !== "auth.logout" &&
-      input.action !== "auth.session.expired" &&
-      input.action !== "access.denied";
-    if (blocksTheUser) throw error;
+    if (!nonBlocking.has(input.action)) throw error;
   }
 }
 
