@@ -4,7 +4,7 @@ import { appendFileSync } from "node:fs";
 const token = required("NETLIFY_AUTH_TOKEN");
 const existing = process.env.NETLIFY_SITE_ID?.trim() ?? "";
 
-const site = existing ? await readSite(existing) : await createSite();
+const site = existing ? await readSite(existing) : ((await findNamedSite()) ?? (await createSite()));
 
 const output = [`id=${site.id}`, `name=${site.name}`, `url=${site.url}`].join("\n");
 if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${output}\n`);
@@ -30,6 +30,9 @@ async function readSite(siteId) {
   const body = await response.json();
   if (body.name === "landingpageadrielliflores") {
     throw new Error("Recusado: este ID é do outro projeto e não pode ser usado.");
+  }
+  if (body.name !== "adrielli-flores-h1") {
+    throw new Error(`Recusado: o site ${body.name} não é o rascunho adrielli-flores-h1.`);
   }
   return { id: body.id, name: body.name, url: body.ssl_url };
 }

@@ -44,6 +44,10 @@ jobs:
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.STAGING_NEXT_PUBLIC_SENTRY_DSN }}
           NEXT_PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}
         run: node scripts/h1-import-env.mjs
+      - name: Conferir a conexão de migration
+        run: node scripts/h1-probe-db.mjs
+        env:
+          MIGRATIONS_DATABASE_URL: ${{ secrets.STAGING_MIGRATIONS_DATABASE_URL }}
       - name: Aplicar migrations em staging
         run: pnpm db:migrate
         env:
