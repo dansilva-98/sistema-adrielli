@@ -43,6 +43,13 @@
       "when": 1792746040520,
       "tag": "0005_mfa_attempt",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792766200778,
+      "tag": "0006_content_tables",
+      "breakpoints": true
     }
   ]
 }
