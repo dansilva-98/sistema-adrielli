@@ -6,7 +6,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TEST_DATABASE_NAME } from "../../src/db/seed";
 
 const TABLES = ["site_settings", "services", "testimonials", "faq"] as const;
-const PRIVILEGES = ["SELECT", "INSERT", "UPDATE", "DELETE"] as const;
+const PRIVILEGES = {
+  site_settings: ["SELECT", "UPDATE"],
+  services: ["DELETE", "INSERT", "SELECT", "UPDATE"],
+  testimonials: ["DELETE", "INSERT", "SELECT", "UPDATE"],
+  faq: ["DELETE", "INSERT", "SELECT", "UPDATE"],
+} as const;
 
 describe("tabelas de conteúdo", () => {
   let owner: ReturnType<typeof postgres>;
@@ -56,7 +61,7 @@ describe("tabelas de conteúdo", () => {
     }
   });
 
-  it("dá ao app_runtime só select, insert, update e delete", async () => {
+  it("dá ao app_runtime só os privilégios de cada tabela", async () => {
     for (const table of TABLES) {
       const grants = await owner<{ privilege_type: string }[]>`
         select privilege_type
@@ -66,8 +71,14 @@ describe("tabelas de conteúdo", () => {
           and grantee = 'app_runtime'
         order by privilege_type
       `;
-      expect(grants.map((row) => row.privilege_type)).toEqual([...PRIVILEGES].sort());
+      expect(grants.map((row) => row.privilege_type)).toEqual([...PRIVILEGES[table]]);
     }
+    await expect(
+      runtime`insert into content.site_settings (id) values (1)`,
+    ).rejects.toThrow(/permission denied|permissão negada/i);
+    await expect(runtime`delete from content.site_settings where id = 1`).rejects.toThrow(
+      /permission denied|permissão negada/i,
+    );
 
     const id = crypto.randomUUID();
     await runtime`
