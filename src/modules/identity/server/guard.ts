@@ -3,6 +3,7 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { cache } from "react";
 
 import { serverEnv } from "@/lib/env.server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -13,12 +14,13 @@ import {
   type StaffAccessDecision,
   type StaffAccessReason,
 } from "@/modules/identity/guard";
+import type { StaffProfile } from "@/modules/identity/login";
 import {
   clientIp,
   readStaffSession,
   STAFF_SESSION_COOKIE,
 } from "@/modules/identity/staff-session";
-import { sessionIdFromAccessToken } from "@/modules/identity/supabase-sign-in";
+import { verifiedStaffClaims } from "@/modules/identity/staff-claims";
 
 import { loadStaffProfile, writeStaffAudit } from "./directory";
 
@@ -32,49 +34,47 @@ export class StaffAccessError extends Error {
   }
 }
 
-async function currentDecision(
-  roles: readonly StaffRole[],
-): Promise<StaffAccessDecision> {
+const loadAccessContext = cache(async function loadAccessContext() {
   // A sessão do Supabase lê Date.now(). Sem isto, o Next tenta pré-renderizar
   // a área e devolve a página de erro em vez do 403.
   await connection();
   const supabase = await createSupabaseServerClient();
-  const userResult = await supabase.auth.getUser();
-  const user = userResult.data.user;
-  const sessionResult = user ? await supabase.auth.getSession() : null;
-  const accessToken = sessionResult?.data.session?.access_token ?? "";
-  const sessionUserId = sessionResult?.data.session?.user.id ?? null;
-  const sessionId =
-    user && sessionUserId === user.id ? sessionIdFromAccessToken(accessToken) : null;
+  const claimsResult = await supabase.auth.getClaims();
+  const identity = verifiedStaffClaims(claimsResult.data?.claims ?? null);
   const cookieStore = await cookies();
   const token = cookieStore.get(STAFF_SESSION_COOKIE)?.value;
   const cookie = token ? readStaffSession(token, serverEnv.STAFF_SESSION_SECRET) : null;
-  const profile = user ? await loadStaffProfile(user.id) : null;
-  let aal: "aal1" | "aal2" | null = null;
-  let hasVerifiedTotp = false;
+  const profile = identity ? await loadStaffProfile(identity.userId) : null;
+  let hasVerifiedTotp = identity?.aal === "aal2";
   if (
     profile?.kind === "STAFF" &&
     !profile.disabledAt &&
-    staffRequiresMfa(profile.roles)
+    staffRequiresMfa(profile.roles) &&
+    identity?.aal !== "aal2"
   ) {
-    const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    aal = assurance.data?.currentLevel === "aal2" ? "aal2" : "aal1";
     const factors = await supabase.auth.mfa.listFactors();
     hasVerifiedTotp = (factors.data?.totp ?? []).some(
       (factor) => factor.status === "verified",
     );
   }
+  return { identity, cookie, profile, hasVerifiedTotp, now: Date.now() };
+});
+
+const currentDecision = cache(async function currentDecision(
+  roles: readonly StaffRole[],
+): Promise<StaffAccessDecision> {
+  const context = await loadAccessContext();
   return decideStaffAccess({
-    userId: user?.id ?? null,
-    sessionId,
-    cookie,
-    profile,
-    aal,
-    hasVerifiedTotp,
+    userId: context.identity?.userId ?? null,
+    sessionId: context.identity?.sessionId ?? null,
+    cookie: context.cookie,
+    profile: context.profile,
+    aal: context.identity?.aal ?? null,
+    hasVerifiedTotp: context.hasVerifiedTotp,
     roles,
-    now: Date.now(),
+    now: context.now,
   });
-}
+});
 
 function redirectFor(decision: Extract<StaffAccessDecision, { ok: false }>): never {
   if (decision.reason === "forbidden") redirect("/acesso-negado");
@@ -99,11 +99,16 @@ async function denyIfForbidden(decision: StaffAccessDecision): Promise<void> {
 
 export async function requireStaff(input: {
   roles: readonly StaffRole[];
-}): Promise<{ userId: string }> {
+}): Promise<{ userId: string; profile: StaffProfile }> {
   const decision = await currentDecision(input.roles);
-  if (decision.ok) return { userId: decision.session.userId };
-  await denyIfForbidden(decision);
-  redirectFor(decision);
+  if (!decision.ok) {
+    await denyIfForbidden(decision);
+    redirectFor(decision);
+  }
+  const profile = await loadStaffProfile(decision.session.userId);
+  if (!profile || profile.kind !== "STAFF" || profile.disabledAt)
+    redirect("/equipe/sair");
+  return { userId: decision.session.userId, profile };
 }
 
 export async function assertRole(roles: readonly StaffRole[]): Promise<void> {

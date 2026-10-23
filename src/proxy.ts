@@ -13,7 +13,7 @@ import {
   STAFF_SESSION_COOKIE,
   touchStaffSession,
 } from "@/modules/identity/staff-session";
-import { sessionIdFromAccessToken } from "@/modules/identity/supabase-sign-in";
+import { verifiedStaffClaims } from "@/modules/identity/staff-claims";
 import { loadStaffProfile, writeStaffAudit } from "@/modules/identity/server/directory";
 
 function isStaffArea(pathname: string): boolean {
@@ -66,32 +66,22 @@ export async function proxy(request: NextRequest) {
       },
     },
   );
-  const userResult = await supabase.auth.getUser();
+  const claimsResult = await supabase.auth.getClaims();
   if (!isStaffArea(request.nextUrl.pathname)) return response;
 
-  const user = userResult.data.user;
-  const sessionResult = user ? await supabase.auth.getSession() : null;
-  const accessToken = sessionResult?.data.session?.access_token ?? "";
-  const sessionUserId = sessionResult?.data.session?.user.id ?? null;
-  const sessionId =
-    user && sessionUserId === user.id ? sessionIdFromAccessToken(accessToken) : null;
+  const identity = verifiedStaffClaims(claimsResult.data?.claims ?? null);
   const secret = parseServerEnv(process.env).STAFF_SESSION_SECRET;
   const token = request.cookies.get(STAFF_SESSION_COOKIE)?.value;
   const cookie = token ? readStaffSession(token, secret) : null;
   if (cookie && evaluateStaffSession(cookie, Date.now()) === "expired") {
     return leaveStaffArea(request, true);
   }
-  if (
-    !cookie ||
-    !user ||
-    !sessionId ||
-    !staffSessionMatches(cookie, { userId: user.id, sessionId })
-  ) {
+  if (!cookie || !identity || !staffSessionMatches(cookie, identity)) {
     return leaveStaffArea(request, false);
   }
   const requiredRoles = rolesForStaffPath(request.nextUrl.pathname);
   if (requiredRoles) {
-    const profile = await loadStaffProfile(user.id);
+    const profile = await loadStaffProfile(identity.userId);
     if (profile?.kind === "STAFF" && !profile.disabledAt) {
       const allowed = profile.roles.some((role) => requiredRoles.includes(role));
       if (!allowed) {
@@ -99,9 +89,9 @@ export async function proxy(request: NextRequest) {
         // A negação precisa acontecer aqui para o navegador receber o 403.
         await writeStaffAudit({
           action: "access.denied",
-          actorUserId: user.id,
+          actorUserId: identity.userId,
           entityType: "user",
-          entityId: user.id,
+          entityId: identity.userId,
           ip: clientIp(request.headers),
           metadata: {},
         });
