@@ -27,6 +27,8 @@ if (process.env.NODE_ENV !== "production") {
 
 export const db = drizzle(pg, { schema });
 
+export const sql = pg;
+
 export async function closeDatabase(): Promise<void> {
   await pg.end({ timeout: 5 });
 }

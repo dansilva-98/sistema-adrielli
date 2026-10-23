@@ -31,7 +31,7 @@ export function buildContentSecurityPolicy(env: SecurityHeaderEnv): string {
     "default-src 'self'",
     `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    `img-src 'self' data: blob: ${originOf(env.supabaseUrl)}`,
     "font-src 'self'",
     `connect-src ${uniqueConnect}`,
     "object-src 'none'",

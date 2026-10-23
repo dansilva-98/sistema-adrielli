@@ -13,6 +13,8 @@ Diretivas fixas deste épico:
 
 `connect-src` inclui a própria origem, a origem de `NEXT_PUBLIC_SUPABASE_URL` e as origens dos DSNs do Sentry (servidor e navegador).
 
+`img-src` inclui a mesma origem do Supabase, restrita no `next/image` ao caminho público do bucket `site-public`.
+
 `script-src` e `style-src` permitem `'unsafe-inline'` porque o Next.js injeta scripts e estilos inline. Em desenvolvimento, `script-src` também permite `'unsafe-eval'`.
 
 ## Como estender nos próximos épicos
