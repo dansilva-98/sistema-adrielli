@@ -44,6 +44,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# netlify
+.netlify
+h1-evidence.md
+
 # local database backups
 /backups/
 

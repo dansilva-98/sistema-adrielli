@@ -1,0 +1,7 @@
+# H1.1: o Git não publica este site. O workflow manual faz o build e o rascunho.
+[build]
+command = "pnpm build"
+publish = ".next"
+
+[[plugins]]
+package = "@netlify/plugin-nextjs"
