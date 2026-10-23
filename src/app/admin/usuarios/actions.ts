@@ -47,7 +47,7 @@ function failure(error: unknown): StaffFormState {
 async function actor(): Promise<{ userId: string; ip: string | null }> {
   const access = await requireStaff({ roles: USER_ADMIN_ROLES });
   const headerStore = await headers();
-  return { userId: access.userId, ip: clientIp(headerStore.get("x-forwarded-for")) };
+  return { userId: access.userId, ip: clientIp(headerStore) };
 }
 
 export async function inviteStaffAction(

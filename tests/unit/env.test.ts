@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { formatEnvError, parseClientEnv, parseServerEnv } from "@/lib/env";
+import {
+  formatEnvError,
+  parseClientEnv,
+  parseMigrationsEnv,
+  parseServerEnv,
+} from "@/lib/env";
 import { z } from "zod";
 
 const validServer = {
@@ -22,7 +27,8 @@ const validClient = {
 describe("env", () => {
   it("aceita o conjunto válido", () => {
     expect(parseServerEnv(validServer).APP_ENV).toBe("development");
-    expect(parseServerEnv(validServer).MIGRATIONS_DATABASE_URL).toContain(
+    expect(parseServerEnv(validServer)).not.toHaveProperty("MIGRATIONS_DATABASE_URL");
+    expect(parseMigrationsEnv(validServer).MIGRATIONS_DATABASE_URL).toContain(
       "postgres:postgres@",
     );
     expect(parseClientEnv(validClient).NEXT_PUBLIC_SITE_URL).toBe(
@@ -49,9 +55,15 @@ describe("env", () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       expect(message).toContain("DATABASE_URL");
-      expect(message).toContain("MIGRATIONS_DATABASE_URL");
+      expect(message).not.toContain("MIGRATIONS_DATABASE_URL");
       expect(message).not.toContain(secret);
     }
+  });
+
+  it("não exige a URL de migration no runtime", () => {
+    const runtime = { ...validServer, MIGRATIONS_DATABASE_URL: undefined };
+    expect(parseServerEnv(runtime).DATABASE_URL).toContain("app_runtime");
+    expect(() => parseMigrationsEnv(runtime)).toThrow(/MIGRATIONS_DATABASE_URL/);
   });
 
   it("rejeita APP_ENV fora da lista sem repetir o valor", () => {

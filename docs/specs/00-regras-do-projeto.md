@@ -56,7 +56,7 @@ Renomear um identificador técnico também é uma mudança de infraestrutura. Tr
 | E-mail transacional          | Resend                                                     |
 | Monitoramento de erros       | Sentry                                                     |
 | Testes                       | Vitest (unidade e integração) + Playwright (ponta a ponta) |
-| Hospedagem                   | Vercel                                                     |
+| Hospedagem                   | Netlify                                                    |
 
 Use as versões estáveis atuais de cada pacote no momento da instalação e fixe-as no `pnpm-lock.yaml`. Não adicione bibliotecas fora desta lista sem registrar o motivo no PR.
 

@@ -2,14 +2,14 @@ import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import { defineConfig } from "drizzle-kit";
 
-import { parseServerEnv } from "./src/lib/env";
+import { parseMigrationsEnv } from "./src/lib/env";
 
 if (!process.env.MIGRATIONS_DATABASE_URL) {
   if (existsSync(".env.local")) loadEnvFile(".env.local");
   else if (existsSync(".env")) loadEnvFile(".env");
 }
 
-const env = parseServerEnv(process.env);
+const env = parseMigrationsEnv(process.env);
 
 export default defineConfig({
   dialect: "postgresql",

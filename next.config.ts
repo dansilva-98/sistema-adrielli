@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "5mb",
+    },
+  },
   env: {
     NEXT_PUBLIC_APP_ENV: serverEnv.APP_ENV,
   },

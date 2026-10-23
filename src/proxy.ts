@@ -102,7 +102,7 @@ export async function proxy(request: NextRequest) {
           actorUserId: user.id,
           entityType: "user",
           entityId: user.id,
-          ip: clientIp(request.headers.get("x-forwarded-for")),
+          ip: clientIp(request.headers),
           metadata: {},
         });
         return redirectKeepingCookies(request, response, "/acesso-negado");

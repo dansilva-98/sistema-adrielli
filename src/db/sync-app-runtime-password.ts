@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import postgres from "postgres";
 
-import { parseServerEnv } from "../lib/env.ts";
+import { parseMigrationsEnv, parseServerEnv } from "../lib/env.ts";
 import { APP_RUNTIME_ROLE, assertLocalDatabaseAllowed, databaseUser } from "./seed.ts";
 
 export async function syncAppRuntimePassword(input: {
@@ -49,15 +49,16 @@ function loadLocalEnv(): void {
 
 async function main(): Promise<void> {
   loadLocalEnv();
-  const env = parseServerEnv(process.env);
-  if (env.APP_ENV !== "development") {
+  if (process.env.APP_ENV !== "development") {
     console.log("Senha do app_runtime preservada fora de development.");
     return;
   }
+  const runtime = parseServerEnv(process.env);
+  const migrations = parseMigrationsEnv(process.env);
   await syncAppRuntimePassword({
-    appEnv: env.APP_ENV,
-    ownerUrl: env.MIGRATIONS_DATABASE_URL,
-    runtimeUrl: env.DATABASE_URL,
+    appEnv: runtime.APP_ENV,
+    ownerUrl: migrations.MIGRATIONS_DATABASE_URL,
+    runtimeUrl: runtime.DATABASE_URL,
   });
   console.log("Senha local do app_runtime alinhada com DATABASE_URL.");
 }

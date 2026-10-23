@@ -92,7 +92,7 @@ async function denyIfForbidden(decision: StaffAccessDecision): Promise<void> {
     actorUserId: decision.userId,
     entityType: "user",
     entityId: decision.userId,
-    ip: clientIp(headerStore.get("x-forwarded-for")),
+    ip: clientIp(headerStore),
     metadata: {},
   });
 }
