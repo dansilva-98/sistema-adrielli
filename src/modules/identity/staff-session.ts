@@ -3,6 +3,16 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export const STAFF_IDLE_MS = 30 * 60 * 1000;
 export const STAFF_MAX_MS = 12 * 60 * 60 * 1000;
 export const STAFF_SESSION_COOKIE = "staff_session";
+
+export function staffSessionCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 60 * 12,
+  };
+}
 export const SESSION_EXPIRED_MESSAGE =
   "Sua sessão expirou por segurança. Entre novamente.";
 export const LOGIN_ERROR_MESSAGE = "E-mail ou senha incorretos.";

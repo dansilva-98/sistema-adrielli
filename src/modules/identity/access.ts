@@ -22,3 +22,14 @@ export function staffHome(roles: readonly StaffRole[]): "/admin" | "/consultorio
   if (roles.includes("SUPER_ADMIN") || roles.includes("CONTENT_ADMIN")) return "/admin";
   return "/consultorio";
 }
+
+export function rolesForStaffPath(pathname: string): readonly StaffRole[] | null {
+  if (pathname === "/admin/usuarios" || pathname.startsWith("/admin/usuarios/")) {
+    return USER_ADMIN_ROLES;
+  }
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return ADMIN_ROLES;
+  if (pathname === "/consultorio" || pathname.startsWith("/consultorio/")) {
+    return CONSULTORIO_ROLES;
+  }
+  return null;
+}
