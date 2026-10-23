@@ -26,6 +26,9 @@ const HOW_IT_WORKS_DEFAULT = [
 ];
 
 const howItWorksTextLimit = sql.raw(`content.how_it_works_text_ok(how_it_works)`);
+const siteImagePathPattern = sql.raw(
+  "'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$'",
+);
 
 export const siteSettings = content
   .table(
@@ -101,6 +104,14 @@ export const siteSettings = content
         "site_settings_instagram_handle",
         sql`${table.instagramHandle} is null or position('@' in ${table.instagramHandle}) = 0`,
       ),
+      check(
+        "site_settings_hero_image_path",
+        sql`${table.heroImagePath} is null or ${table.heroImagePath} ~ ${siteImagePathPattern}`,
+      ),
+      check(
+        "site_settings_about_image_path",
+        sql`${table.aboutImagePath} is null or ${table.aboutImagePath} ~ ${siteImagePathPattern}`,
+      ),
     ],
   )
   .enableRLS();
@@ -125,6 +136,10 @@ export const services = content
     },
     (table) => [
       index("services_published_sort_order_idx").on(table.published, table.sortOrder),
+      check(
+        "services_image_path",
+        sql`${table.imagePath} is null or ${table.imagePath} ~ ${siteImagePathPattern}`,
+      ),
     ],
   )
   .enableRLS();

@@ -1,3 +1,5 @@
+import { isSiteImagePath } from "@/modules/content/image-path";
+
 export async function uploadSiteObject(
   config: { supabaseUrl: string; serviceRoleKey: string },
   body: Buffer,
@@ -23,6 +25,7 @@ export async function removeSiteObject(
   config: { supabaseUrl: string; serviceRoleKey: string },
   path: string,
 ): Promise<void> {
+  if (!isSiteImagePath(path)) throw new Error("Caminho de imagem recusado.");
   const response = await fetch(
     new URL(`/storage/v1/object/site-public/${path}`, config.supabaseUrl),
     {

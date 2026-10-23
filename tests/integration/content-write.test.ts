@@ -121,6 +121,26 @@ describe("escrita de conteúdo", () => {
     ).toBe(false);
   });
 
+  it("cria três itens em sequência e troca só com o vizinho", async () => {
+    const first = await createService(runtime, service("primeiro", false), actor());
+    const second = await createService(runtime, service("segundo", false), actor());
+    const third = await createService(runtime, service("terceiro", false), actor());
+    created.push(first, second, third);
+    const order = async () => {
+      const rows = await runtime<{ id: string }[]>`
+        select id from content.services
+        where id in ${runtime([first, second, third])}
+        order by sort_order, id
+      `;
+      return rows.map((row) => row.id);
+    };
+    expect(await order()).toEqual([first, second, third]);
+    await moveContent(runtime, "services", third, 1, "up", actor());
+    expect(await order()).toEqual([first, third, second]);
+    await moveContent(runtime, "services", first, 1, "down", actor());
+    expect(await order()).toEqual([third, first, second]);
+  });
+
   it("não publica depoimento sem consentimento", async () => {
     await expect(
       createTestimonial(

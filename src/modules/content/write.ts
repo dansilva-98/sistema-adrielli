@@ -118,13 +118,15 @@ export async function createService(
 ): Promise<string> {
   try {
     return await sql.begin(async (tx) => {
+      const sortOrder = await nextSortOrder(tx, "services");
       const rows = await tx<{ id: string }[]>`
         insert into content.services (
-          title, slug, summary, body, image_path, image_alt, published, updated_by
+          title, slug, summary, body, image_path, image_alt, published, sort_order, updated_by
         )
         values (
           ${input.title}, ${input.slug}, ${input.summary}, ${input.body},
-          ${input.imagePath}, ${input.imageAlt}, ${input.published}, ${actor.actorId}::uuid
+          ${input.imagePath}, ${input.imageAlt}, ${input.published}, ${sortOrder},
+          ${actor.actorId}::uuid
         )
         returning id
       `;
@@ -177,11 +179,14 @@ export async function updateService(
 
 export async function createTestimonial(sql: Sql, input: TestimonialInput, actor: Actor) {
   return insertList(sql, "testimonials", actor, async (tx) => {
+    const sortOrder = await nextSortOrder(tx, "testimonials");
     const rows = await tx<{ id: string }[]>`
-      insert into content.testimonials (quote, author_label, consent_at, published, updated_by)
+      insert into content.testimonials (
+        quote, author_label, consent_at, published, sort_order, updated_by
+      )
       values (
         ${input.quote}, ${input.authorLabel}, ${input.consentAt}, ${input.published},
-        ${actor.actorId}::uuid
+        ${sortOrder}, ${actor.actorId}::uuid
       )
       returning id
     `;
@@ -216,9 +221,13 @@ export async function updateTestimonial(
 
 export async function createFaq(sql: Sql, input: FaqInput, actor: Actor) {
   return insertList(sql, "faq", actor, async (tx) => {
+    const sortOrder = await nextSortOrder(tx, "faq");
     const rows = await tx<{ id: string }[]>`
-      insert into content.faq (question, answer, published, updated_by)
-      values (${input.question}, ${input.answer}, ${input.published}, ${actor.actorId}::uuid)
+      insert into content.faq (question, answer, published, sort_order, updated_by)
+      values (
+        ${input.question}, ${input.answer}, ${input.published}, ${sortOrder},
+        ${actor.actorId}::uuid
+      )
       returning id
     `;
     return rows[0]?.id;
@@ -285,22 +294,23 @@ export async function moveContent(
     const neighbor = rows[index + (direction === "up" ? -1 : 1)];
     if (!current || !neighbor) return;
     if (current.version !== version) throw new ContentWriteError("conflict");
-    const nextOrder =
-      current.sort_order === neighbor.sort_order
-        ? neighbor.sort_order + (direction === "up" ? -1 : 1)
-        : neighbor.sort_order;
-    const neighborOrder =
-      current.sort_order === neighbor.sort_order
-        ? neighbor.sort_order
-        : current.sort_order;
+    if (new Set(rows.map((row) => row.sort_order)).size !== rows.length) {
+      for (const [position, row] of rows.entries()) {
+        row.sort_order = position + 1;
+        await tx.unsafe(`update content.${table} set sort_order = $2 where id = $1`, [
+          row.id,
+          row.sort_order,
+        ]);
+      }
+    }
     const moved = await tx.unsafe(
       `update content.${table} set sort_order = $2, version = version + 1, updated_at = now(), updated_by = $3 where id = $1 and version = $4`,
-      [current.id, nextOrder, actor.actorId, current.version],
+      [current.id, neighbor.sort_order, actor.actorId, current.version],
     );
     if (moved.count !== 1) throw new ContentWriteError("conflict");
     await tx.unsafe(
       `update content.${table} set sort_order = $2, version = version + 1, updated_at = now(), updated_by = $3 where id = $1`,
-      [neighbor.id, neighborOrder, actor.actorId],
+      [neighbor.id, current.sort_order, actor.actorId],
     );
     await writeAudit(tx, actor, meta.updated, meta.entity, current.id);
     await writeAudit(tx, actor, meta.updated, meta.entity, neighbor.id);
@@ -340,6 +350,13 @@ async function writeAudit(
     },
     tx,
   );
+}
+
+async function nextSortOrder(tx: Tx, table: ListTable): Promise<number> {
+  const rows = await tx.unsafe<{ sort_order: number }[]>(
+    `select sort_order from content.${table} order by sort_order for update`,
+  );
+  return (rows.at(-1)?.sort_order ?? 0) + 1;
 }
 
 function isUniqueViolation(error: unknown): boolean {

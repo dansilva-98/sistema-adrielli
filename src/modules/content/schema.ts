@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { CONTENT_LIMITS } from "@/db/content-limits";
+import { isSiteImagePath } from "@/modules/content/image-path";
 
 const requiredText = (max: number) =>
   z
@@ -8,6 +9,15 @@ const requiredText = (max: number) =>
     .trim()
     .min(1, "Preencha este campo.")
     .max(max, `Use no máximo ${max} caracteres.`);
+
+const optionalImagePath = z
+  .string()
+  .trim()
+  .refine(
+    (value) => value === "" || isSiteImagePath(value),
+    "A imagem não está no formato esperado.",
+  )
+  .transform((value) => (value === "" ? null : value));
 
 const optionalText = (max: number) =>
   z
@@ -42,11 +52,11 @@ export const siteSettingsSchema = z
     heroTitle: z.string().trim().max(CONTENT_LIMITS.heroTitle),
     heroSubtitle: z.string().trim().max(CONTENT_LIMITS.heroSubtitle),
     heroTagline: z.string().trim().max(CONTENT_LIMITS.heroTagline),
-    heroImagePath: optionalText(CONTENT_LIMITS.heroImagePath),
+    heroImagePath: optionalImagePath,
     heroImageAlt: optionalText(CONTENT_LIMITS.heroImageAlt),
     aboutTitle: z.string().trim().max(CONTENT_LIMITS.aboutTitle),
     aboutBody: z.string().trim().max(CONTENT_LIMITS.aboutBody),
-    aboutImagePath: optionalText(CONTENT_LIMITS.aboutImagePath),
+    aboutImagePath: optionalImagePath,
     aboutImageAlt: optionalText(CONTENT_LIMITS.aboutImageAlt),
     howItWorks: howItWorksSchema,
     whatsappNumber: z
@@ -102,7 +112,7 @@ export const serviceSchema = z
       .trim()
       .min(1, "Preencha este campo.")
       .max(CONTENT_LIMITS.serviceBody),
-    imagePath: optionalText(CONTENT_LIMITS.serviceImagePath),
+    imagePath: optionalImagePath,
     imageAlt: optionalText(CONTENT_LIMITS.serviceImageAlt),
     published: z.boolean(),
     version: z.number().int().min(1).optional(),
