@@ -226,12 +226,8 @@
           "tableFrom": "user_roles",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -240,12 +236,8 @@
           "tableFrom": "user_roles",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "granted_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["granted_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -253,10 +245,7 @@
       "compositePrimaryKeys": {
         "user_roles_user_id_role_pk": {
           "name": "user_roles_user_id_role_pk",
-          "columns": [
-            "user_id",
-            "role"
-          ]
+          "columns": ["user_id", "role"]
         }
       },
       "uniqueConstraints": {},
@@ -320,27 +309,17 @@
     "identity.login_attempt_kind": {
       "name": "login_attempt_kind",
       "schema": "identity",
-      "values": [
-        "EMAIL",
-        "IP"
-      ]
+      "values": ["EMAIL", "IP"]
     },
     "identity.staff_role": {
       "name": "staff_role",
       "schema": "identity",
-      "values": [
-        "SUPER_ADMIN",
-        "CONTENT_ADMIN",
-        "CLINIC_ADMIN"
-      ]
+      "values": ["SUPER_ADMIN", "CONTENT_ADMIN", "CLINIC_ADMIN"]
     },
     "identity.user_kind": {
       "name": "user_kind",
       "schema": "identity",
-      "values": [
-        "STAFF",
-        "CUSTOMER"
-      ]
+      "values": ["STAFF", "CUSTOMER"]
     }
   },
   "schemas": {
