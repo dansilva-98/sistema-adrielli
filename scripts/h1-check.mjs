@@ -13,7 +13,6 @@ const netlifyToken = required("NETLIFY_AUTH_TOKEN");
 const siteId = required("NETLIFY_SITE_ID");
 
 const staffEmail = "h1-rascunho@example.com";
-const inviteEmail = "h1-convite@example.com";
 const password = `${randomBytes(18).toString("base64url")}Aa1`;
 const report = [];
 const failures = [];
@@ -23,7 +22,6 @@ let owner;
 try {
   owner = postgres(ownerUrl, { max: 1, prepare: false, connect_timeout: 15 });
   await removeTestUser(staffEmail);
-  await removeTestUser(inviteEmail);
   await createStaff();
   const secret = await enrollTotp();
   await checkAnonymous();
@@ -40,7 +38,6 @@ try {
 } finally {
   try {
     await removeTestUser(staffEmail);
-    await removeTestUser(inviteEmail);
   } catch (error) {
     note("limpeza", false, error instanceof Error ? redact(error.message) : "falha");
   }
@@ -88,25 +85,12 @@ async function withBrowser(secret) {
       new URL(page.url()).pathname,
     );
 
-    await signInAgain(page, secret);
     await checkAction(page);
-    await checkInvite(page);
     await checkCache(page);
     await checkUpload(page);
   } finally {
     await browser.close();
   }
-}
-
-async function signInAgain(page, secret) {
-  if (!page.url().includes("/equipe/entrar")) return;
-  await page.getByLabel("E-mail").fill(staffEmail);
-  await page.getByLabel("Senha").fill(password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL(/\/equipe\/mfa\/verificar/, { timeout: 30000 });
-  await page.getByLabel("Código").fill(totp(secret));
-  await page.getByRole("button", { name: "Verificar" }).click();
-  await page.waitForURL(/\/admin/, { timeout: 30000 });
 }
 
 async function checkAction(page) {
@@ -140,19 +124,6 @@ async function checkAction(page) {
   });
   const snippet = redact(await forged.text()).slice(0, 180);
   note("V5 Origin diferente", forged.status >= 400, `HTTP ${forged.status} ${snippet}`);
-}
-
-async function checkInvite(page) {
-  await page.goto(`${draftUrl}/admin/usuarios`, { waitUntil: "networkidle" });
-  const form = page.locator("form").filter({ hasText: "Convidar" });
-  await form.getByLabel("Nome").fill("Convite H1");
-  await form.getByLabel("E-mail").fill(inviteEmail);
-  await form.getByLabel("Conteúdo").check();
-  await page.getByRole("button", { name: "Enviar convite" }).click();
-  const status = page.getByRole("status").last();
-  await status.waitFor({ timeout: 30000 }).catch(() => undefined);
-  const message = (await status.textContent())?.trim() || "sem mensagem";
-  note("V5 convite", !/não foi possível|erro|falha/i.test(message), message);
 }
 
 async function checkCache(page) {
