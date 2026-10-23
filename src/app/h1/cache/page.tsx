@@ -13,7 +13,7 @@ async function cachedStamp(): Promise<string> {
 export default async function H1CachePage() {
   const stamp = await cachedStamp();
   return (
-    <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-16">
+    <main className="mx-auto flex w-full max-w-lg flex-col gap-4 px-4 py-16">
       <h1 className="text-xl">Cache temporário</h1>
       <p data-testid="h1-stamp">{stamp}</p>
       <form action={bumpStampAction}>
