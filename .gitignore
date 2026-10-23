@@ -41,8 +41,9 @@ yarn-error.log*
 /playwright-report/
 /blob-report/
 
-# vercel
-.vercel
+# netlify
+.netlify
+public/_headers
 
 # local database backups
 /backups/

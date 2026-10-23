@@ -19,22 +19,49 @@ jobs:
           cache: pnpm
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
-      - name: Aplicar migrations em produção
-        run: pnpm exec drizzle-kit migrate
+      - name: Conferir o site
+        id: site
+        run: node scripts/netlify-site.mjs
         env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
+          NETLIFY_SITE_MODE: production
+      - name: Publicar variáveis de runtime
+        run: node scripts/netlify-env.mjs
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ steps.site.outputs.id }}
+          NETLIFY_ENV_CONTEXTS: production
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-          MIGRATIONS_DATABASE_URL: ${{ secrets.PRODUCTION_MIGRATIONS_DATABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
           SENTRY_DSN: ${{ secrets.PRODUCTION_SENTRY_DSN }}
           APP_ENV: production
+          STAFF_SESSION_SECRET: ${{ secrets.PRODUCTION_STAFF_SESSION_SECRET }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SENTRY_DSN }}
-          NEXT_PUBLIC_SITE_URL: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SITE_URL }}
-          STAFF_SESSION_SECRET: ${{ secrets.PRODUCTION_STAFF_SESSION_SECRET }}
-      - name: Deploy de produção na Vercel
-        run: pnpm dlx vercel@65.1.0 deploy --prod --yes
+          NEXT_PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}
+      - name: Cabeçalhos dos arquivos estáticos
+        run: node --experimental-strip-types scripts/netlify-headers.ts
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          APP_ENV: production
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SUPABASE_URL }}
+          SENTRY_DSN: ${{ secrets.PRODUCTION_SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SENTRY_DSN }}
+      - name: Aplicar migrations em produção
+        run: pnpm exec drizzle-kit migrate
+        env:
+          MIGRATIONS_DATABASE_URL: ${{ secrets.PRODUCTION_MIGRATIONS_DATABASE_URL }}
+      - name: Publicar produção na Netlify
+        run: pnpm dlx netlify-cli@27.14.2 deploy --build --prod --site ${{ steps.site.outputs.id }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
+          SENTRY_DSN: ${{ secrets.PRODUCTION_SENTRY_DSN }}
+          APP_ENV: production
+          STAFF_SESSION_SECRET: ${{ secrets.PRODUCTION_STAFF_SESSION_SECRET }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}

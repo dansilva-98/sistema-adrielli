@@ -32,7 +32,7 @@ export async function GET(request: Request) {
       actorUserId: userId,
       entityType: "user",
       entityId: userId,
-      ip: clientIp(request.headers.get("x-forwarded-for")),
+      ip: clientIp(request.headers),
       metadata: {},
     });
   }

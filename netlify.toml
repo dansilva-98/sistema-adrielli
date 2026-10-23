@@ -1,0 +1,7 @@
+# O Git não publica este site. Os workflows do GitHub Actions fazem o build e o deploy.
+[build]
+command = "pnpm build"
+publish = ".next"
+
+[[plugins]]
+package = "@netlify/plugin-nextjs"
