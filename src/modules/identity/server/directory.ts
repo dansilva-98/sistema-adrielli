@@ -31,9 +31,11 @@ export async function writeStaffAudit(input: {
     });
   } catch (error) {
     Sentry.captureException(error);
-    if (input.action !== "auth.login.failure" && input.action !== "auth.login.success") {
-      throw error;
-    }
+    const blocksTheUser =
+      input.action !== "auth.login.failure" &&
+      input.action !== "auth.login.success" &&
+      input.action !== "auth.logout";
+    if (blocksTheUser) throw error;
   }
 }
 

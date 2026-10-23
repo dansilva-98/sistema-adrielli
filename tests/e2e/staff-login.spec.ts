@@ -12,7 +12,15 @@ test("sessão da equipe expirada pede novo login", async ({ page, context }) => 
   if (existsSync(".env.local")) loadEnvFile(".env.local");
   const secret = process.env.STAFF_SESSION_SECRET;
   if (!secret) throw new Error("STAFF_SESSION_SECRET ausente.");
-  const token = signStaffSession({ startedAt: 0, lastActivity: 0 }, secret);
+  const token = signStaffSession(
+    {
+      userId: "11111111-1111-1111-1111-111111111111",
+      sessionId: "session-expirada",
+      startedAt: 0,
+      lastActivity: 0,
+    },
+    secret,
+  );
   await context.addCookies([
     {
       name: STAFF_SESSION_COOKIE,

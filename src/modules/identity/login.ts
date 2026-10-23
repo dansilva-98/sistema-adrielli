@@ -1,5 +1,5 @@
 import { staffHome, staffRequiresMfa, type StaffRole } from "./access";
-import { LOGIN_ERROR_MESSAGE, type StaffSession } from "./staff-session";
+import { LOGIN_ERROR_MESSAGE, loginAttemptKey, type StaffSession } from "./staff-session";
 
 export type StaffProfile = {
   id: string;
@@ -10,6 +10,7 @@ export type StaffProfile = {
 
 export type SignedInAuth = {
   userId: string;
+  sessionId: string;
   aal: "aal1" | "aal2";
   hasVerifiedTotp: boolean;
 };
@@ -47,7 +48,12 @@ export async function decideLogin(input: {
     };
   }
 
-  const session = { startedAt: input.now, lastActivity: input.now };
+  const session: StaffSession = {
+    userId: profile.id,
+    sessionId: signedIn.sessionId,
+    startedAt: input.now,
+    lastActivity: input.now,
+  };
   if (staffRequiresMfa(profile.roles)) {
     if (!signedIn.hasVerifiedTotp) {
       return {
@@ -68,4 +74,43 @@ export async function decideLogin(input: {
   }
 
   return { ok: true, userId: profile.id, redirectTo: staffHome(profile.roles), session };
+}
+
+export async function beginStaffLogin(input: {
+  email: string;
+  password: string;
+  ip: string | null;
+  secret: string;
+  now: number;
+  isLimited: (keys: { emailKey: string; ipKey: string | null }) => Promise<boolean>;
+  recordFailure: (keys: { emailKey: string; ipKey: string | null }) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<SignedInAuth | null>;
+  loadProfile: (userId: string) => Promise<StaffProfile | null>;
+  findActorByEmail: (email: string) => Promise<string | null>;
+}): Promise<LoginDecision> {
+  const email = input.email.trim().toLowerCase();
+  const keys = {
+    emailKey: loginAttemptKey(email, input.secret),
+    ipKey: input.ip ? loginAttemptKey(input.ip, input.secret) : null,
+  };
+  if (await input.isLimited(keys)) {
+    await input.recordFailure(keys);
+    return {
+      ok: false,
+      message: LOGIN_ERROR_MESSAGE,
+      actorUserId: await input.findActorByEmail(email),
+      endAuthSession: false,
+    };
+  }
+
+  const decision = await decideLogin({
+    email,
+    password: input.password,
+    now: input.now,
+    signIn: input.signIn,
+    loadProfile: input.loadProfile,
+    findActorByEmail: input.findActorByEmail,
+  });
+  if (!decision.ok) await input.recordFailure(keys);
+  return decision;
 }

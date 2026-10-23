@@ -8,9 +8,15 @@ export const SESSION_EXPIRED_MESSAGE =
 export const LOGIN_ERROR_MESSAGE = "E-mail ou senha incorretos.";
 
 export type StaffSession = {
+  userId: string;
+  sessionId: string;
   startedAt: number;
   lastActivity: number;
 };
+
+export const LOGIN_EMAIL_LIMIT = 5;
+export const LOGIN_IP_LIMIT = 20;
+export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
 export function evaluateStaffSession(
   session: StaffSession,
@@ -26,13 +32,31 @@ export function isStaffSessionExpired(session: StaffSession): boolean {
 }
 
 export function touchStaffSession(session: StaffSession, now: number): StaffSession {
-  return { startedAt: session.startedAt, lastActivity: now };
+  return {
+    userId: session.userId,
+    sessionId: session.sessionId,
+    startedAt: session.startedAt,
+    lastActivity: now,
+  };
+}
+
+export function staffSessionMatches(
+  session: StaffSession,
+  current: { userId: string; sessionId: string },
+): boolean {
+  return session.userId === current.userId && session.sessionId === current.sessionId;
+}
+
+export function loginAttemptKey(value: string, secret: string): string {
+  return createHmac("sha256", secret).update(value).digest("hex");
 }
 
 export function signStaffSession(session: StaffSession, secret: string): string {
   const payload = Buffer.from(
     JSON.stringify({
-      v: 1,
+      v: 2,
+      userId: session.userId,
+      sessionId: session.sessionId,
       startedAt: session.startedAt,
       lastActivity: session.lastActivity,
     }),
@@ -62,17 +86,40 @@ export function readStaffSession(token: string, secret: string): StaffSession | 
     if (
       typeof parsed !== "object" ||
       parsed === null ||
+      !("v" in parsed) ||
+      parsed.v !== 2 ||
+      !("userId" in parsed) ||
+      !("sessionId" in parsed) ||
       !("startedAt" in parsed) ||
       !("lastActivity" in parsed)
     ) {
       return null;
     }
+    const userId = parsed.userId;
+    const sessionId = parsed.sessionId;
     const startedAt = parsed.startedAt;
     const lastActivity = parsed.lastActivity;
+    if (typeof userId !== "string" || typeof sessionId !== "string") return null;
+    if (!userId || !sessionId) return null;
     if (typeof startedAt !== "number" || typeof lastActivity !== "number") return null;
-    return { startedAt, lastActivity };
+    return { userId, sessionId, startedAt, lastActivity };
   } catch {
     return null;
+  }
+}
+
+export async function endStaffAccess(input: {
+  signOut: () => Promise<void>;
+  clearCookie: () => Promise<void>;
+  audit: () => Promise<void>;
+  report: (error: unknown) => void;
+}): Promise<void> {
+  await input.signOut();
+  await input.clearCookie();
+  try {
+    await input.audit();
+  } catch (error) {
+    input.report(error);
   }
 }
 

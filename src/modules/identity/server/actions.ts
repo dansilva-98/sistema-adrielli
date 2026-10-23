@@ -3,6 +3,8 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import * as Sentry from "@sentry/nextjs";
+
 import { serverEnv } from "@/lib/env.server";
 import { parseClientEnv } from "@/lib/env";
 import {
@@ -10,37 +12,32 @@ import {
   createSupabaseServerClient,
   writeStaffSessionCookie,
 } from "@/lib/supabase/server";
-import { decideLogin, type SignedInAuth } from "@/modules/identity/login";
-import { clientIp, signStaffSession } from "@/modules/identity/staff-session";
+import { beginStaffLogin } from "@/modules/identity/login";
+import {
+  endRejectedAuthSession,
+  signInWithSupabase,
+} from "@/modules/identity/supabase-sign-in";
+import {
+  clientIp,
+  endStaffAccess,
+  signStaffSession,
+} from "@/modules/identity/staff-session";
 import { staffHome, staffRequiresMfa } from "@/modules/identity/access";
 import {
   findStaffActorByEmail,
   loadStaffProfile,
   writeStaffAudit,
 } from "@/modules/identity/server/directory";
+import {
+  loginIsLimited,
+  recordLoginAttempt,
+} from "@/modules/identity/server/login-attempts";
 
 export type FormMessage = { message: string };
 
-async function signInWithPassword(
-  email: string,
-  password: string,
-): Promise<SignedInAuth | null> {
+async function signInWithPassword(email: string, password: string) {
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return null;
-  const userResult = await supabase.auth.getUser();
-  const userId = userResult.data.user?.id;
-  if (!userId) return null;
-  const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  const factors = await supabase.auth.mfa.listFactors();
-  const hasVerifiedTotp = (factors.data?.totp ?? []).some(
-    (factor) => factor.status === "verified",
-  );
-  return {
-    userId,
-    aal: assurance.data?.currentLevel === "aal2" ? "aal2" : "aal1",
-    hasVerifiedTotp,
-  };
+  return signInWithSupabase(supabase, email, password);
 }
 
 async function requestIp(): Promise<string | null> {
@@ -55,10 +52,14 @@ export async function loginAction(
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const ip = await requestIp();
-  const decision = await decideLogin({
+  const decision = await beginStaffLogin({
     email,
     password,
+    ip,
+    secret: serverEnv.STAFF_SESSION_SECRET,
     now: Date.now(),
+    isLimited: loginIsLimited,
+    recordFailure: recordLoginAttempt,
     signIn: signInWithPassword,
     loadProfile: loadStaffProfile,
     findActorByEmail: findStaffActorByEmail,
@@ -67,7 +68,7 @@ export async function loginAction(
   if (!decision.ok) {
     if (decision.endAuthSession) {
       const supabase = await createSupabaseServerClient();
-      await supabase.auth.signOut();
+      await endRejectedAuthSession(supabase, decision);
     }
     await writeStaffAudit({
       action: "auth.login.failure",
@@ -96,16 +97,23 @@ export async function logoutAction(): Promise<void> {
   const supabase = await createSupabaseServerClient();
   const userResult = await supabase.auth.getUser();
   const userId = userResult.data.user?.id ?? null;
-  await writeStaffAudit({
-    action: "auth.logout",
-    actorUserId: userId,
-    entityType: userId ? "user" : null,
-    entityId: userId,
-    ip: await requestIp(),
-    metadata: {},
+  const ip = await requestIp();
+  await endStaffAccess({
+    signOut: async () => {
+      await supabase.auth.signOut();
+    },
+    clearCookie: clearStaffSessionCookie,
+    audit: () =>
+      writeStaffAudit({
+        action: "auth.logout",
+        actorUserId: userId,
+        entityType: userId ? "user" : null,
+        entityId: userId,
+        ip,
+        metadata: {},
+      }),
+    report: (error) => Sentry.captureException(error),
   });
-  await supabase.auth.signOut();
-  await clearStaffSessionCookie();
   redirect("/equipe/entrar");
 }
 
@@ -132,8 +140,8 @@ export async function setPasswordAction(
 ): Promise<FormMessage> {
   const password = String(formData.get("password") ?? "");
   const code = String(formData.get("code") ?? "");
-  if (password.length < 8)
-    return { message: "A senha precisa ter pelo menos 8 caracteres." };
+  if (password.length < 12)
+    return { message: "A senha precisa ter pelo menos 12 caracteres." };
   const supabase = await createSupabaseServerClient();
   if (code) {
     const exchanged = await supabase.auth.exchangeCodeForSession(code);
@@ -162,9 +170,19 @@ export async function requireAuthSession(): Promise<void> {
   if (!userResult.data.user) redirect("/equipe/entrar");
 }
 
-export async function enrollTotp(): Promise<
-  { factorId: string; qrCode: string } | { error: string }
-> {
+export type TotpSetupState = {
+  message: string;
+  qrCode: string;
+  factorId: string;
+  secret: string;
+};
+
+export async function generateTotpAction(
+  _state: TotpSetupState,
+  _formData: FormData,
+): Promise<TotpSetupState> {
+  void _state;
+  void _formData;
   const supabase = await createSupabaseServerClient();
   const userResult = await supabase.auth.getUser();
   if (!userResult.data.user) redirect("/equipe/entrar");
@@ -182,10 +200,20 @@ export async function enrollTotp(): Promise<
     factorType: "totp",
     friendlyName: "Aplicativo autenticador",
   });
-  if (enrolled.error || !enrolled.data?.totp?.qr_code) {
-    return { error: "Não foi possível preparar o autenticador. Tente novamente." };
+  if (enrolled.error || !enrolled.data?.totp?.qr_code || !enrolled.data.totp.secret) {
+    return {
+      message: "Não foi possível preparar o autenticador. Tente novamente.",
+      qrCode: "",
+      factorId: "",
+      secret: "",
+    };
   }
-  return { factorId: enrolled.data.id, qrCode: enrolled.data.totp.qr_code };
+  return {
+    message: "",
+    qrCode: enrolled.data.totp.qr_code,
+    factorId: enrolled.data.id,
+    secret: enrolled.data.totp.secret,
+  };
 }
 
 export async function confirmTotpAction(

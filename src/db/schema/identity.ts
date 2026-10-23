@@ -1,4 +1,4 @@
-import { pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const identity = pgSchema("identity");
 
@@ -18,6 +18,21 @@ export const users = identity.table("users", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   disabledAt: timestamp("disabled_at", { withTimezone: true }),
 });
+
+export const loginAttemptKind = identity.enum("login_attempt_kind", ["EMAIL", "IP"]);
+
+export const loginAttempts = identity.table(
+  "login_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    keyHash: text("key_hash").notNull(),
+    kind: loginAttemptKind("kind").notNull(),
+    attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("login_attempts_key_attempted_at_idx").on(table.keyHash, table.attemptedAt),
+  ],
+);
 
 export const userRoles = identity.table(
   "user_roles",

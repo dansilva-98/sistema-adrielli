@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import {
   Card,
   CardContent,
@@ -5,14 +7,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { confirmTotpAction, enrollTotp } from "@/modules/identity/server/actions";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  confirmTotpAction,
+  generateTotpAction,
+  requireAuthSession,
+} from "@/modules/identity/server/actions";
 
-import { StaffCredentialForm } from "../../staff-credential-form";
+import { GenerateTotpPanel } from "./generate-totp-panel";
 
 export const instant = false;
 
 export default async function ConfigureMfaPage() {
-  const enrolled = await enrollTotp();
+  await requireAuthSession();
+  const supabase = await createSupabaseServerClient();
+  const listed = await supabase.auth.mfa.listFactors();
+  const verified = (listed.data?.totp ?? []).some(
+    (factor) => factor.status === "verified",
+  );
+  if (verified) redirect("/equipe/mfa/verificar");
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -21,39 +34,15 @@ export default async function ConfigureMfaPage() {
           <CardHeader>
             <CardTitle>Configurar autenticador</CardTitle>
             <CardDescription>
-              Escaneie o código no aplicativo autenticador e informe o código de 6
+              Gere o código e escaneie no aplicativo autenticador. Depois informe os 6
               dígitos.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {"error" in enrolled ? (
-              <p className="text-sm text-danger" role="status">
-                {enrolled.error}
-              </p>
-            ) : (
-              <>
-                {/* O QR do Supabase é um data URL. O CSP já permite imagens data:. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={enrolled.qrCode}
-                  alt="Código para configurar o autenticador"
-                  className="mx-auto h-48 w-48"
-                />
-                <StaffCredentialForm
-                  action={confirmTotpAction}
-                  submitLabel="Confirmar"
-                  fields={[
-                    {
-                      name: "code",
-                      label: "Código",
-                      type: "text",
-                      autoComplete: "one-time-code",
-                    },
-                  ]}
-                  hidden={[{ name: "factorId", value: enrolled.factorId }]}
-                />
-              </>
-            )}
+          <CardContent>
+            <GenerateTotpPanel
+              generateAction={generateTotpAction}
+              confirmAction={confirmTotpAction}
+            />
           </CardContent>
         </Card>
       </main>

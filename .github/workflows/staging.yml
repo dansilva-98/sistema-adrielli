@@ -6,6 +6,7 @@ on:
 
 jobs:
   deploy:
+    if: vars.STAGING_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: staging
     steps:

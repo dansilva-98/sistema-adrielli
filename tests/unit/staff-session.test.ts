@@ -1,13 +1,16 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import { decideLogin } from "@/modules/identity/login";
 import {
+  endStaffAccess,
   evaluateStaffSession,
   LOGIN_ERROR_MESSAGE,
   readStaffSession,
   signStaffSession,
   STAFF_IDLE_MS,
   STAFF_MAX_MS,
+  staffSessionMatches,
   touchStaffSession,
 } from "@/modules/identity/staff-session";
 
@@ -22,7 +25,12 @@ const staff = {
 describe("sessão da equipe", () => {
   it("expira aos 30 minutos sem atividade e às 12 horas desde o login", () => {
     const startedAt = 1_000;
-    const active = { startedAt, lastActivity: startedAt };
+    const active = {
+      userId: staff.id,
+      sessionId: "session-1",
+      startedAt,
+      lastActivity: startedAt,
+    };
     expect(evaluateStaffSession(active, startedAt + STAFF_IDLE_MS - 1)).toBe("ok");
     expect(evaluateStaffSession(active, startedAt + STAFF_IDLE_MS)).toBe("expired");
 
@@ -33,13 +41,73 @@ describe("sessão da equipe", () => {
   });
 
   it("recusa um cookie com assinatura alterada", () => {
-    const token = signStaffSession({ startedAt: 10, lastActivity: 10 }, secret);
+    const token = signStaffSession(
+      { userId: staff.id, sessionId: "session-1", startedAt: 10, lastActivity: 10 },
+      secret,
+    );
     const [payload, signature] = token.split(".");
     const flipped = signature?.startsWith("a")
       ? `b${signature.slice(1)}`
       : `a${signature}`;
     expect(readStaffSession(`${payload}.${flipped}`, secret)).toBeNull();
-    expect(readStaffSession(token, secret)).toEqual({ startedAt: 10, lastActivity: 10 });
+    expect(readStaffSession(token, secret)).toEqual({
+      userId: staff.id,
+      sessionId: "session-1",
+      startedAt: 10,
+      lastActivity: 10,
+    });
+  });
+
+  it("rejeita cookie de outro usuário ou de outra sessão", () => {
+    const token = signStaffSession(
+      { userId: staff.id, sessionId: "session-1", startedAt: 10, lastActivity: 10 },
+      secret,
+    );
+    const session = readStaffSession(token, secret);
+    expect(session).not.toBeNull();
+    if (!session) return;
+    expect(
+      staffSessionMatches(session, { userId: staff.id, sessionId: "session-1" }),
+    ).toBe(true);
+    expect(
+      staffSessionMatches(session, {
+        userId: "22222222-2222-2222-2222-222222222222",
+        sessionId: "session-1",
+      }),
+    ).toBe(false);
+    expect(
+      staffSessionMatches(session, { userId: staff.id, sessionId: "session-2" }),
+    ).toBe(false);
+  });
+
+  it("rejeita o payload antigo sem usuário e sem sessão", () => {
+    const payload = Buffer.from(
+      JSON.stringify({ v: 1, startedAt: 10, lastActivity: 10 }),
+    ).toString("base64url");
+    const signature = createHmac("sha256", secret).update(payload).digest("base64url");
+    expect(readStaffSession(`${payload}.${signature}`, secret)).toBeNull();
+  });
+});
+
+describe("logout da equipe", () => {
+  it("encerra a sessão mesmo quando a auditoria falha", async () => {
+    const calls: string[] = [];
+    await endStaffAccess({
+      signOut: async () => {
+        calls.push("signOut");
+      },
+      clearCookie: async () => {
+        calls.push("clear");
+      },
+      audit: async () => {
+        calls.push("audit");
+        throw new Error("auditoria indisponível");
+      },
+      report: () => {
+        calls.push("report");
+      },
+    });
+    expect(calls).toEqual(["signOut", "clear", "audit", "report"]);
   });
 });
 
@@ -80,7 +148,12 @@ describe("login da equipe", () => {
       email: "admin@example.com",
       password: "correta",
       now,
-      signIn: async () => ({ userId: staff.id, aal: "aal1", hasVerifiedTotp: false }),
+      signIn: async () => ({
+        userId: staff.id,
+        sessionId: "session-1",
+        aal: "aal1",
+        hasVerifiedTotp: false,
+      }),
       loadProfile: async () => ({ ...staff, roles: ["SUPER_ADMIN"] }),
       findActorByEmail: async () => null,
     });
@@ -88,7 +161,12 @@ describe("login da equipe", () => {
       email: "conteudo@example.com",
       password: "correta",
       now,
-      signIn: async () => ({ userId: staff.id, aal: "aal1", hasVerifiedTotp: false }),
+      signIn: async () => ({
+        userId: staff.id,
+        sessionId: "session-1",
+        aal: "aal1",
+        hasVerifiedTotp: false,
+      }),
       loadProfile: async () => staff,
       findActorByEmail: async () => null,
     });
@@ -103,7 +181,12 @@ describe("login da equipe", () => {
       email: "cliente@example.com",
       password: "correta",
       now: 90,
-      signIn: async () => ({ userId: staff.id, aal: "aal2", hasVerifiedTotp: true }),
+      signIn: async () => ({
+        userId: staff.id,
+        sessionId: "session-1",
+        aal: "aal2",
+        hasVerifiedTotp: true,
+      }),
       loadProfile: async () => ({ ...staff, kind: "CUSTOMER" }),
       findActorByEmail: async () => null,
     });
@@ -111,7 +194,12 @@ describe("login da equipe", () => {
       email: "inativa@example.com",
       password: "correta",
       now: 90,
-      signIn: async () => ({ userId: staff.id, aal: "aal2", hasVerifiedTotp: true }),
+      signIn: async () => ({
+        userId: staff.id,
+        sessionId: "session-1",
+        aal: "aal2",
+        hasVerifiedTotp: true,
+      }),
       loadProfile: async () => ({ ...staff, disabledAt: new Date() }),
       findActorByEmail: async () => null,
     });
