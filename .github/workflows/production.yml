@@ -19,12 +19,13 @@ jobs:
           cache: pnpm
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
-      - name: Localizar o site
+      - name: Conferir o site
         id: site
         run: node scripts/netlify-site.mjs
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
+          NETLIFY_SITE_MODE: production
       - name: Publicar variáveis de runtime
         run: node scripts/netlify-env.mjs
         env:
