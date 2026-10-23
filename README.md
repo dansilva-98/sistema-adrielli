@@ -69,7 +69,8 @@ O Git não publica o site. O site da Netlify não fica ligado ao repositório, e
 
 - Todo pull request roda `.github/workflows/ci.yml`. Qualquer falha bloqueia o merge depois que a proteção da branch `main` estiver ligada. Passos em `docs/specs/E0-verificacao-manual.md`.
 - Push em `main` roda `.github/workflows/staging.yml` só quando a variável `STAGING_ENABLED` do ambiente `staging` é `true`. As migrations usam `STAGING_MIGRATIONS_DATABASE_URL`, só nesse passo. O deploy é `netlify deploy` sem `--prod` (rascunho). A URL de migration não é enviada à Netlify.
-- Produção só pelo workflow manual `Production`, na `main`, no ambiente GitHub `production`, com revisor obrigatório. Depois das migrations, o job roda `netlify deploy --prod`.
+- Produção só pelo workflow manual `Production`, na `main`, no ambiente GitHub `production`, com revisor obrigatório. O job exige a variável `NETLIFY_SITE_ID` e não procura nem cria site. Depois das migrations, roda `netlify deploy --prod`.
+- O site se chama `adrielli-flores`. Só o workflow de staging cria esse nome, se ele ainda não existir.
 - A CLI fica fixa em `netlify-cli@27.14.2`. O plugin `@netlify/plugin-nextjs` fica em `5.16.4`. O build roda no GitHub Actions.
 - Dependabot abre PRs de segurança em `.github/dependabot.yml`.
 

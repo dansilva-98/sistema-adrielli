@@ -1,3 +1,5 @@
+import { assertExactSiteName } from "./netlify-site-policy.mjs";
+
 const token = required("NETLIFY_AUTH_TOKEN");
 const siteId = required("NETLIFY_SITE_ID");
 const contexts = parseContexts(required("NETLIFY_ENV_CONTEXTS"));
@@ -90,12 +92,7 @@ async function accountSlugForSite() {
   if (!response.ok)
     throw new Error(`Não foi possível ler o site: HTTP ${response.status}`);
   const body = await response.json();
-  if (body.name === "landingpageadrielliflores") {
-    throw new Error("Recusado: este ID é do outro projeto e não pode ser usado.");
-  }
-  if (body.name !== "adrielli-flores-staging" && body.name !== "adrielli-flores-h1") {
-    throw new Error(`Recusado: o site ${body.name} não é o de staging.`);
-  }
+  assertExactSiteName(body.name);
   if (!body.account_slug) throw new Error("O site não informou a conta.");
   return body.account_slug;
 }

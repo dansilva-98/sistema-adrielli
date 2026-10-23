@@ -1,13 +1,20 @@
 import { appendFileSync } from "node:fs";
 
-const preferredName = "adrielli-flores-staging";
-const acceptedNames = new Set(["adrielli-flores-staging", "adrielli-flores-h1"]);
-const forbiddenName = "landingpageadrielliflores";
+import {
+  assertExactSiteName,
+  resolveSitePlan,
+  SITE_NAME,
+} from "./netlify-site-policy.mjs";
+
 const accountSlug = "dansilva-98";
 const token = required("NETLIFY_AUTH_TOKEN");
-const existing = process.env.NETLIFY_SITE_ID?.trim() ?? "";
+const plan = resolveSitePlan({
+  mode: process.env.NETLIFY_SITE_MODE ?? "staging",
+  siteId: process.env.NETLIFY_SITE_ID,
+});
 
-const site = existing ? await readSite(existing) : await findOrCreateSite();
+const site =
+  plan.action === "read" ? await readSite(plan.siteId) : await findOrCreateSite();
 const url = site.url || `https://${site.name}.netlify.app`;
 
 const output = [`id=${site.id}`, `name=${site.name}`, `url=${url}`].join("\n");
@@ -51,11 +58,11 @@ async function findNamedSite() {
     if (!Array.isArray(sites)) throw new Error("A lista de sites não veio em lista.");
     if (sites.length === 0) break;
     for (const item of sites) {
-      if (acceptedNames.has(item.name)) matches.push(item);
+      if (item.name === SITE_NAME) matches.push(item);
     }
     if (sites.length < 100) break;
   }
-  const preferred = matches.find((item) => item.name === preferredName) ?? matches[0];
+  const preferred = matches[0];
   if (!preferred) return null;
   return readSite(preferred.id);
 }
@@ -64,19 +71,19 @@ async function createSite() {
   const response = await fetch(`https://api.netlify.com/api/v1/${accountSlug}/sites`, {
     method: "POST",
     headers: { ...authHeaders(), "content-type": "application/json" },
-    body: JSON.stringify({ name: preferredName }),
+    body: JSON.stringify({ name: SITE_NAME }),
   });
   if (response.status === 422) {
     const found = await findNamedSite();
     if (found) return found;
     throw new Error(
-      `O nome ${preferredName} já existe e não apareceu na conta ${accountSlug}.`,
+      `O nome ${SITE_NAME} já existe e não apareceu na conta ${accountSlug}.`,
     );
   }
   if (!response.ok)
     throw new Error(`Não foi possível criar o site: HTTP ${response.status}`);
   const body = await response.json();
-  if (body.name !== preferredName) {
+  if (body.name !== SITE_NAME) {
     await deleteAccidentalSite(body.id);
     throw new Error(
       `Recusado: a Netlify devolveu ${body.name}. Nenhum site com sufixo foi mantido.`,
@@ -99,12 +106,7 @@ async function deleteAccidentalSite(siteId) {
 }
 
 function assertAcceptedSite(name) {
-  if (name === forbiddenName) {
-    throw new Error("Recusado: este ID é do outro projeto e não pode ser usado.");
-  }
-  if (!acceptedNames.has(name)) {
-    throw new Error(`Recusado: o site ${name} não é o de staging.`);
-  }
+  assertExactSiteName(name);
 }
 
 function authHeaders() {
