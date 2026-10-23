@@ -1,5 +1,6 @@
 const token = required("NETLIFY_AUTH_TOKEN");
 const siteId = required("NETLIFY_SITE_ID");
+const accountSlug = await accountSlugForSite();
 
 const keys = [
   "DATABASE_URL",
@@ -24,17 +25,13 @@ for (const key of keys) {
   }
   const payload = {
     key,
-    scopes: ["builds", "functions", "runtime"],
     values: [{ context: "all", value }],
   };
-  const updated = await fetch(
-    `https://api.netlify.com/api/v1/sites/${siteId}/env/${encodeURIComponent(key)}`,
-    {
-      method: "PUT",
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    },
-  );
+  const updated = await fetch(envUrl(key), {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
   const response = updated.status === 404 ? await createVar(payload) : updated;
   if (!response.ok) {
     console.log(`falha ${key} HTTP ${response.status} ${redact(await response.text())}`);
@@ -59,12 +56,31 @@ function authHeaders() {
   };
 }
 
+function envUrl(key) {
+  const query = `site_id=${encodeURIComponent(siteId)}`;
+  const base = `https://api.netlify.com/api/v1/accounts/${accountSlug}/env`;
+  return key ? `${base}/${encodeURIComponent(key)}?${query}` : `${base}?${query}`;
+}
+
 function createVar(payload) {
-  return fetch(`https://api.netlify.com/api/v1/sites/${siteId}/env`, {
+  return fetch(envUrl(), {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify([payload]),
   });
+}
+
+async function accountSlugForSite() {
+  const response = await fetch(`https://api.netlify.com/api/v1/sites/${siteId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error(`Não foi possível ler o site: HTTP ${response.status}`);
+  const body = await response.json();
+  if (body.name === "landingpageadrielliflores") {
+    throw new Error("Recusado: este ID é do outro projeto e não pode ser usado.");
+  }
+  if (!body.account_slug) throw new Error("O site não informou a conta.");
+  return body.account_slug;
 }
 
 function redact(text) {

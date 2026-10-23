@@ -55,13 +55,27 @@ async function createSite() {
     },
   );
   const details = redact(`${created.stdout}\n${created.stderr}`);
-  if (created.status !== 0) throw new Error(`sites:create falhou.\n${details}`);
+  if (created.status !== 0) {
+    const existing = await findNamedSite();
+    if (existing) return existing;
+    throw new Error(`sites:create falhou.\n${details}`);
+  }
   const match = created.stdout.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("sites:create não devolveu JSON.");
   const body = JSON.parse(match[0]);
   const siteId = body.id ?? body.site_id;
   if (!siteId) throw new Error("sites:create não devolveu o ID.");
   return readSite(siteId);
+}
+
+async function findNamedSite() {
+  const response = await fetch("https://api.netlify.com/api/v1/dansilva-98/sites?per_page=100", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) return null;
+  const sites = await response.json();
+  const match = sites.find((item) => item.name === "adrielli-flores-h1");
+  return match ? readSite(match.id) : null;
 }
 
 function redact(text) {
