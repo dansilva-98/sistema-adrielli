@@ -11,7 +11,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const actor = await requireStaff({ roles: ADMIN_ROLES });
   const profile = await loadStaffProfile(actor.userId);
   if (!profile) redirect("/equipe/sair");
-  const links: StaffNavLink[] = [{ href: "/admin", label: "Dashboard", group: null }];
+  const links: StaffNavLink[] = [
+    { href: "/admin", label: "Dashboard", group: null },
+    { href: "/admin/conteudo/site", label: "Editar site", group: "CONTEÚDO" },
+  ];
   if (profile.roles.includes("SUPER_ADMIN")) {
     links.push({ href: "/admin/usuarios", label: "Usuários", group: "SISTEMA" });
   }

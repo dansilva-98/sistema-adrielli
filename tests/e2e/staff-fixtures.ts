@@ -175,6 +175,18 @@ export async function removeStaff(userId: string): Promise<void> {
     await sql`
       update identity.user_roles set granted_by = null where granted_by = ${userId}::uuid
     `;
+    await sql`
+      update content.site_settings set updated_by = null where updated_by = ${userId}::uuid
+    `;
+    await sql`
+      update content.services set updated_by = null where updated_by = ${userId}::uuid
+    `;
+    await sql`
+      update content.testimonials set updated_by = null where updated_by = ${userId}::uuid
+    `;
+    await sql`
+      update content.faq set updated_by = null where updated_by = ${userId}::uuid
+    `;
     await sql`delete from identity.user_roles where user_id = ${userId}::uuid`;
     await sql`delete from identity.users where id = ${userId}::uuid`;
   } finally {
