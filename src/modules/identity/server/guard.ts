@@ -21,6 +21,10 @@ import {
   STAFF_SESSION_COOKIE,
 } from "@/modules/identity/staff-session";
 import { verifiedStaffClaims } from "@/modules/identity/staff-claims";
+import {
+  aalFromAccessToken,
+  sessionIdFromAccessToken,
+} from "@/modules/identity/supabase-sign-in";
 
 import { loadStaffProfile, writeStaffAudit } from "./directory";
 
@@ -39,8 +43,20 @@ const loadAccessContext = cache(async function loadAccessContext() {
   // a área e devolve a página de erro em vez do 403.
   await connection();
   const supabase = await createSupabaseServerClient();
-  const claimsResult = await supabase.auth.getClaims();
-  const identity = verifiedStaffClaims(claimsResult.data?.claims ?? null);
+  const userResult = await supabase.auth.getUser();
+  const user = userResult.data.user;
+  const sessionResult = user ? await supabase.auth.getSession() : null;
+  const accessToken =
+    user && sessionResult?.data.session?.user.id === user.id
+      ? sessionResult.data.session.access_token
+      : "";
+  const identity = user
+    ? verifiedStaffClaims({
+        sub: user.id,
+        session_id: sessionIdFromAccessToken(accessToken),
+        aal: aalFromAccessToken(accessToken),
+      })
+    : null;
   const cookieStore = await cookies();
   const token = cookieStore.get(STAFF_SESSION_COOKIE)?.value;
   const cookie = token ? readStaffSession(token, serverEnv.STAFF_SESSION_SECRET) : null;
