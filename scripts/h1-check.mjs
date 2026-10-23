@@ -230,13 +230,14 @@ async function checkIp() {
   const forwarded = String(headers["x-forwarded-for"] ?? "");
   const netlifyIp = String(headers["x-nf-client-connection-ip"] ?? "");
   const forged = forwarded.split(",")[0]?.trim() === "203.0.113.9";
-  note("V6 cabeçalhos", response.ok, JSON.stringify(headers));
+  const names = Object.keys(headers).sort().join(", ") || "nenhum";
+  note("V6 cabeçalhos", response.ok, names);
   note(
     "V6 X-Forwarded-For forjado",
     true,
     forged
-      ? `o primeiro valor chegou como 203.0.113.9; IP da Netlify=${netlifyIp || "ausente"}. A H1.2 precisa trocar a leitura do IP.`
-      : `o valor forjado não foi o primeiro; IP da Netlify=${netlifyIp || "ausente"}.`,
+      ? `o primeiro valor foi o de teste 203.0.113.9; o cabeçalho da Netlify ${netlifyIp ? (netlifyIp === "203.0.113.9" ? "repetiu esse valor" : "trouxe outro IP") : "não veio"}. A H1.2 precisa trocar a leitura do IP.`
+      : `o valor de teste não foi o primeiro; o cabeçalho da Netlify ${netlifyIp ? "veio" : "não veio"}.`,
   );
 }
 
