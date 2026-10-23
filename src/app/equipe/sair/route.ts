@@ -6,7 +6,11 @@ import {
   clearStaffSessionCookie,
   createSupabaseServerClient,
 } from "@/lib/supabase/server";
-import { readStaffSession, STAFF_SESSION_COOKIE } from "@/modules/identity/staff-session";
+import {
+  clientIp,
+  readStaffSession,
+  STAFF_SESSION_COOKIE,
+} from "@/modules/identity/staff-session";
 import { writeStaffAudit } from "@/modules/identity/server/directory";
 
 export async function GET(request: Request) {
@@ -28,6 +32,7 @@ export async function GET(request: Request) {
       actorUserId: userId,
       entityType: "user",
       entityId: userId,
+      ip: clientIp(request.headers.get("x-forwarded-for")),
       metadata: {},
     });
   }

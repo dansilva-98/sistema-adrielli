@@ -1,6 +1,8 @@
 import postgres from "postgres";
 import { z } from "zod";
 
+import { recordAudit } from "@/modules/audit/record";
+
 const emailSchema = z.email();
 const userIdSchema = z.uuid();
 const auditMetadataSchema = z.object({}).strict();
@@ -101,10 +103,15 @@ export async function bootstrapSuperAdmin(input: {
         insert into identity.user_roles (user_id, role)
         values (${userId}::uuid, 'SUPER_ADMIN')
       `;
-      await tx`
-        insert into audit.audit_log (action, entity_type, entity_id, metadata)
-        values ('user.bootstrap', 'user', ${userId}::uuid, ${JSON.stringify(metadata)}::jsonb)
-      `;
+      await recordAudit(
+        {
+          action: "user.bootstrap",
+          entityType: "user",
+          entityId: userId,
+          metadata,
+        },
+        tx,
+      );
     } catch (error) {
       if (input.cancelInvite) {
         try {

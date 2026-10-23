@@ -8,6 +8,7 @@ import {
   readStaffSession,
   signStaffSession,
   staffSessionCookieOptions,
+  clientIp,
   staffSessionMatches,
   STAFF_SESSION_COOKIE,
   touchStaffSession,
@@ -101,6 +102,7 @@ export async function proxy(request: NextRequest) {
           actorUserId: user.id,
           entityType: "user",
           entityId: user.id,
+          ip: clientIp(request.headers.get("x-forwarded-for")),
           metadata: {},
         });
         return redirectKeepingCookies(request, response, "/acesso-negado");
