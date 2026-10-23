@@ -59,6 +59,8 @@ Em cada projeto (local, staging e produção), na configuração da API de dados
 
 O convite da equipe usa o modelo `supabase/templates/invite.html`, com o link `{{ .SiteURL }}/equipe/primeiro-acesso?token_hash={{ .TokenHash }}`. No Supabase local isso vem do `config.toml`. Em staging e produção o mesmo assunto, o mesmo HTML e a URL `https://<domínio>/equipe/primeiro-acesso` na lista de redirecionamentos precisam ser configurados no painel do Auth. Sem isso, a pessoa convidada não consegue criar a senha.
 
+O cadastro aberto fica desligado com `enable_signup = false` em `[auth]` no `config.toml` local. Com isso, `POST /auth/v1/signup` usando a chave pública é recusado. Em `[auth.email]`, `enable_signup` continua `true`: neste Auth, `false` desliga o provedor de e-mail inteiro e impede o login e o convite da equipe. Em staging e produção o equivalente é desligar o cadastro de novos usuários no painel do Auth, sem desativar o provedor de e-mail. Esse ajuste permanece até o E4 decidir como o login do cliente cria contas. O convite da equipe e o `pnpm admin:bootstrap` usam a API de administração e continuam funcionando.
+
 Checklist do banco e o padrão de RLS: `src/db/README.md`.
 
 ## Pipeline
