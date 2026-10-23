@@ -4,7 +4,10 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import { parseClientEnv } from "@/lib/env";
-import { STAFF_SESSION_COOKIE } from "@/modules/identity/staff-session";
+import {
+  STAFF_SESSION_COOKIE,
+  staffSessionCookieOptions,
+} from "@/modules/identity/staff-session";
 
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
@@ -29,16 +32,6 @@ export async function createSupabaseServerClient() {
       },
     },
   );
-}
-
-export function staffSessionCookieOptions() {
-  return {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax" as const,
-    path: "/",
-    maxAge: 60 * 60 * 12,
-  };
 }
 
 export async function writeStaffSessionCookie(token: string): Promise<void> {

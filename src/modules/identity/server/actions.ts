@@ -30,7 +30,9 @@ import {
 } from "@/modules/identity/server/directory";
 import {
   loginIsLimited,
+  mfaIsLimited,
   recordLoginAttempt,
+  recordMfaFailure,
 } from "@/modules/identity/server/login-attempts";
 
 export type FormMessage = { message: string };
@@ -216,6 +218,44 @@ export async function generateTotpAction(
   };
 }
 
+async function stopIfMfaLimited(userId: string): Promise<void> {
+  if (!(await mfaIsLimited(userId))) return;
+  await endStaffAccess({
+    signOut: async () => {
+      const supabase = await createSupabaseServerClient();
+      await supabase.auth.signOut();
+    },
+    clearCookie: clearStaffSessionCookie,
+    audit: async () =>
+      writeStaffAudit({
+        action: "auth.logout",
+        actorUserId: userId,
+        entityType: "user",
+        entityId: userId,
+        ip: await requestIp(),
+        metadata: {},
+      }),
+    report: (error) => {
+      Sentry.captureException(error);
+    },
+  });
+  redirect("/equipe/entrar?motivo=limite");
+}
+
+async function rejectTotpCode(userId: string): Promise<FormMessage> {
+  await recordMfaFailure(userId);
+  await writeStaffAudit({
+    action: "auth.mfa.failure",
+    actorUserId: userId,
+    entityType: "user",
+    entityId: userId,
+    ip: await requestIp(),
+    metadata: {},
+  });
+  await stopIfMfaLimited(userId);
+  return { message: "Código inválido." };
+}
+
 export async function confirmTotpAction(
   _state: FormMessage,
   formData: FormData,
@@ -228,6 +268,7 @@ export async function confirmTotpAction(
   const userResult = await supabase.auth.getUser();
   const userId = userResult.data.user?.id;
   if (!userId) redirect("/equipe/entrar");
+  await stopIfMfaLimited(userId);
   const challenge = await supabase.auth.mfa.challenge({ factorId });
   if (challenge.error || !challenge.data) return { message: "Código inválido." };
   const verified = await supabase.auth.mfa.verify({
@@ -235,17 +276,7 @@ export async function confirmTotpAction(
     challengeId: challenge.data.id,
     code,
   });
-  if (verified.error) {
-    await writeStaffAudit({
-      action: "auth.mfa.failure",
-      actorUserId: userId,
-      entityType: "user",
-      entityId: userId,
-      ip: await requestIp(),
-      metadata: {},
-    });
-    return { message: "Código inválido." };
-  }
+  if (verified.error) return rejectTotpCode(userId);
   await writeStaffAudit({
     action: "auth.mfa.enrolled",
     actorUserId: userId,
@@ -268,6 +299,7 @@ export async function verifyTotpAction(
   const userResult = await supabase.auth.getUser();
   const userId = userResult.data.user?.id;
   if (!userId) redirect("/equipe/entrar");
+  await stopIfMfaLimited(userId);
   const listed = await supabase.auth.mfa.listFactors();
   const factor = (listed.data?.totp ?? []).find((item) => item.status === "verified");
   if (!factor) redirect("/equipe/mfa/configurar");
@@ -278,17 +310,7 @@ export async function verifyTotpAction(
     challengeId: challenge.data.id,
     code,
   });
-  if (verified.error) {
-    await writeStaffAudit({
-      action: "auth.mfa.failure",
-      actorUserId: userId,
-      entityType: "user",
-      entityId: userId,
-      ip: await requestIp(),
-      metadata: {},
-    });
-    return { message: "Código inválido." };
-  }
+  if (verified.error) return rejectTotpCode(userId);
   const profile = await loadStaffProfile(userId);
   if (profile && staffRequiresMfa(profile.roles)) {
     const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
