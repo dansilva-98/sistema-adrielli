@@ -49,7 +49,7 @@ jobs:
         env:
           MIGRATIONS_DATABASE_URL: ${{ secrets.STAGING_MIGRATIONS_DATABASE_URL }}
       - name: Aplicar migrations em staging
-        run: pnpm db:migrate
+        run: node scripts/h1-migrate.mjs
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           MIGRATIONS_DATABASE_URL: ${{ secrets.STAGING_MIGRATIONS_DATABASE_URL }}

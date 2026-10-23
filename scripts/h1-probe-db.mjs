@@ -1,19 +1,20 @@
 import postgres from "postgres";
 
-const raw = process.env.MIGRATIONS_DATABASE_URL?.trim() ?? "";
-if (!raw) {
+import { describeDatabaseUrl, normalizeDatabaseUrl } from "./h1-db-url.mjs";
+
+const raw = process.env.MIGRATIONS_DATABASE_URL ?? "";
+if (!raw.trim()) {
   console.log("MIGRATIONS_DATABASE_URL ausente");
   process.exit(1);
 }
 
-let parsed;
-try {
-  parsed = new URL(raw);
-} catch {
-  console.log("MIGRATIONS_DATABASE_URL não é uma URL");
+const normalized = normalizeDatabaseUrl(raw);
+if (!normalized) {
+  console.log(`MIGRATIONS_DATABASE_URL não é uma URL. ${describeDatabaseUrl(raw)}`);
   process.exit(1);
 }
 
+const parsed = new URL(normalized);
 const user = decodeURIComponent(parsed.username);
 const userKind = user.startsWith("postgres.")
   ? "postgres.projeto"
@@ -30,10 +31,10 @@ const hostKind = parsed.hostname.endsWith(".pooler.supabase.com")
 const region = parsed.hostname.match(/[a-z]{2}-[a-z]+-\d/)?.[0] ?? "desconhecida";
 const sslmode = parsed.searchParams.get("sslmode") ?? "ausente";
 console.log(
-  `migracao: host=${hostKind} porta=${parsed.port || "5432"} usuario=${userKind} regiao=${region} sslmode=${sslmode} senha=${parsed.password ? "presente" : "ausente"}`,
+  `migracao: host=${hostKind} porta=${parsed.port || "5432"} usuario=${userKind} regiao=${region} sslmode=${sslmode} senha=${parsed.password ? "presente" : "ausente"} ajustada=${normalized !== raw.trim()}`,
 );
 
-const sql = postgres(raw, { max: 1, prepare: false, connect_timeout: 20 });
+const sql = postgres(normalized, { max: 1, prepare: false, connect_timeout: 20 });
 try {
   await sql`select 1 as ok`;
   console.log("conexao de migracao ok");
