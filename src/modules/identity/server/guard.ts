@@ -93,9 +93,9 @@ async function denyIfForbidden(decision: StaffAccessDecision): Promise<void> {
 
 export async function requireStaff(input: {
   roles: readonly StaffRole[];
-}): Promise<void> {
+}): Promise<{ userId: string }> {
   const decision = await currentDecision(input.roles);
-  if (decision.ok) return;
+  if (decision.ok) return { userId: decision.session.userId };
   await denyIfForbidden(decision);
   redirectFor(decision);
 }

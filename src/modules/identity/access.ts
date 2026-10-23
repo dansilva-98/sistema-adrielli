@@ -23,6 +23,18 @@ export function staffHome(roles: readonly StaffRole[]): "/admin" | "/consultorio
   return "/consultorio";
 }
 
+export function canSwitchStaffArea(roles: readonly StaffRole[]): boolean {
+  const admin = roles.some((role) => ADMIN_ROLES.includes(role));
+  const clinic = roles.some((role) => CONSULTORIO_ROLES.includes(role));
+  return admin && clinic;
+}
+
+export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
+  SUPER_ADMIN: "Super admin",
+  CONTENT_ADMIN: "Conteúdo",
+  CLINIC_ADMIN: "Consultório",
+};
+
 export function rolesForStaffPath(pathname: string): readonly StaffRole[] | null {
   if (pathname === "/admin/usuarios" || pathname.startsWith("/admin/usuarios/")) {
     return USER_ADMIN_ROLES;
