@@ -34,7 +34,9 @@ export async function writeStaffAudit(input: {
     const blocksTheUser =
       input.action !== "auth.login.failure" &&
       input.action !== "auth.login.success" &&
-      input.action !== "auth.logout";
+      input.action !== "auth.logout" &&
+      input.action !== "auth.session.expired" &&
+      input.action !== "access.denied";
     if (blocksTheUser) throw error;
   }
 }

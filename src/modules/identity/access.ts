@@ -14,6 +14,10 @@ export function staffRequiresMfa(roles: readonly StaffRole[]): boolean {
   return roles.some(roleRequiresMfa);
 }
 
+export const ADMIN_ROLES: readonly StaffRole[] = ["SUPER_ADMIN", "CONTENT_ADMIN"];
+export const CONSULTORIO_ROLES: readonly StaffRole[] = ["SUPER_ADMIN", "CLINIC_ADMIN"];
+export const USER_ADMIN_ROLES: readonly StaffRole[] = ["SUPER_ADMIN"];
+
 export function staffHome(roles: readonly StaffRole[]): "/admin" | "/consultorio" {
   if (roles.includes("SUPER_ADMIN") || roles.includes("CONTENT_ADMIN")) return "/admin";
   return "/consultorio";

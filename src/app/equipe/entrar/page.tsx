@@ -11,6 +11,7 @@ import { serverEnv } from "@/lib/env.server";
 import {
   isStaffSessionExpired,
   readStaffSession,
+  MFA_LIMIT_MESSAGE,
   SESSION_EXPIRED_MESSAGE,
   STAFF_SESSION_COOKIE,
 } from "@/modules/identity/staff-session";
@@ -32,6 +33,7 @@ export default async function StaffLoginPage({
   const expired =
     params.motivo === "sessao" || (session !== null && isStaffSessionExpired(session));
   const passwordReset = params.motivo === "senha";
+  const attemptsLimited = params.motivo === "limite";
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -52,6 +54,11 @@ export default async function StaffLoginPage({
             {passwordReset ? (
               <p className="text-sm" role="status">
                 Senha redefinida. Entre novamente.
+              </p>
+            ) : null}
+            {attemptsLimited ? (
+              <p className="text-sm text-danger" role="status">
+                {MFA_LIMIT_MESSAGE}
               </p>
             ) : null}
             <StaffCredentialForm

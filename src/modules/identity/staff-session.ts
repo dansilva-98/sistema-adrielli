@@ -16,7 +16,9 @@ export type StaffSession = {
 
 export const LOGIN_EMAIL_LIMIT = 5;
 export const LOGIN_IP_LIMIT = 20;
+export const MFA_ATTEMPT_LIMIT = 5;
 export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+export const MFA_LIMIT_MESSAGE = "Muitas tentativas. Entre novamente.";
 
 export function evaluateStaffSession(
   session: StaffSession,

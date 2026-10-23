@@ -8,11 +8,14 @@ import {
   LOGIN_EMAIL_LIMIT,
   LOGIN_IP_LIMIT,
   LOGIN_WINDOW_MS,
+  MFA_ATTEMPT_LIMIT,
+  loginAttemptKey,
 } from "@/modules/identity/staff-session";
+import { serverEnv } from "@/lib/env.server";
 
 async function countAttempts(
   keyHash: string,
-  kind: "EMAIL" | "IP",
+  kind: "EMAIL" | "IP" | "MFA",
   since: Date,
 ): Promise<number> {
   const rows = await db
@@ -47,4 +50,15 @@ export async function recordLoginAttempt(keys: {
   if (keys.ipKey) {
     await db.insert(loginAttempts).values({ keyHash: keys.ipKey, kind: "IP" });
   }
+}
+
+export async function mfaIsLimited(userId: string): Promise<boolean> {
+  const since = new Date(Date.now() - LOGIN_WINDOW_MS);
+  const keyHash = loginAttemptKey(userId, serverEnv.STAFF_SESSION_SECRET);
+  return (await countAttempts(keyHash, "MFA", since)) >= MFA_ATTEMPT_LIMIT;
+}
+
+export async function recordMfaFailure(userId: string): Promise<void> {
+  const keyHash = loginAttemptKey(userId, serverEnv.STAFF_SESSION_SECRET);
+  await db.insert(loginAttempts).values({ keyHash, kind: "MFA" });
 }

@@ -19,7 +19,11 @@ export const users = identity.table("users", {
   disabledAt: timestamp("disabled_at", { withTimezone: true }),
 });
 
-export const loginAttemptKind = identity.enum("login_attempt_kind", ["EMAIL", "IP"]);
+export const loginAttemptKind = identity.enum("login_attempt_kind", [
+  "EMAIL",
+  "IP",
+  "MFA",
+]);
 
 export const loginAttempts = identity.table(
   "login_attempts",

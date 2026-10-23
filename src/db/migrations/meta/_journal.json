@@ -36,6 +36,13 @@
       "when": 1792713192549,
       "tag": "0004_login_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792746040520,
+      "tag": "0005_mfa_attempt",
+      "breakpoints": true
     }
   ]
 }
