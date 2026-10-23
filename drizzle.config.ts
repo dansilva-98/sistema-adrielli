@@ -4,7 +4,7 @@ import { defineConfig } from "drizzle-kit";
 
 import { parseServerEnv } from "./src/lib/env";
 
-if (!process.env.DATABASE_URL) {
+if (!process.env.MIGRATIONS_DATABASE_URL) {
   if (existsSync(".env.local")) loadEnvFile(".env.local");
   else if (existsSync(".env")) loadEnvFile(".env");
 }
@@ -16,7 +16,7 @@ export default defineConfig({
   schema: "./src/db/schema/index.ts",
   out: "./src/db/migrations",
   dbCredentials: {
-    url: env.DATABASE_URL,
+    url: env.MIGRATIONS_DATABASE_URL,
   },
   strict: true,
 });

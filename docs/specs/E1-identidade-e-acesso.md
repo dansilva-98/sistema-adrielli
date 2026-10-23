@@ -25,9 +25,19 @@ A equipe entra com e-mail, senha e MFA; cada área (`/admin`, `/consultorio`) s�
 
 ## Pré-requisitos (responsável do projeto)
 
-- [ ] SMTP próprio configurado no Supabase Auth de staging e produção (Resend), para que convites e redefinições de senha não dependam do envio padrão do Supabase.
+Decisão de 22/10: Supabase no **plano gratuito** até o go-live. O MFA por aplicativo (TOTP) e o SMTP próprio estão incluídos no gratuito; a tela "Upgrade to Pro" na área de MFA se refere ao MFA por **telefone**, que não usamos. Segundo a documentação oficial, o TOTP "é gratuito e vem ativado em todos os projetos por padrão".
+
+O desenvolvimento do E1 **não depende** de nada abaixo: o Supabase local tem Auth, TOTP e uma caixa de e-mail de teste (Mailpit/Inbucket). Os itens só são necessários para usar staging e produção.
+
+- [ ] Dois projetos no Supabase (staging e produção), na região São Paulo (`sa-east-1`) se ela aparecer na criação. O gratuito permite 2 projetos ativos por organização.
 - [ ] URLs de redirecionamento de staging e produção cadastradas no Supabase Auth.
-- [ ] TOTP habilitado em MFA no Supabase Auth.
+- [ ] Conferir que o TOTP está ativo em Auth → Multi-Factor nos dois projetos.
+- [ ] **Staging:** pode usar o envio de e-mail padrão do Supabase (limitado e só para endereços da equipe do projeto). Basta para convidar a própria equipe.
+- [ ] **Produção (antes do go-live):** domínio próprio verificado no Resend (SPF, DKIM, DMARC) e SMTP do Resend configurado no Supabase Auth.
+
+## Instrução sobre pré-requisitos
+
+Não espere os itens acima para implementar. Desenvolva e teste tudo contra o Supabase local. A verificação em staging fica para depois que a responsável criar os projetos.
 
 ## Fora do escopo
 
@@ -43,6 +53,13 @@ A equipe entra com e-mail, senha e MFA; cada área (`/admin`, `/consultorio`) s�
 - `app_runtime` recebe `USAGE` nos 5 schemas e, nas tabelas, só os privilégios que cada uma precisa (definidos nas migrations de cada tabela).
 - Separar as variáveis: `DATABASE_URL` (runtime, `app_runtime`) e `MIGRATIONS_DATABASE_URL` (dono, usado só pelo drizzle-kit e pelo CI). Atualizar `env.ts`, `.env.example`, pipeline e README.
 - A senha de `app_runtime` em staging e produção é definida pela responsável, fora do repositório.
+
+### T1.1b — Backup local inclui os usuários de autenticação
+
+Herdado da auditoria do E0, rodada 3. Hoje o `pnpm db:backup` usa `supabase db dump`, que por padrão não inclui o schema `auth`. Como `identity.users` passa a referenciar `auth.users`, um backup sem esses usuários não restaura.
+
+- O `db:backup` passa a incluir os dados de `auth.users`, e de `auth.identities` e `auth.mfa_factors` se forem usados.
+- Teste manual descrito no PR: num banco local de rascunho criado só para isso (nunca o de desenvolvimento nem o de testes), restaurar o backup e conferir que `identity.users` e `auth.users` voltam consistentes.
 
 ### T1.2 — Tabelas
 

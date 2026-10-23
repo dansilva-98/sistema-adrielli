@@ -36,8 +36,10 @@ if (existsSync(".env.local")) {
   process.exit(0);
 }
 
-function withDatabase(connectionString, databaseName) {
+function asAppRuntime(connectionString, databaseName) {
   const url = new URL(connectionString);
+  url.username = "app_runtime";
+  url.password = "app-runtime-local";
   url.pathname = `/${databaseName}`;
   return url.toString();
 }
@@ -45,8 +47,9 @@ function withDatabase(connectionString, databaseName) {
 const status = readStatus();
 const databaseUrl = valueOf(status, "DB_URL");
 const lines = [
-  `DATABASE_URL=${databaseUrl}`,
-  `TEST_DATABASE_URL=${withDatabase(databaseUrl, "adrielli_flores_test")}`,
+  `DATABASE_URL=${asAppRuntime(databaseUrl, "postgres")}`,
+  `MIGRATIONS_DATABASE_URL=${databaseUrl}`,
+  `TEST_DATABASE_URL=${asAppRuntime(databaseUrl, "adrielli_flores_test")}`,
   `NEXT_PUBLIC_SUPABASE_URL=${valueOf(status, "API_URL")}`,
   `NEXT_PUBLIC_SUPABASE_ANON_KEY=${valueOf(status, "ANON_KEY")}`,
   `SUPABASE_SERVICE_ROLE_KEY=${valueOf(status, "SERVICE_ROLE_KEY")}`,
@@ -54,6 +57,7 @@ const lines = [
   "NEXT_PUBLIC_SENTRY_DSN=https://public@o0.ingest.sentry.io/0",
   "APP_ENV=development",
   "NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000",
+  "STAFF_SESSION_SECRET=local-staff-session-secret-32chars",
   "",
 ];
 

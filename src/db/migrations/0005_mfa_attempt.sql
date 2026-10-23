@@ -1,0 +1,1 @@
+ALTER TYPE "identity"."login_attempt_kind" ADD VALUE 'MFA';

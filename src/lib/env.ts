@@ -13,9 +13,11 @@ const httpUrl = z.url();
 
 export const serverEnvSchema = z.object({
   DATABASE_URL: postgresUrl,
+  MIGRATIONS_DATABASE_URL: postgresUrl,
   SUPABASE_SERVICE_ROLE_KEY: requiredText,
   SENTRY_DSN: httpUrl,
   APP_ENV: z.enum(["development", "staging", "production"]),
+  STAFF_SESSION_SECRET: requiredText.min(32),
 });
 
 export const clientEnvSchema = z.object({
@@ -46,9 +48,11 @@ function fail(error: z.ZodError): never {
 export function parseServerEnv(source: Record<string, string | undefined>): ServerEnv {
   const parsed = serverEnvSchema.safeParse({
     DATABASE_URL: source.DATABASE_URL,
+    MIGRATIONS_DATABASE_URL: source.MIGRATIONS_DATABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: source.SUPABASE_SERVICE_ROLE_KEY,
     SENTRY_DSN: source.SENTRY_DSN,
     APP_ENV: source.APP_ENV,
+    STAFF_SESSION_SECRET: source.STAFF_SESSION_SECRET,
   });
   if (!parsed.success) fail(parsed.error);
   return parsed.data;
