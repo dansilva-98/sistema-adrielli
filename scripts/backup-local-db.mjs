@@ -90,13 +90,14 @@ const authDataFile = join(directory, ".auth-data.sql");
 const dataFile = join(directory, ".data.sql");
 
 try {
-  dump([], schemaFile);
+  const appSchemas = "identity,content,commerce,clinic,audit,drizzle";
   dump(["--schema", "auth"], authSchemaFile);
   dump(
     ["--data-only", "--schema", "auth", "--exclude", excludedAuthTables],
     authDataFile,
   );
-  dump(["--data-only"], dataFile);
+  dump(["--schema", appSchemas], schemaFile);
+  dump(["--data-only", "--schema", appSchemas], dataFile);
   const authData = readFileSync(authDataFile, "utf8");
   for (const table of AUTH_DATA_TABLES) {
     const header = `Name: ${table}; Type: TABLE DATA; Schema: auth`;
@@ -107,12 +108,12 @@ try {
   writeFileSync(
     target,
     [
-      "-- schema",
-      readFileSync(schemaFile, "utf8"),
       "-- auth schema",
       readFileSync(authSchemaFile, "utf8"),
       "-- auth data",
       authData,
+      "-- schema",
+      readFileSync(schemaFile, "utf8"),
       "-- data",
       readFileSync(dataFile, "utf8"),
     ].join("\n"),
