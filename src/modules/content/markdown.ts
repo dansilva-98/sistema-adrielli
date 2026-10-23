@@ -13,7 +13,10 @@ export type MarkdownBlock =
 const LINK = /^\[([^\]]+)\]\(([^)\s]+)\)/;
 
 export function parseRestrictedMarkdown(source: string): MarkdownBlock[] {
-  const chunks = source.replaceAll("\r\n", "\n").trim().split(/\n{2,}/);
+  const chunks = source
+    .replaceAll("\r\n", "\n")
+    .trim()
+    .split(/\n{2,}/);
   const blocks: MarkdownBlock[] = [];
   for (const block of chunks) {
     const lines = block.split("\n");
