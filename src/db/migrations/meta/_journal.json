@@ -29,6 +29,13 @@
       "when": 1792707444244,
       "tag": "0003_identity_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792713192549,
+      "tag": "0004_login_attempts",
+      "breakpoints": true
     }
   ]
 }

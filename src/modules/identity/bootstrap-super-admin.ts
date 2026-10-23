@@ -106,7 +106,15 @@ export async function bootstrapSuperAdmin(input: {
         values ('user.bootstrap', 'user', ${userId}::uuid, ${JSON.stringify(metadata)}::jsonb)
       `;
     } catch (error) {
-      await input.cancelInvite?.(userId).catch(() => undefined);
+      if (input.cancelInvite) {
+        try {
+          await input.cancelInvite(userId);
+        } catch {
+          console.warn(
+            `Não foi possível cancelar o convite. Remova manualmente o usuário ${userId}.`,
+          );
+        }
+      }
       throw error;
     }
     return { userId };

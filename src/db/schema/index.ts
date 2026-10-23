@@ -1,4 +1,12 @@
-export { identity, staffRole, userKind, userRoles, users } from "./identity";
+export {
+  identity,
+  loginAttemptKind,
+  loginAttempts,
+  staffRole,
+  userKind,
+  userRoles,
+  users,
+} from "./identity";
 export { content } from "./content";
 export { commerce } from "./commerce";
 export { clinic } from "./clinic";

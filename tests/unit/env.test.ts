@@ -9,6 +9,7 @@ const validServer = {
   SUPABASE_SERVICE_ROLE_KEY: "service-role",
   SENTRY_DSN: "https://public@o0.ingest.sentry.io/0",
   APP_ENV: "development",
+  STAFF_SESSION_SECRET: "local-staff-session-secret-32chars",
 };
 
 const validClient = {

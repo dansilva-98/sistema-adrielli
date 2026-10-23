@@ -17,6 +17,7 @@ export const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: requiredText,
   SENTRY_DSN: httpUrl,
   APP_ENV: z.enum(["development", "staging", "production"]),
+  STAFF_SESSION_SECRET: requiredText.min(32),
 });
 
 export const clientEnvSchema = z.object({
@@ -51,6 +52,7 @@ export function parseServerEnv(source: Record<string, string | undefined>): Serv
     SUPABASE_SERVICE_ROLE_KEY: source.SUPABASE_SERVICE_ROLE_KEY,
     SENTRY_DSN: source.SENTRY_DSN,
     APP_ENV: source.APP_ENV,
+    STAFF_SESSION_SECRET: source.STAFF_SESSION_SECRET,
   });
   if (!parsed.success) fail(parsed.error);
   return parsed.data;

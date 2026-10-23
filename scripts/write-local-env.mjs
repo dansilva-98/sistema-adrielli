@@ -57,6 +57,7 @@ const lines = [
   "NEXT_PUBLIC_SENTRY_DSN=https://public@o0.ingest.sentry.io/0",
   "APP_ENV=development",
   "NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000",
+  "STAFF_SESSION_SECRET=local-staff-session-secret-32chars",
   "",
 ];
 
