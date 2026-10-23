@@ -60,7 +60,20 @@ async function withBrowser(secret) {
     await page.getByLabel("E-mail").fill(staffEmail);
     await page.getByLabel("Senha").fill(password);
     await page.getByRole("button", { name: "Entrar" }).click();
-    await page.waitForURL(/\/equipe\/mfa\/verificar/, { timeout: 30000 });
+    try {
+      await page.waitForURL(/\/equipe\/mfa\/verificar/, { timeout: 30000 });
+    } catch {
+      const status = await page
+        .getByRole("status")
+        .textContent()
+        .catch(() => "");
+      note(
+        "V4 login com senha e TOTP",
+        false,
+        `permaneceu em ${new URL(page.url()).pathname}${status?.trim() ? `: ${status.trim().slice(0, 120)}` : ""}`,
+      );
+      return;
+    }
     await page.getByLabel("Código").fill(totp(secret));
     await page.getByRole("button", { name: "Verificar" }).click();
     await page.waitForURL(/\/admin/, { timeout: 30000 });

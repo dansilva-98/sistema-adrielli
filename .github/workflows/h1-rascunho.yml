@@ -44,10 +44,11 @@ jobs:
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.STAGING_NEXT_PUBLIC_SENTRY_DSN }}
           NEXT_PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}
         run: node scripts/h1-import-env.mjs
-      - name: Conferir a conexão de migration
+      - name: Conferir as conexões
         run: node scripts/h1-probe-db.mjs
         env:
           MIGRATIONS_DATABASE_URL: ${{ secrets.STAGING_MIGRATIONS_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
       - name: Aplicar migrations em staging
         run: node scripts/h1-migrate.mjs
         env:
@@ -61,6 +62,12 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.STAGING_NEXT_PUBLIC_SENTRY_DSN }}
           NEXT_PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}
+      - name: Gravar cabeçalhos do arquivo estático
+        run: node --experimental-strip-types scripts/h1-headers.ts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_URL }}
+          SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.STAGING_NEXT_PUBLIC_SENTRY_DSN }}
       - name: Publicar rascunho
         id: deploy
         env:
