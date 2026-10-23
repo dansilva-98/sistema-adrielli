@@ -74,94 +74,79 @@ function formatLastLogin(value: string | null): string {
 }
 
 async function loadAuthUsers(ids: readonly string[]): Promise<Map<string, AuthUser>> {
-  const client = parseClientEnv(process.env);
   const found = new Map<string, AuthUser>();
-  for (let page = 1; page <= 20; page += 1) {
-    const response = await fetch(
-      new URL(
-        `/auth/v1/admin/users?page=${page}&per_page=200`,
-        client.NEXT_PUBLIC_SUPABASE_URL,
-      ),
-      {
-        headers: {
-          Authorization: `Bearer ${serverEnv.SUPABASE_SERVICE_ROLE_KEY}`,
-          apikey: serverEnv.SUPABASE_SERVICE_ROLE_KEY,
-        },
-        cache: "no-store",
-      },
-    );
-    if (!response.ok) {
-      throw new Error(`Falha ao consultar o acesso da equipe (${response.status}).`);
-    }
-    const body: unknown = await response.json();
-    const usersPage = readUsers(body);
-    for (const user of usersPage) {
-      if (user.id) found.set(user.id, user);
-    }
-    if (usersPage.length < 200) break;
-  }
   await Promise.all(
     ids.map(async (id) => {
-      const current = found.get(id) ?? { id };
-      current.factors = await loadFactors(id);
-      found.set(id, current);
+      const [account, factors] = await Promise.all([loadAuthUser(id), loadFactors(id)]);
+      account.factors = factors;
+      found.set(id, account);
     }),
   );
   return found;
+}
+
+async function loadAuthUser(userId: string): Promise<AuthUser> {
+  const client = parseClientEnv(process.env);
+  const response = await fetch(
+    new URL(`/auth/v1/admin/users/${userId}`, client.NEXT_PUBLIC_SUPABASE_URL),
+    { headers: authHeaders(), cache: "no-store" },
+  );
+  if (response.status === 404) return { id: userId };
+  if (!response.ok) {
+    throw new Error(`Falha ao consultar o acesso da equipe (${response.status}).`);
+  }
+  const body: unknown = await response.json();
+  if (typeof body !== "object" || body === null) return { id: userId };
+  const lastLogin = "last_sign_in_at" in body ? body.last_sign_in_at : null;
+  return {
+    id: userId,
+    last_sign_in_at: typeof lastLogin === "string" ? lastLogin : null,
+  };
+}
+
+function authHeaders(): { Authorization: string; apikey: string } {
+  return {
+    Authorization: `Bearer ${serverEnv.SUPABASE_SERVICE_ROLE_KEY}`,
+    apikey: serverEnv.SUPABASE_SERVICE_ROLE_KEY,
+  };
 }
 
 async function loadFactors(userId: string): Promise<AuthUser["factors"]> {
   const client = parseClientEnv(process.env);
   const response = await fetch(
     new URL(`/auth/v1/admin/users/${userId}/factors`, client.NEXT_PUBLIC_SUPABASE_URL),
-    {
-      headers: {
-        Authorization: `Bearer ${serverEnv.SUPABASE_SERVICE_ROLE_KEY}`,
-        apikey: serverEnv.SUPABASE_SERVICE_ROLE_KEY,
-      },
-      cache: "no-store",
-    },
+    { headers: authHeaders(), cache: "no-store" },
   );
+  if (response.status === 404) return [];
   if (!response.ok) {
     throw new Error(`Falha ao consultar os fatores da equipe (${response.status}).`);
   }
   const body: unknown = await response.json();
   if (Array.isArray(body)) return body;
+  if (typeof body === "object" && body !== null && "factors" in body) {
+    const factors = body.factors;
+    if (Array.isArray(factors)) return factors;
+  }
   return [];
 }
 
-function readUsers(body: unknown): AuthUser[] {
-  if (typeof body !== "object" || body === null || !("users" in body)) return [];
-  const usersValue = body.users;
-  if (!Array.isArray(usersValue)) return [];
-  return usersValue.filter(
-    (user): user is AuthUser => typeof user === "object" && user !== null,
-  );
-}
-
-async function authUserRequest(userId: string, method: "PUT" | "POST", body?: unknown) {
+async function authUserRequest(userId: string, body: unknown) {
   const client = parseClientEnv(process.env);
-  const path =
-    method === "POST"
-      ? `/auth/v1/admin/users/${userId}/logout`
-      : `/auth/v1/admin/users/${userId}`;
-  const response = await fetch(new URL(path, client.NEXT_PUBLIC_SUPABASE_URL), {
-    method,
-    headers: {
-      Authorization: `Bearer ${serverEnv.SUPABASE_SERVICE_ROLE_KEY}`,
-      apikey: serverEnv.SUPABASE_SERVICE_ROLE_KEY,
-      "Content-Type": "application/json",
+  const response = await fetch(
+    new URL(`/auth/v1/admin/users/${userId}`, client.NEXT_PUBLIC_SUPABASE_URL),
+    {
+      method: "PUT",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  );
   if (!response.ok) throw new Error("Falha ao atualizar o acesso da equipe.");
 }
 
 export async function blockAuthUser(userId: string): Promise<void> {
-  await authUserRequest(userId, "PUT", { ban_duration: "876000h" });
-  await authUserRequest(userId, "POST");
+  await authUserRequest(userId, { ban_duration: "876000h" });
 }
 
 export async function unblockAuthUser(userId: string): Promise<void> {
-  await authUserRequest(userId, "PUT", { ban_duration: "none" });
+  await authUserRequest(userId, { ban_duration: "none" });
 }

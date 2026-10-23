@@ -50,7 +50,7 @@ async function insertAudit(
       ${event.entityType ?? null},
       ${event.entityId ?? null}::uuid,
       ${event.ip ?? null}::inet,
-      ${JSON.stringify(metadata)}::jsonb
+      ${tx.json(metadata)}
     )
   `;
 }

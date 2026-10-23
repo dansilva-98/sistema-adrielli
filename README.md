@@ -57,6 +57,8 @@ No ambiente local, use a conexão direta do Supabase (no exemplo, porta 54322). 
 
 Em cada projeto (local, staging e produção), na configuração da API de dados, não exponha os schemas `identity`, `content`, `commerce`, `clinic` e `audit`. O `supabase/config.toml` local também não os lista.
 
+O convite da equipe usa o modelo `supabase/templates/invite.html`, com o link `{{ .SiteURL }}/equipe/primeiro-acesso?token_hash={{ .TokenHash }}`. No Supabase local isso vem do `config.toml`. Em staging e produção o mesmo assunto, o mesmo HTML e a URL `https://<domínio>/equipe/primeiro-acesso` na lista de redirecionamentos precisam ser configurados no painel do Auth. Sem isso, a pessoa convidada não consegue criar a senha.
+
 Checklist do banco e o padrão de RLS: `src/db/README.md`.
 
 ## Pipeline

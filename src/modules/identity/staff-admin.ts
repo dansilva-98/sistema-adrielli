@@ -1,6 +1,8 @@
 import type postgres from "postgres";
 import { z } from "zod";
 
+import type { AuditAction } from "@/db/audit-actions";
+import { recordAudit } from "@/modules/audit/record";
 import { isStaffRole, STAFF_ROLES, type StaffRole } from "@/modules/identity/access";
 
 const nameSchema = z.string().trim().min(1).max(80);
@@ -79,26 +81,26 @@ async function lockActiveSuperAdmins(tx: Tx): Promise<string[]> {
   return rows.map((row) => row.id);
 }
 
-async function insertAudit(
+function writeAudit(
   tx: Tx,
   input: {
     actorId: string;
-    action: string;
+    action: AuditAction;
     targetId: string;
     ip: string | null;
   },
 ): Promise<void> {
-  await tx`
-    insert into audit.audit_log (actor_user_id, action, entity_type, entity_id, ip, metadata)
-    values (
-      ${input.actorId}::uuid,
-      ${input.action},
-      'user',
-      ${input.targetId}::uuid,
-      ${input.ip}::inet,
-      '{}'::jsonb
-    )
-  `;
+  return recordAudit(
+    {
+      action: input.action,
+      actorUserId: input.actorId,
+      entityType: "user",
+      entityId: input.targetId,
+      ip: input.ip,
+      metadata: {},
+    },
+    tx,
+  );
 }
 
 export async function disableStaff(
@@ -141,7 +143,7 @@ export async function disableStaff(
         returning id
       `;
       if (updated.length === 0) throw new StaffAdminError("missing");
-      await insertAudit(tx, {
+      await writeAudit(tx, {
         actorId: input.actorId,
         action: "user.disabled",
         targetId: input.targetId,
@@ -181,7 +183,7 @@ export async function enableStaff(
         returning id
       `;
       if (updated.length === 0) throw new StaffAdminError("missing");
-      await insertAudit(tx, {
+      await writeAudit(tx, {
         actorId: input.actorId,
         action: "user.enabled",
         targetId: input.targetId,
@@ -235,7 +237,7 @@ export async function replaceStaffRoles(
         where user_id = ${input.targetId}::uuid
           and role = ${role}::identity.staff_role
       `;
-      await insertAudit(tx, {
+      await writeAudit(tx, {
         actorId: input.actorId,
         action: "user.role.revoked",
         targetId: input.targetId,
@@ -251,7 +253,7 @@ export async function replaceStaffRoles(
           ${input.actorId}::uuid
         )
       `;
-      await insertAudit(tx, {
+      await writeAudit(tx, {
         actorId: input.actorId,
         action: "user.role.granted",
         targetId: input.targetId,
@@ -293,14 +295,14 @@ export async function inviteStaffMember(
           )
         `;
       }
-      await insertAudit(tx, {
+      await writeAudit(tx, {
         actorId: input.actorId,
         action: "user.invited",
         targetId: userId,
         ip: input.ip,
       });
       for (let index = 0; index < parsed.roles.length; index += 1) {
-        await insertAudit(tx, {
+        await writeAudit(tx, {
           actorId: input.actorId,
           action: "user.role.granted",
           targetId: userId,

@@ -172,6 +172,9 @@ export async function removeStaff(userId: string): Promise<void> {
   loadLocalEnv();
   const sql = ownerSql();
   try {
+    await sql`
+      update identity.user_roles set granted_by = null where granted_by = ${userId}::uuid
+    `;
     await sql`delete from identity.user_roles where user_id = ${userId}::uuid`;
     await sql`delete from identity.users where id = ${userId}::uuid`;
   } finally {
