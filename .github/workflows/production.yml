@@ -69,3 +69,5 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SENTRY_DSN }}
           NEXT_PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}
+      - name: Conferir a produção
+        run: node scripts/check-production-site.mjs
