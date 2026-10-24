@@ -15,7 +15,7 @@ O Cursor não cria contas nem acessa painéis de fornecedores. Antes de começar
 
 - [ ] Repositório no GitHub.
 - [ ] Dois projetos no Supabase (staging e produção), na região de São Paulo se disponível no plano.
-- [ ] Projeto na Vercel ligado ao repositório, em plano que permita uso comercial.
+- [ ] Site na Netlify, no plano gratuito, sem deploy automático pelo Git.
 - [ ] Projeto no Sentry.
 - [ ] Conta no Resend com o domínio próprio verificado (SPF, DKIM, DMARC). Pode ficar pronto até o E5.
 
@@ -73,7 +73,7 @@ Execute na ordem. Um PR por tarefa.
 ### T0.6 — Pipeline (GitHub Actions)
 
 - **Em todo pull request**: instalar dependências, lint, typecheck, testes de unidade, testes de integração (com a stack local do Supabase CLI no CI, porque um Postgres puro não tem os papéis `anon` e `authenticated` usados pelas migrations), build, teste de fumaça E2E. Qualquer falha bloqueia o merge.
-- **Merge na branch principal**: aplicar migrations no banco de **staging** (segredo do CI) e deploy de staging pela Vercel.
+- **Merge na branch principal**: aplicar migrations no banco de **staging** (segredo do CI) e rascunho de staging na Netlify, só quando `STAGING_ENABLED` estiver ligado.
 - **Produção**: workflow manual (`workflow_dispatch`) que aplica migrations em produção e promove o deploy. Exige aprovação de ambiente protegido no GitHub.
 - Nenhuma migration roda em produção automaticamente.
 - Dependabot (ou equivalente) ligado para atualizações de segurança.

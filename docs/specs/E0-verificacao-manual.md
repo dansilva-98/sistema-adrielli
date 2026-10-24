@@ -1,6 +1,6 @@
 # Verificações manuais do E0
 
-Automatizado quando dá. O que depende de GitHub, Vercel ou de um build quebrado de propósito fica aqui.
+Automatizado quando dá. O que depende de GitHub, da Netlify ou de um build quebrado de propósito fica aqui.
 
 ## A1 — Subir do zero
 
@@ -39,11 +39,11 @@ Para demonstrar, abra um PR com um teste que falha e confirme que o merge fica b
 
 ## A7 — Staging e produção
 
-- Push em `main` dispara `.github/workflows/staging.yml`: migration no banco de staging e `vercel deploy` (Preview). O plano Hobby não tem ambiente customizado; as variáveis desse deploy ficam no escopo Preview da Vercel.
-- Produção só em `.github/workflows/production.yml`, disparo manual. O job usa o ambiente `production` e, depois das migrations, roda `vercel deploy --prod`.
+- Push em `main` dispara `.github/workflows/staging.yml` somente se a variável `STAGING_ENABLED` do ambiente `staging` for `true`. O job aplica a migration e publica um rascunho na Netlify (`netlify deploy`, sem `--prod`).
+- Produção só em `.github/workflows/production.yml`, disparo manual, na `main`. O job usa o ambiente `production` e, depois das migrations, roda `netlify deploy --prod`.
 - Em Settings → Environments → production, marque required reviewers. Sem essa aprovação o workflow não publica.
 - Nenhuma action aplica migration de produção no push.
-- `vercel.json` desliga o deploy automático da integração Git.
+- O site da Netlify não fica ligado ao Git. Um push não publica sozinho.
 
 ## A12 — Segredo fora do bundle
 

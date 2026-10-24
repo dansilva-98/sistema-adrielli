@@ -3,17 +3,25 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LoginDecision, SignedInAuth } from "./login";
 
 export function sessionIdFromAccessToken(accessToken: string): string | null {
+  const sessionId = readAccessTokenPayload(accessToken)?.session_id;
+  return typeof sessionId === "string" && sessionId ? sessionId : null;
+}
+
+export function aalFromAccessToken(accessToken: string): "aal1" | "aal2" {
+  return readAccessTokenPayload(accessToken)?.aal === "aal2" ? "aal2" : "aal1";
+}
+
+function readAccessTokenPayload(
+  accessToken: string,
+): { session_id?: unknown; aal?: unknown } | null {
   const payload = accessToken.split(".")[1];
   if (!payload) return null;
   try {
     const parsed: unknown = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
-    if (typeof parsed !== "object" || parsed === null || !("session_id" in parsed))
-      return null;
-    return typeof parsed.session_id === "string" && parsed.session_id
-      ? parsed.session_id
-      : null;
+    if (typeof parsed !== "object" || parsed === null) return null;
+    return parsed;
   } catch {
     return null;
   }

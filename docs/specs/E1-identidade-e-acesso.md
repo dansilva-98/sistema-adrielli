@@ -154,7 +154,7 @@ Módulo `audit` com `recordAudit(event, tx?)`:
 
 - Quando recebe uma transação, grava nela: se a auditoria falhar, a operação inteira falha (usar em mudanças de papel, convite, desativação).
 - Eventos de login e acesso negado não bloqueiam o usuário se a gravação falhar, mas a falha vai para o Sentry.
-- IP obtido do cabeçalho confiável da Vercel (`x-forwarded-for`, primeiro valor).
+- IP obtido do cabeçalho confiável da Netlify (`x-nf-client-connection-ip`). Fora da Netlify, o primeiro valor de `x-forwarded-for`.
 
 Eventos deste épico (`action`):
 `user.bootstrap`, `auth.login.success`, `auth.login.failure`, `auth.logout`, `auth.session.expired`, `auth.mfa.enrolled`, `auth.mfa.failure`, `auth.password.reset`, `user.invited`, `user.role.granted`, `user.role.revoked`, `user.disabled`, `user.enabled`, `access.denied`.

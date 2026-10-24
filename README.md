@@ -7,7 +7,7 @@ Monólito modular da plataforma. Este repositório está no E0: fundação, sem 
 - Node.js 24
 - pnpm 10 (`corepack prepare pnpm@10.18.2 --activate`, ou o binário local)
 - Docker, para `supabase start`
-- Contas de Supabase, Vercel, Sentry e GitHub ficam com a responsável do projeto. O código não cria essas contas.
+- Contas de Supabase, Netlify, Sentry e GitHub ficam com a responsável do projeto. O código não cria essas contas.
 
 ## Do zero até a aplicação
 
@@ -49,9 +49,9 @@ Se o Supabase local ainda não estiver no ar, copie `.env.example` para `.env.lo
 
 Estão em `.env.example`. Valor ausente ou inválido impede a subida e a mensagem cita o nome da variável, não o valor.
 
-`DATABASE_URL` é a conexão de runtime, com o papel `app_runtime`. `MIGRATIONS_DATABASE_URL` é a conexão do dono, usada só pelo `drizzle-kit` e pelo CI. A senha de `app_runtime` em staging e produção fica fora do repositório: os segredos são `STAGING_MIGRATIONS_DATABASE_URL` e `PRODUCTION_MIGRATIONS_DATABASE_URL`. `TEST_DATABASE_URL` aponta para o banco `adrielli_flores_test` com o mesmo papel de runtime.
+`DATABASE_URL` é a conexão de runtime, com o papel `app_runtime`. A aplicação não lê `MIGRATIONS_DATABASE_URL`: ela vale só para o `drizzle-kit` e para o passo de migration dos workflows. `TEST_DATABASE_URL` aponta para o banco `adrielli_flores_test` com o mesmo papel de runtime.
 
-No ambiente local, use a conexão direta do Supabase (no exemplo, porta 54322). Em produção, `DATABASE_URL` deve usar o pooler do Supabase em modo transação, porta 6543. O cliente já abre essa conexão com `prepare: false` e `max: 1`.
+No ambiente local, use a conexão direta do Supabase (no exemplo, porta 54322). Em staging e produção, `DATABASE_URL` usa o pooler em modo transação, porta 6543, usuário `app_runtime.<ref>`. O cliente já abre essa conexão com `prepare: false` e `max: 1`. `MIGRATIONS_DATABASE_URL` usa o Session pooler, porta 5432, usuário `postgres.<ref>`, no host que o painel mostra em Connect. A conexão direta do banco hospedado é IPv6; o GitHub Actions só alcança o pooler.
 
 ## Supabase
 
@@ -65,13 +65,23 @@ Checklist do banco e o padrão de RLS: `src/db/README.md`.
 
 ## Pipeline
 
-Os deploys saem só destes workflows. `vercel.json` desliga o deploy automático da integração Git da Vercel, então um push não publica sozinho.
+O Git não publica o site. O site da Netlify não fica ligado ao repositório, então um push não publica sozinho.
 
 - Todo pull request roda `.github/workflows/ci.yml`. Qualquer falha bloqueia o merge depois que a proteção da branch `main` estiver ligada. Passos em `docs/specs/E0-verificacao-manual.md`.
-- Push em `main` roda `.github/workflows/staging.yml`. As migrations usam os segredos do ambiente GitHub `staging`. O deploy é `vercel deploy` (Preview); as variáveis de runtime ficam na Vercel no escopo **Preview**.
-- Produção só pelo workflow manual `Production`, no ambiente GitHub `production`, com revisor obrigatório. Depois das migrations, o job roda `vercel deploy --prod`, que constrói com as variáveis do escopo **Production** da Vercel.
-- O plano atual da Vercel é Hobby. Não há ambiente customizado `staging`. Uso comercial exige plano Pro antes da primeira venda e da divulgação dos serviços.
+- Push em `main` roda `.github/workflows/staging.yml` só quando a variável `STAGING_ENABLED` do ambiente `staging` é `true`. As migrations usam `STAGING_MIGRATIONS_DATABASE_URL`, só nesse passo. O deploy é `netlify deploy` sem `--prod` (rascunho). A URL de migration não é enviada à Netlify.
+- Produção só pelo workflow manual `Production`, na `main`, no ambiente GitHub `production`, com revisor obrigatório. O job exige a variável `NETLIFY_SITE_ID` e não procura nem cria site. Depois das migrations, roda `netlify deploy --prod`.
+- O site se chama `adrielli-flores`. Só o workflow de staging cria esse nome, se ele ainda não existir.
+- A CLI fica fixa em `netlify-cli@27.14.2`. O plugin `@netlify/plugin-nextjs` fica em `5.16.4`. O build roda no GitHub Actions.
 - Dependabot abre PRs de segurança em `.github/dependabot.yml`.
+
+### Créditos da Netlify
+
+O plano gratuito do time tem 300 créditos por mês, compartilhados com os outros sites. No teste da H1.1 o período virava no dia 26.
+
+- Cada publicação de produção custa 15 créditos. Oito publicações custam 120, fora o tráfego.
+- Rascunho não gasta crédito de publicação.
+- O tráfego soma 3 créditos a cada 10 mil requisições e 10 créditos por GB.
+- Se os créditos acabam, o site sai do ar até o período reiniciar. Dá para acompanhar em Team overview → Usage. A API do plano não informa o crédito já gasto; esse número está no painel.
 
 ## Design
 

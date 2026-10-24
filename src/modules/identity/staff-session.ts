@@ -135,7 +135,17 @@ export async function endStaffAccess(input: {
   }
 }
 
-export function clientIp(header: string | null): string | null {
+type HeaderSource = {
+  get(name: string): string | null;
+};
+
+export function clientIp(headers: HeaderSource): string | null {
+  const trusted = headers.get("x-nf-client-connection-ip");
+  if (trusted !== null) return normalizeIp(trusted);
+  return normalizeIp(headers.get("x-forwarded-for"));
+}
+
+function normalizeIp(header: string | null): string | null {
   const first = header?.split(",")[0]?.trim() ?? "";
   if (!first || first.length > 45) return null;
   if (/^[\da-fA-F:.]+$/.test(first)) return first;

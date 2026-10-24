@@ -163,6 +163,26 @@ test.describe("áreas da equipe", () => {
     expect(after).toBeGreaterThan(before);
   });
 
+  test("cookies antigos depois de sair voltam para o login", async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(90_000);
+    const email = `area-sair-${crypto.randomUUID()}@example.com`;
+    created.push(await createStaff(email, "CONTENT_ADMIN"));
+    await signIn(page, email);
+    await expect(page).toHaveURL(/\/admin$/);
+    const saved = await context.cookies();
+    await page.goto("/equipe/sair");
+    await expect(page).toHaveURL(/\/equipe\/entrar/);
+    await context.clearCookies();
+    await context.addCookies(saved);
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/equipe\/entrar/);
+    await expect(page.getByText("Entrar na equipe")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Administração" })).toHaveCount(0);
+  });
+
   test("usuário desativado perde o acesso na próxima requisição", async ({
     page,
     context,

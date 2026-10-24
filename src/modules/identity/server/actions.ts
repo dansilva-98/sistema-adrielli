@@ -44,7 +44,7 @@ async function signInWithPassword(email: string, password: string) {
 
 async function requestIp(): Promise<string | null> {
   const headerStore = await headers();
-  return clientIp(headerStore.get("x-forwarded-for"));
+  return clientIp(headerStore);
 }
 
 export async function loginAction(

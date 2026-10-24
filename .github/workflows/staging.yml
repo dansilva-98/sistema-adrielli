@@ -3,10 +3,15 @@ name: Staging
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: staging
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    if: vars.STAGING_ENABLED == 'true'
+    if: vars.STAGING_ENABLED == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: staging
     steps:
@@ -20,22 +25,48 @@ jobs:
           cache: pnpm
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
-      - name: Aplicar migrations em staging
-        run: pnpm exec drizzle-kit migrate
+      - name: Localizar o site
+        id: site
+        run: node scripts/netlify-site.mjs
         env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
+      - name: Publicar variáveis de runtime
+        run: node scripts/netlify-env.mjs
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ steps.site.outputs.id }}
+          NETLIFY_ENV_CONTEXTS: deploy-preview,branch-deploy
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-          MIGRATIONS_DATABASE_URL: ${{ secrets.STAGING_MIGRATIONS_DATABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
           SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN }}
           APP_ENV: staging
+          STAFF_SESSION_SECRET: ${{ secrets.STAGING_STAFF_SESSION_SECRET }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.STAGING_NEXT_PUBLIC_SENTRY_DSN }}
-          NEXT_PUBLIC_SITE_URL: ${{ secrets.STAGING_NEXT_PUBLIC_SITE_URL }}
-          STAFF_SESSION_SECRET: ${{ secrets.STAGING_STAFF_SESSION_SECRET }}
-      - name: Deploy de staging na Vercel
-        run: pnpm dlx vercel@65.1.0 deploy --yes
+          NEXT_PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}
+      - name: Cabeçalhos dos arquivos estáticos
+        run: node --experimental-strip-types scripts/netlify-headers.ts
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          APP_ENV: staging
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_URL }}
+          SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.STAGING_NEXT_PUBLIC_SENTRY_DSN }}
+      - name: Aplicar migrations em staging
+        run: pnpm exec drizzle-kit migrate
+        env:
+          MIGRATIONS_DATABASE_URL: ${{ secrets.STAGING_MIGRATIONS_DATABASE_URL }}
+      - name: Publicar rascunho na Netlify
+        run: pnpm --package=netlify-cli@27.14.2 dlx netlify deploy --build --context deploy-preview --site ${{ steps.site.outputs.id }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+          SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN }}
+          APP_ENV: staging
+          STAFF_SESSION_SECRET: ${{ secrets.STAGING_STAFF_SESSION_SECRET }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.STAGING_NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}
