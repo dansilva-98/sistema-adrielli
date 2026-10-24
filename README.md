@@ -73,6 +73,9 @@ O Git não publica o site. O site da Netlify não fica ligado ao repositório, e
 - O site se chama `adrielli-flores`. Só o workflow de staging cria esse nome, se ele ainda não existir.
 - A CLI fica fixa em `netlify-cli@27.14.2`. O plugin `@netlify/plugin-nextjs` fica em `5.16.4`. O build roda no GitHub Actions.
 - Dependabot abre PRs de segurança em `.github/dependabot.yml`.
+- `.github/workflows/keep-database-awake.yml` chama `GET /api/health` da produção e do staging uma vez por dia, às 06:00 em America/Sao_Paulo (09:00 UTC). O health consulta o banco, então o projeto gratuito da Supabase não fica sete dias sem atividade. As URLs são as variáveis de repositório `PRODUCTION_PUBLIC_URL` e `STAGING_PUBLIC_URL`. Não são segredos e não ficam no arquivo do workflow. Se uma delas não responder `{ "status": "ok" }`, o job falha e o GitHub avisa como em qualquer workflow que falha.
+
+O GitHub desativa workflows agendados de repositório público que fica 60 dias sem atividade (sem push e sem outra atividade no repositório). A pessoa dona do repositório recebe um e-mail. Para reativar: abra a aba Actions, escolha o workflow **Banco ativo** e clique em **Enable workflow**. Um commit novo no repositório também volta a permitir o agendamento. A rotina só passa a rodar sozinha depois que este workflow está na `main`.
 
 ### Créditos da Netlify
 
