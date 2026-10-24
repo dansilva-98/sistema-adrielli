@@ -1,4 +1,14 @@
 export const SITE_NAME = "adrielli-flores";
+export const STAGING_PUBLIC_URL = "https://staging--adrielli-flores.netlify.app";
+export function publicSiteUrl(input) {
+  if (input.mode !== "production") return STAGING_PUBLIC_URL;
+  const url = input.siteUrl?.trim() ?? "";
+  if (!url) throw new Error("URL do site de produção ausente.");
+  if (url === STAGING_PUBLIC_URL) {
+    throw new Error("Produção não usa o endereço de staging.");
+  }
+  return url;
+}
 
 export function assertExactSiteName(name) {
   if (name === "landingpageadrielliflores") {

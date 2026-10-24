@@ -1,0 +1,24 @@
+name: Banco ativo
+
+on:
+  schedule:
+    # 09:00 UTC = 06:00 em America/Sao_Paulo, o ano todo.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Consultar o health público
+        run: node scripts/keep-database-awake.mjs
+        env:
+          PRODUCTION_PUBLIC_URL: ${{ vars.PRODUCTION_PUBLIC_URL }}
+          STAGING_PUBLIC_URL: ${{ vars.STAGING_PUBLIC_URL }}
