@@ -35,3 +35,7 @@ Os nomes das variáveis de repositório são `PRODUCTION_PUBLIC_URL` e `STAGING_
 ## Fora desta máquina
 
 Docker não estava instalado, então `supabase start` não rodou aqui. Não há remoto GitHub: proteção de branch, Dependabot e os workflows de staging e produção estão no repositório e ainda não foram executados.
+
+## L1.2 — texto de privacidade
+
+O texto de `/privacidade` é um rascunho para a responsável revisar antes do lançamento. Não é orientação jurídica. A spec não traz nome jurídico completo, CPF, CNPJ nem endereço da controladora: a página usa a marca Adrielli Flores e o `contact_email` do CMS. Confirmar o texto e se o aviso de rascunho deve sair da página depois da aprovação.

@@ -44,7 +44,9 @@ export function robotsPolicy(
 
 export function publicSitemap(siteUrl: string): MetadataRoute.Sitemap {
   const base = siteUrl.endsWith("/") ? siteUrl.slice(0, -1) : siteUrl;
-  return ["/", "/sobre", "/servicos", "/contato", "/materiais"].map((path) => ({
-    url: path === "/" ? `${base}/` : `${base}${path}`,
-  }));
+  return ["/", "/sobre", "/servicos", "/contato", "/materiais", "/privacidade"].map(
+    (path) => ({
+      url: path === "/" ? `${base}/` : `${base}${path}`,
+    }),
+  );
 }

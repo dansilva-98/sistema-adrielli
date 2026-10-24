@@ -60,6 +60,7 @@ describe("indexação", () => {
       { url: "https://adrielli.example/servicos" },
       { url: "https://adrielli.example/contato" },
       { url: "https://adrielli.example/materiais" },
+      { url: "https://adrielli.example/privacidade" },
     ]);
   });
 });

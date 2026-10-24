@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cacheTag } from "next/cache";
+import { connection } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 
 import { sql } from "@/db/client";
@@ -58,4 +59,25 @@ export async function getPublishedFaq(): Promise<PublicFaq[]> {
   "use cache";
   cacheTag(CONTENT_FAQ_TAG);
   return readOrEmpty(() => loadPublishedFaq(sql), [], reportReadFailure);
+}
+
+async function duringRequest<T>(read: () => Promise<T>): Promise<T> {
+  await connection();
+  return read();
+}
+
+export function readPublicSite(): Promise<PublicSite> {
+  return duringRequest(getPublicSite);
+}
+
+export function readPublishedServices(): Promise<PublicService[]> {
+  return duringRequest(getPublishedServices);
+}
+
+export function readPublishedTestimonials(): Promise<PublicTestimonial[]> {
+  return duringRequest(getPublishedTestimonials);
+}
+
+export function readPublishedFaq(): Promise<PublicFaq[]> {
+  return duringRequest(getPublishedFaq);
 }

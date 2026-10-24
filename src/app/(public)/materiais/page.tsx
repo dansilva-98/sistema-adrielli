@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { publicPageMetadata } from "@/modules/content/indexing";
-import { getPublicSite } from "@/modules/content/server/public";
+import { readPublicSite } from "@/modules/content/server/public";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const site = await getPublicSite();
+  const site = await readPublicSite();
   return publicPageMetadata({
     pageName: "Materiais",
     seoTitle: site.seoTitle,
@@ -14,8 +15,16 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export default async function MateriaisPage() {
-  const site = await getPublicSite();
+export default function MateriaisPage() {
+  return (
+    <Suspense fallback={null}>
+      <MateriaisContent />
+    </Suspense>
+  );
+}
+
+async function MateriaisContent() {
+  const site = await readPublicSite();
   return (
     <div className="flex flex-col gap-4">
       <h1 className="font-serif text-4xl">Materiais</h1>
