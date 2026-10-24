@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: staging
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: vars.STAGING_ENABLED == 'true' && github.ref == 'refs/heads/main'

@@ -3,6 +3,10 @@ name: Production
 on:
   workflow_dispatch:
 
+concurrency:
+  group: production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: github.ref == 'refs/heads/main'

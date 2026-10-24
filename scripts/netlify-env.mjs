@@ -4,6 +4,7 @@ const token = required("NETLIFY_AUTH_TOKEN");
 const siteId = required("NETLIFY_SITE_ID");
 const contexts = parseContexts(required("NETLIFY_ENV_CONTEXTS"));
 const accountSlug = await accountSlugForSite();
+const accountId = await accountIdFor(accountSlug);
 
 const keys = [
   "DATABASE_URL",
@@ -80,7 +81,7 @@ function authHeaders() {
 
 function envUrl(key, suffix = "") {
   const query = `site_id=${encodeURIComponent(siteId)}`;
-  const base = `https://api.netlify.com/api/v1/accounts/${accountSlug}/env`;
+  const base = `https://api.netlify.com/api/v1/accounts/${accountId}/env`;
   const path = key ? `${base}/${encodeURIComponent(key)}${suffix}` : base;
   return `${path}?${query}`;
 }
@@ -97,82 +98,76 @@ async function accountSlugForSite() {
   return body.account_slug;
 }
 
+async function accountIdFor(slug) {
+  const response = await fetch(
+    `https://api.netlify.com/api/v1/accounts/${encodeURIComponent(slug)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok)
+    throw new Error(`Não foi possível ler a conta: HTTP ${response.status}`);
+  const body = await response.json();
+  if (typeof body.id !== "string" || body.id.length === 0) {
+    throw new Error("A conta não informou o id.");
+  }
+  return body.id;
+}
+
+async function siteEnvVars() {
+  const response = await fetch(envUrl(), { headers: authHeaders() });
+  if (!response.ok) throw new Error(`falha ao listar HTTP ${response.status}`);
+  const body = await response.json();
+  if (!Array.isArray(body)) throw new Error("A lista de variáveis não veio em lista.");
+  return body;
+}
+
 async function upsert(key, value) {
-  const current = await fetch(envUrl(key), { headers: authHeaders() });
-  if (current.status === 404) {
+  const listed = await siteEnvVars();
+  const current = listed.find((item) => item?.key === key);
+  if (!current) {
     await createVar(key, value);
     return;
   }
-  if (!current.ok) throw new Error(`falha ${key} HTTP ${current.status}`);
-  const body = await current.json();
-  const values = Array.isArray(body.values) ? body.values : [];
   for (const context of contexts) {
-    const replaced = await writeContext(key, value, context, values);
-    if (replaced) return;
+    await writeContext(key, value, context);
   }
+  const values = Array.isArray(current.values) ? current.values : [];
   for (const item of values) {
     if (item.context === "all" && item.id) await deleteValue(key, item.id);
   }
 }
 
 async function createVar(key, value) {
-  const response = await fetch(envUrl(), {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify([
-      {
-        key,
-        values: contexts.map((context) => ({ context, value })),
-      },
-    ]),
-  });
-  if (!response.ok)
-    throw new Error(`falha ${key} HTTP ${response.status} ${await response.text()}`);
+  const payload = {
+    key,
+    values: contexts.map((context) => ({ context, value })),
+  };
+  const created = await postEnv(payload);
+  if (created.ok) return;
+  if (created.status !== 400 && created.status !== 422) {
+    throw new Error(`falha ${key} ao criar HTTP ${created.status}`);
+  }
+  const asList = await postEnv([payload]);
+  if (!asList.ok) throw new Error(`falha ${key} ao criar HTTP ${asList.status}`);
 }
 
-async function writeContext(key, value, context, values) {
-  const found = values.find((item) => item.context === context && item.id);
-  if (found) {
-    const response = await fetch(envUrl(key, `/value/${found.id}`), {
-      method: "PUT",
-      headers: authHeaders(),
-      body: JSON.stringify({ context, value }),
-    });
-    if (!response.ok) {
-      throw new Error(`falha ${key} HTTP ${response.status} ${await response.text()}`);
-    }
-    return false;
-  }
-  const response = await fetch(envUrl(key, "/value"), {
+async function postEnv(payload) {
+  return fetch(envUrl(), {
     method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+async function writeContext(key, value, context) {
+  const response = await fetch(envUrl(key), {
+    method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify({ context, value }),
   });
-  if (response.ok) return false;
-  if (response.status === 404 || response.status === 405) {
-    await replaceWhenSafe(key, value, values);
-    return true;
+  await response.body?.cancel();
+  if (!response.ok) {
+    throw new Error(`falha ${key} ao atualizar HTTP ${response.status}`);
   }
-  throw new Error(`falha ${key} HTTP ${response.status} ${await response.text()}`);
-}
-
-async function replaceWhenSafe(key, value, values) {
-  const foreign = values.filter(
-    (item) => item.context !== "all" && !contexts.includes(item.context),
-  );
-  if (foreign.length > 0) {
-    throw new Error(`falha ${key}: há outro contexto e ele não foi alterado`);
-  }
-  const response = await fetch(envUrl(key), {
-    method: "PUT",
-    headers: authHeaders(),
-    body: JSON.stringify({
-      key,
-      values: contexts.map((context) => ({ context, value })),
-    }),
-  });
-  if (!response.ok)
-    throw new Error(`falha ${key} HTTP ${response.status} ${await response.text()}`);
 }
 
 async function deleteValue(key, id) {
