@@ -126,11 +126,10 @@ async function upsert(key, value) {
     await createVar(key, value);
     return;
   }
-  const values = Array.isArray(current.values) ? current.values : [];
   for (const context of contexts) {
-    const replaced = await writeContext(key, value, context, values);
-    if (replaced) return;
+    await writeContext(key, value, context);
   }
+  const values = Array.isArray(current.values) ? current.values : [];
   for (const item of values) {
     if (item.context === "all" && item.id) await deleteValue(key, item.id);
   }
@@ -158,49 +157,16 @@ async function postEnv(payload) {
   });
 }
 
-async function writeContext(key, value, context, values) {
-  const found = values.find((item) => item.context === context && item.id);
-  if (found) {
-    const response = await fetch(envUrl(key, `/value/${found.id}`), {
-      method: "PUT",
-      headers: authHeaders(),
-      body: JSON.stringify({ context, value }),
-    });
-    if (!response.ok) {
-      throw new Error(`falha ${key} ao atualizar HTTP ${response.status}`);
-    }
-    return false;
-  }
-  const response = await fetch(envUrl(key, "/value"), {
-    method: "POST",
+async function writeContext(key, value, context) {
+  const response = await fetch(envUrl(key), {
+    method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify({ context, value }),
   });
-  if (response.ok) return false;
-  if (response.status === 404 || response.status === 405) {
-    await replaceWhenSafe(key, value, values);
-    return true;
+  await response.body?.cancel();
+  if (!response.ok) {
+    throw new Error(`falha ${key} ao atualizar HTTP ${response.status}`);
   }
-  throw new Error(`falha ${key} ao incluir HTTP ${response.status}`);
-}
-
-async function replaceWhenSafe(key, value, values) {
-  const foreign = values.filter(
-    (item) => item.context !== "all" && !contexts.includes(item.context),
-  );
-  if (foreign.length > 0) {
-    throw new Error(`falha ${key}: há outro contexto e ele não foi alterado`);
-  }
-  const response = await fetch(envUrl(key), {
-    method: "PUT",
-    headers: authHeaders(),
-    body: JSON.stringify({
-      key,
-      values: contexts.map((context) => ({ context, value })),
-    }),
-  });
-  if (!response.ok)
-    throw new Error(`falha ${key} ao substituir HTTP ${response.status}`);
 }
 
 async function deleteValue(key, id) {
