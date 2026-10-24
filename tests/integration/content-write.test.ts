@@ -16,6 +16,8 @@ import {
   createService,
   createTestimonial,
   moveContent,
+  setContentPublished,
+  updateTestimonial,
   saveSiteSection,
   saveSiteSettings,
 } from "@/modules/content/write";
@@ -47,6 +49,7 @@ describe("escrita de conteúdo", () => {
     if (created.length > 0) {
       await owner`delete from content.services where id in ${owner(created)}`;
     }
+    await owner`delete from content.testimonials where updated_by = ${ACTOR}::uuid`;
     await owner`update content.site_settings set updated_by = null where updated_by = ${ACTOR}::uuid`;
     await owner`delete from identity.users where id = ${ACTOR}::uuid`;
     await owner`delete from auth.users where id = ${ACTOR}::uuid`;
@@ -203,6 +206,48 @@ describe("escrita de conteúdo", () => {
     await expect(
       saveSiteSection(runtime, "contact", contact, actor()),
     ).rejects.toBeInstanceOf(ContentWriteError);
+  });
+
+  it("recusa publicar sem data e recusa apagar o consentimento já gravado", async () => {
+    const id = await createTestimonial(
+      runtime,
+      {
+        quote: "Um relato guardado",
+        authorLabel: "Mãe",
+        consentAt: null,
+        published: false,
+      },
+      actor(),
+    );
+    await expect(
+      setContentPublished(runtime, "testimonials", id, 1, true, actor()),
+    ).rejects.toMatchObject({ code: "consent" });
+    await updateTestimonial(
+      runtime,
+      id,
+      {
+        quote: "Um relato guardado",
+        authorLabel: "Mãe",
+        consentAt: "2026-01-15",
+        published: false,
+        version: 1,
+      },
+      actor(),
+    );
+    await expect(
+      updateTestimonial(
+        runtime,
+        id,
+        {
+          quote: "Um relato guardado",
+          authorLabel: "Mãe",
+          consentAt: null,
+          published: false,
+          version: 2,
+        },
+        actor(),
+      ),
+    ).rejects.toMatchObject({ code: "withdrawn" });
   });
 
   it("não publica depoimento sem consentimento", async () => {

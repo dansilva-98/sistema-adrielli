@@ -25,16 +25,18 @@ import {
   howSectionSchema,
   isSiteSection,
   searchSectionSchema,
-  serviceSchema,
   siteSettingsSchema,
   testimonialSchema,
   type SiteSection,
 } from "@/modules/content/schema";
+import { planServiceWrite } from "@/modules/content/service-plan";
 import { slugFromTitle } from "@/modules/content/slug";
 import { removeSiteObject, uploadSiteObject } from "@/modules/content/storage";
 import {
   CONTENT_CONFLICT_MESSAGE,
+  CONTENT_CONSENT_MESSAGE,
   CONTENT_SLUG_MESSAGE,
+  CONTENT_WITHDRAW_MESSAGE,
   ContentWriteError,
   createFaq,
   createService,
@@ -43,6 +45,7 @@ import {
   moveContent,
   saveSiteSection,
   saveSiteSettings,
+  setContentPublished,
   updateFaq,
   updateService,
   updateTestimonial,
@@ -218,49 +221,76 @@ function fieldMap(
   return fields;
 }
 
-export async function createServiceAction(formData: FormData): Promise<ContentFormState> {
+export async function createServiceAction(
+  _state: ContentFormState,
+  formData: FormData,
+): Promise<ContentFormState> {
   const actor = await requireStaff({ roles: ADMIN_ROLES });
-  const parsed = serviceSchema.safeParse(readService(formData));
-  if (!parsed.success)
-    return invalid(parsed.error.issues[0]?.message, fieldOf(parsed.error));
+  const plan = planServiceWrite(readService(formData));
+  if (!plan.ok) return invalid(plan.message, plan.field, plan.fields);
+  const image = await uploadPlannedImage(formData, plan.upload);
+  if (!image.ok) return image.state;
   try {
-    const id = await createService(sql, parsed.data, await actorContext(actor.userId));
+    const id = await createService(
+      sql,
+      { ...plan.data, imagePath: image.uploaded ? image.path : plan.data.imagePath },
+      await actorContext(actor.userId),
+    );
     updateTag(CONTENT_SERVICES_TAG);
-    return { ok: true, id };
+    return { ok: true, id, path: image.path, version: 1 };
   } catch (error) {
+    if (image.uploaded) await forgetImages([image.path]);
     return failure(error);
   }
 }
 
-export async function updateServiceAction(formData: FormData): Promise<ContentFormState> {
+export async function updateServiceAction(
+  _state: ContentFormState,
+  formData: FormData,
+): Promise<ContentFormState> {
   const actor = await requireStaff({ roles: ADMIN_ROLES });
   const id = text(formData, "id");
-  const parsed = serviceSchema.safeParse(readService(formData));
-  if (!id || !parsed.success || !parsed.data.version)
-    return invalid("Confira os dados e tente novamente.");
+  const plan = planServiceWrite(readService(formData));
+  if (!id || !plan.ok || !plan.data.version) {
+    return plan.ok
+      ? invalid("Confira os dados e tente novamente.")
+      : invalid(plan.message, plan.field, plan.fields);
+  }
+  const image = await uploadPlannedImage(formData, plan.upload);
+  if (!image.ok) return image.state;
   try {
     const saved = await updateService(
       sql,
       id,
-      { ...parsed.data, version: parsed.data.version },
+      {
+        ...plan.data,
+        imagePath: image.uploaded ? image.path : plan.data.imagePath,
+        version: plan.data.version,
+      },
       await actorContext(actor.userId),
     );
     updateTag(CONTENT_SERVICES_TAG);
-    updateTag(`content-service:${parsed.data.slug}`);
+    updateTag(`content-service:${plan.data.slug}`);
     await forgetImages(saved.removedPaths);
-    return { ok: true, id };
+    return {
+      ok: true,
+      id,
+      path: image.uploaded ? image.path : (plan.data.imagePath ?? ""),
+      version: plan.data.version + 1,
+    };
   } catch (error) {
+    if (image.uploaded) await forgetImages([image.path]);
     return failure(error);
   }
 }
 
 export async function createTestimonialAction(
+  _state: ContentFormState,
   formData: FormData,
 ): Promise<ContentFormState> {
   const actor = await requireStaff({ roles: ADMIN_ROLES });
   const parsed = testimonialSchema.safeParse(readTestimonial(formData));
-  if (!parsed.success)
-    return invalid(parsed.error.issues[0]?.message, fieldOf(parsed.error));
+  if (!parsed.success) return issuesState(parsed.error.issues);
   try {
     const id = await createTestimonial(
       sql,
@@ -274,10 +304,13 @@ export async function createTestimonialAction(
   }
 }
 
-export async function createFaqAction(formData: FormData): Promise<ContentFormState> {
+export async function createFaqAction(
+  _state: ContentFormState,
+  formData: FormData,
+): Promise<ContentFormState> {
   const actor = await requireStaff({ roles: ADMIN_ROLES });
   const parsed = faqSchema.safeParse(readFaq(formData));
-  if (!parsed.success) return invalid(parsed.error.issues[0]?.message);
+  if (!parsed.success) return issuesState(parsed.error.issues);
   try {
     const id = await createFaq(sql, parsed.data, await actorContext(actor.userId));
     updateTag(CONTENT_FAQ_TAG);
@@ -340,35 +373,72 @@ function readSite(formData: FormData) {
 function readService(formData: FormData) {
   const title = text(formData, "title");
   const slug = text(formData, "slug").trim();
+  const file = formData.get("image");
+  const remove = formData.get("removeImage") === "true";
   return {
     title,
     slug: slug || slugFromTitle(title),
     summary: text(formData, "summary"),
     body: text(formData, "body"),
-    imagePath: text(formData, "imagePath"),
+    imagePath: remove ? "" : text(formData, "imagePath"),
     imageAlt: text(formData, "imageAlt"),
     published: formData.get("published") === "true",
     version: numberValue(formData, "version"),
+    hasNewFile: !remove && file instanceof File && file.size > 0,
   };
+}
+
+async function uploadPlannedImage(
+  formData: FormData,
+  upload: boolean,
+): Promise<
+  { ok: true; path: string; uploaded: boolean } | { ok: false; state: ContentFormState }
+> {
+  if (!upload) return { ok: true, path: "", uploaded: false };
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, state: invalid("Escolha uma imagem.", "image") };
+  }
+  try {
+    const webp = await prepareSiteImage(new Uint8Array(await file.arrayBuffer()));
+    return { ok: true, path: await uploadSiteObject(storage, webp), uploaded: true };
+  } catch (error) {
+    if (error instanceof SiteImageError) {
+      const message =
+        error.code === "size"
+          ? "A imagem precisa ter no máximo 4 MB."
+          : "Envie um JPEG, PNG ou WebP.";
+      return { ok: false, state: invalid(message, "image", { image: message }) };
+    }
+    Sentry.captureException(error);
+    return {
+      ok: false,
+      state: invalid("Não foi possível guardar a imagem.", "image", {
+        image: "Não foi possível guardar a imagem.",
+      }),
+    };
+  }
 }
 
 function readTestimonial(formData: FormData) {
   const consent = text(formData, "consentAt");
+  const version = numberValue(formData, "version");
   return {
     quote: text(formData, "quote"),
     authorLabel: text(formData, "authorLabel"),
     consentAt: consent || null,
     published: formData.get("published") === "true",
-    version: numberValue(formData, "version"),
+    ...(version >= 1 ? { version } : {}),
   };
 }
 
 function readFaq(formData: FormData) {
+  const version = numberValue(formData, "version");
   return {
     question: text(formData, "question"),
     answer: text(formData, "answer"),
     published: formData.get("published") === "true",
-    version: numberValue(formData, "version"),
+    ...(version >= 1 ? { version } : {}),
   };
 }
 
@@ -402,9 +472,17 @@ function invalid(
   return { ok: false, message, field, fields };
 }
 
-function fieldOf(error: { issues: { path: PropertyKey[] }[] }): string | undefined {
-  const field = error.issues[0]?.path[0];
-  return typeof field === "string" ? field : undefined;
+function issuesState(
+  issues: { path: PropertyKey[]; message: string }[],
+): ContentFormState {
+  const fields: Record<string, string> = {};
+  for (const issue of issues) {
+    const key = issue.path[0];
+    if (typeof key === "string" && !fields[key]) fields[key] = issue.message;
+  }
+  const first = issues[0];
+  const field = first?.path[0];
+  return invalid(first?.message, typeof field === "string" ? field : undefined, fields);
 }
 
 function failure(error: unknown): ContentFormState {
@@ -416,6 +494,22 @@ function failure(error: unknown): ContentFormState {
   }
   if (error instanceof ContentWriteError && error.code === "missing") {
     return { ok: false, message: "Não foi possível carregar o conteúdo." };
+  }
+  if (error instanceof ContentWriteError && error.code === "consent") {
+    return {
+      ok: false,
+      message: CONTENT_CONSENT_MESSAGE,
+      field: "consentAt",
+      fields: { consentAt: CONTENT_CONSENT_MESSAGE },
+    };
+  }
+  if (error instanceof ContentWriteError && error.code === "withdrawn") {
+    return {
+      ok: false,
+      message: CONTENT_WITHDRAW_MESSAGE,
+      field: "consentAt",
+      fields: { consentAt: CONTENT_WITHDRAW_MESSAGE },
+    };
   }
   Sentry.captureException(error);
   return invalid("Não foi possível salvar. Tente novamente.");
@@ -473,13 +567,17 @@ export async function moveServiceAction(formData: FormData): Promise<ContentForm
 }
 
 export async function updateTestimonialAction(
+  _state: ContentFormState,
   formData: FormData,
 ): Promise<ContentFormState> {
   const actor = await requireStaff({ roles: ADMIN_ROLES });
   const id = text(formData, "id");
   const parsed = testimonialSchema.safeParse(readTestimonial(formData));
-  if (!id || !parsed.success || !parsed.data.version)
-    return invalid(parsed.success ? undefined : parsed.error.issues[0]?.message);
+  if (!id || !parsed.success || !parsed.data.version) {
+    return parsed.success
+      ? invalid("Confira os dados e tente novamente.")
+      : issuesState(parsed.error.issues);
+  }
   try {
     await updateTestimonial(
       sql,
@@ -488,7 +586,7 @@ export async function updateTestimonialAction(
       await actorContext(actor.userId),
     );
     updateTag(CONTENT_TESTIMONIALS_TAG);
-    return { ok: true, id };
+    return { ok: true, id, version: parsed.data.version + 1 };
   } catch (error) {
     return failure(error);
   }
@@ -533,11 +631,18 @@ export async function moveTestimonialAction(
   }
 }
 
-export async function updateFaqAction(formData: FormData): Promise<ContentFormState> {
+export async function updateFaqAction(
+  _state: ContentFormState,
+  formData: FormData,
+): Promise<ContentFormState> {
   const actor = await requireStaff({ roles: ADMIN_ROLES });
   const id = text(formData, "id");
   const parsed = faqSchema.safeParse(readFaq(formData));
-  if (!id || !parsed.success || !parsed.data.version) return invalid();
+  if (!id || !parsed.success || !parsed.data.version) {
+    return parsed.success
+      ? invalid("Confira os dados e tente novamente.")
+      : issuesState(parsed.error.issues);
+  }
   try {
     await updateFaq(
       sql,
@@ -546,7 +651,7 @@ export async function updateFaqAction(formData: FormData): Promise<ContentFormSt
       await actorContext(actor.userId),
     );
     updateTag(CONTENT_FAQ_TAG);
-    return { ok: true, id };
+    return { ok: true, id, version: parsed.data.version + 1 };
   } catch (error) {
     return failure(error);
   }
@@ -560,6 +665,52 @@ export async function deleteFaqAction(formData: FormData): Promise<ContentFormSt
     await deleteContent(sql, "faq", id, await actorContext(actor.userId));
     updateTag(CONTENT_FAQ_TAG);
     return { ok: true, id };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setServicePublishedAction(
+  _state: ContentFormState,
+  formData: FormData,
+): Promise<ContentFormState> {
+  return setPublishedAction("services", CONTENT_SERVICES_TAG, formData);
+}
+
+export async function setTestimonialPublishedAction(
+  _state: ContentFormState,
+  formData: FormData,
+): Promise<ContentFormState> {
+  return setPublishedAction("testimonials", CONTENT_TESTIMONIALS_TAG, formData);
+}
+
+export async function setFaqPublishedAction(
+  _state: ContentFormState,
+  formData: FormData,
+): Promise<ContentFormState> {
+  return setPublishedAction("faq", CONTENT_FAQ_TAG, formData);
+}
+
+async function setPublishedAction(
+  table: "services" | "testimonials" | "faq",
+  tag: string,
+  formData: FormData,
+): Promise<ContentFormState> {
+  const actor = await requireStaff({ roles: ADMIN_ROLES });
+  const id = text(formData, "id");
+  const version = numberValue(formData, "version");
+  if (!id || version < 1) return invalid();
+  try {
+    await setContentPublished(
+      sql,
+      table,
+      id,
+      version,
+      text(formData, "published") === "true",
+      await actorContext(actor.userId),
+    );
+    updateTag(tag);
+    return { ok: true, id, version: version + 1 };
   } catch (error) {
     return failure(error);
   }
