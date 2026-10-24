@@ -51,7 +51,7 @@ Estão em `.env.example`. Valor ausente ou inválido impede a subida e a mensage
 
 `DATABASE_URL` é a conexão de runtime, com o papel `app_runtime`. A aplicação não lê `MIGRATIONS_DATABASE_URL`: ela vale só para o `drizzle-kit` e para o passo de migration dos workflows. `TEST_DATABASE_URL` aponta para o banco `adrielli_flores_test` com o mesmo papel de runtime.
 
-No ambiente local, use a conexão direta do Supabase (no exemplo, porta 54322). Em staging e produção, `DATABASE_URL` usa o pooler em modo transação, porta 6543, usuário `app_runtime.<ref>`. O cliente já abre essa conexão com `prepare: false` e `max: 1`. `MIGRATIONS_DATABASE_URL` usa o Session pooler, porta 5432, usuário `postgres.<ref>`, no host que o painel mostra em Connect. A conexão direta do banco hospedado é IPv6; o GitHub Actions só alcança o pooler.
+No ambiente local, use a conexão direta do Supabase (no exemplo, porta 54322). Em staging e produção, `DATABASE_URL` usa o pooler em modo transação, porta 6543, usuário `app_runtime.<ref>`. O cliente já abre essa conexão com `prepare: false`, `max: 1`, `statement_timeout` de 10 s e `max_lifetime` de 4 min, menor que os 5 min em que o Supavisor fecha a conexão ociosa. A leitura pública desiste em 5 s, mostra o conteúdo vazio e registra a falha no Sentry. `MIGRATIONS_DATABASE_URL` usa o Session pooler, porta 5432, usuário `postgres.<ref>`, no host que o painel mostra em Connect. A conexão direta do banco hospedado é IPv6; o GitHub Actions só alcança o pooler.
 
 ## Supabase
 
