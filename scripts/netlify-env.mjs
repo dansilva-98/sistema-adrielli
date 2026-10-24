@@ -103,7 +103,8 @@ async function accountIdFor(slug) {
     `https://api.netlify.com/api/v1/accounts/${encodeURIComponent(slug)}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
-  if (!response.ok) throw new Error(`Não foi possível ler a conta: HTTP ${response.status}`);
+  if (!response.ok)
+    throw new Error(`Não foi possível ler a conta: HTTP ${response.status}`);
   const body = await response.json();
   if (typeof body.id !== "string" || body.id.length === 0) {
     throw new Error("A conta não informou o id.");
