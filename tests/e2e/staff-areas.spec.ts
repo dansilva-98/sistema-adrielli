@@ -42,6 +42,15 @@ test.describe("áreas da equipe", () => {
     const editor = await page.goto("/admin/conteudo/site");
     expect(editor?.status()).toBe(200);
     await expect(page.getByRole("heading", { name: "Editar site" })).toBeVisible();
+    for (const [path, heading] of [
+      ["/admin/conteudo/servicos", "Serviços"],
+      ["/admin/conteudo/depoimentos", "Depoimentos"],
+      ["/admin/conteudo/perguntas", "Perguntas frequentes"],
+    ] as const) {
+      const opened = await page.goto(path);
+      expect(opened?.status()).toBe(200);
+      await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    }
   });
 
   test("CONTENT_ADMIN salva o topo e confirma antes de sair", async ({ page }) => {
@@ -71,6 +80,32 @@ test.describe("áreas da equipe", () => {
     await expect(page.getByRole("heading", { name: "Editar site" })).toBeVisible();
   });
 
+  test("CONTENT_ADMIN cria uma pergunta e a encontra na lista", async ({ page }) => {
+    test.setTimeout(90_000);
+    const email = `faq-conteudo-${crypto.randomUUID()}@example.com`;
+    created.push(await createStaff(email, "CONTENT_ADMIN"));
+    await signIn(page, email);
+    await expect(page).toHaveURL(/\/admin$/);
+    await page.goto("/admin/conteudo/perguntas");
+    const empty = page.getByText("Nenhuma pergunta ainda.");
+    if ((await empty.count()) > 0) {
+      await page.getByRole("link", { name: "Criar a primeira pergunta" }).click();
+    } else {
+      await page.goto("/admin/conteudo/perguntas/novo");
+    }
+    await expect(page.getByRole("heading", { name: "Nova pergunta" })).toBeVisible();
+    const question = `Pergunta ${crypto.randomUUID().slice(0, 8)}`;
+    await page.getByLabel("Pergunta").fill(question);
+    await page.getByLabel("Resposta").fill("Uma resposta curta.");
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page).toHaveURL(/\/admin\/conteudo\/perguntas\/[0-9a-f-]{36}$/, {
+      timeout: 20_000,
+    });
+    await expect(page.getByLabel("Pergunta")).toHaveValue(question);
+    await page.goto("/admin/conteudo/perguntas");
+    await expect(page.getByText(question)).toBeVisible();
+  });
+
   test("CLINIC_ADMIN abre o consultório e recebe 403 na administração", async ({
     page,
   }) => {
@@ -86,6 +121,10 @@ test.describe("áreas da equipe", () => {
     await expect(page.getByRole("heading", { name: "Consultório" })).toBeVisible();
     await expectDenied(page, "/admin");
     await expectDenied(page, "/admin/conteudo/site");
+    await expectDenied(page, "/admin/conteudo/servicos");
+    await expectDenied(page, "/admin/conteudo/depoimentos");
+    await expectDenied(page, "/admin/conteudo/perguntas");
+    await expectDenied(page, "/admin/conteudo/servicos/novo");
   });
 
   test("SUPER_ADMIN abre as três áreas", async ({ page }) => {

@@ -18,9 +18,12 @@ import type {
 export const CONTENT_CONFLICT_MESSAGE =
   "Este conteúdo foi alterado por outra pessoa. Recarregue para ver a versão atual.";
 export const CONTENT_SLUG_MESSAGE = "Este endereço já está em uso.";
+export const CONTENT_CONSENT_MESSAGE = "Publique só com a data do consentimento.";
+export const CONTENT_WITHDRAW_MESSAGE =
+  "Se a autorização foi retirada, exclua o depoimento.";
 
 export class ContentWriteError extends Error {
-  readonly code: "conflict" | "missing" | "slug";
+  readonly code: "conflict" | "missing" | "slug" | "consent" | "withdrawn";
 
   constructor(code: ContentWriteError["code"]) {
     super(code);
@@ -353,6 +356,16 @@ export async function updateTestimonial(
   actor: Actor,
 ) {
   const updated = await sql.begin(async (tx) => {
+    const current = await tx<{ consent_at: string | null }[]>`
+      select consent_at::text as consent_at
+      from content.testimonials
+      where id = ${id}::uuid
+      for update
+    `;
+    if (!current[0]) throw new ContentWriteError("missing");
+    if (current[0].consent_at && !input.consentAt) {
+      throw new ContentWriteError("withdrawn");
+    }
     const result = await tx`
       update content.testimonials
       set quote = ${input.quote}, author_label = ${input.authorLabel},
@@ -406,6 +419,43 @@ export async function updateFaq(
       throw new ContentWriteError(exists[0] ? "conflict" : "missing");
     }
     await writeAudit(tx, actor, "content.faq.updated", "faq", id);
+  });
+}
+
+export async function setContentPublished(
+  sql: Sql,
+  table: ListTable,
+  id: string,
+  version: number,
+  published: boolean,
+  actor: Actor,
+) {
+  const meta = LIST_ACTIONS[table];
+  await sql.begin(async (tx) => {
+    if (table === "testimonials" && published) {
+      const rows = await tx<{ consent_at: string | null }[]>`
+        select consent_at::text as consent_at
+        from content.testimonials
+        where id = ${id}::uuid
+        for update
+      `;
+      if (!rows[0]) throw new ContentWriteError("missing");
+      if (!rows[0].consent_at) throw new ContentWriteError("consent");
+    }
+    const updated = await tx.unsafe(
+      `update content.${table}
+       set published = $2, version = version + 1, updated_at = now(), updated_by = $3
+       where id = $1 and version = $4`,
+      [id, published, actor.actorId, version],
+    );
+    if (updated.count !== 1) {
+      const exists = await tx.unsafe<{ id: string }[]>(
+        `select id from content.${table} where id = $1`,
+        [id],
+      );
+      throw new ContentWriteError(exists[0] ? "conflict" : "missing");
+    }
+    await writeAudit(tx, actor, meta.updated, meta.entity, id);
   });
 }
 

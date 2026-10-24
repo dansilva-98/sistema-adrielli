@@ -242,6 +242,99 @@ export async function loadPublishedFaq(sql: Sql): Promise<PublicFaq[]> {
   `;
 }
 
+export type StaffService = {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string;
+  body: string;
+  imagePath: string | null;
+  imageAlt: string | null;
+  published: boolean;
+  sortOrder: number;
+  version: number;
+};
+
+export type StaffTestimonial = {
+  id: string;
+  quote: string;
+  authorLabel: string;
+  consentAt: string | null;
+  published: boolean;
+  sortOrder: number;
+  version: number;
+};
+
+export type StaffFaq = {
+  id: string;
+  question: string;
+  answer: string;
+  published: boolean;
+  sortOrder: number;
+  version: number;
+};
+
+export async function loadStaffServices(sql: Sql): Promise<StaffService[]> {
+  return sql<StaffService[]>`
+    select id, title, slug, summary, body, image_path as "imagePath",
+      image_alt as "imageAlt", published, sort_order as "sortOrder", version
+    from content.services
+    order by sort_order, id
+  `;
+}
+
+export async function loadStaffService(
+  sql: Sql,
+  id: string,
+): Promise<StaffService | null> {
+  const rows = await sql<StaffService[]>`
+    select id, title, slug, summary, body, image_path as "imagePath",
+      image_alt as "imageAlt", published, sort_order as "sortOrder", version
+    from content.services
+    where id = ${id}::uuid
+  `;
+  return rows[0] ?? null;
+}
+
+export async function loadStaffTestimonials(sql: Sql): Promise<StaffTestimonial[]> {
+  return sql<StaffTestimonial[]>`
+    select id, quote, author_label as "authorLabel", consent_at::text as "consentAt",
+      published, sort_order as "sortOrder", version
+    from content.testimonials
+    order by sort_order, id
+  `;
+}
+
+export async function loadStaffTestimonial(
+  sql: Sql,
+  id: string,
+): Promise<StaffTestimonial | null> {
+  const rows = await sql<StaffTestimonial[]>`
+    select id, quote, author_label as "authorLabel", consent_at::text as "consentAt",
+      published, sort_order as "sortOrder", version
+    from content.testimonials
+    where id = ${id}::uuid
+  `;
+  return rows[0] ?? null;
+}
+
+export async function loadStaffFaq(sql: Sql): Promise<StaffFaq[]> {
+  return sql<StaffFaq[]>`
+    select id, question, answer, published, sort_order as "sortOrder", version
+    from content.faq
+    order by sort_order, id
+  `;
+}
+
+export async function loadStaffFaqItem(sql: Sql, id: string): Promise<StaffFaq | null> {
+  const rows = await sql<StaffFaq[]>`
+    select id, question, answer, published, sort_order as "sortOrder", version
+    from content.faq
+    where id = ${id}::uuid
+  `;
+  return rows[0] ?? null;
+}
+
 export async function readOrEmpty<T>(
   load: () => Promise<T>,
   empty: T,

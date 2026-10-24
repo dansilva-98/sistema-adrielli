@@ -14,6 +14,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const links: StaffNavLink[] = [
     { href: "/admin", label: "Dashboard", group: null },
     { href: "/admin/conteudo/site", label: "Editar site", group: "CONTEÚDO" },
+    { href: "/admin/conteudo/servicos", label: "Serviços", group: "CONTEÚDO" },
+    { href: "/admin/conteudo/depoimentos", label: "Depoimentos", group: "CONTEÚDO" },
+    { href: "/admin/conteudo/perguntas", label: "Perguntas", group: "CONTEÚDO" },
   ];
   if (profile.roles.includes("SUPER_ADMIN")) {
     links.push({ href: "/admin/usuarios", label: "Usuários", group: "SISTEMA" });
