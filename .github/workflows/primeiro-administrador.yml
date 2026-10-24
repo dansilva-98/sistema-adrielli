@@ -28,14 +28,14 @@ jobs:
           cache: pnpm
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
-      - name: Mascarar o e-mail
-        run: echo "::add-mask::$EMAIL"
-        env:
-          EMAIL: ${{ inputs.email }}
+      - name: Ler e mascarar o e-mail
+        run: |
+          EMAIL=$(jq -r '.inputs.email' "$GITHUB_EVENT_PATH")
+          echo "::add-mask::$EMAIL"
+          echo "EMAIL=$EMAIL" >> "$GITHUB_ENV"
       - name: Criar o primeiro SUPER_ADMIN
         run: pnpm admin:bootstrap -- --email "$EMAIL"
         env:
-          EMAIL: ${{ inputs.email }}
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
           SENTRY_DSN: ${{ secrets.PRODUCTION_SENTRY_DSN }}

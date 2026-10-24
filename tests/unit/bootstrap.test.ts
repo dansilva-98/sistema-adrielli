@@ -25,18 +25,29 @@ describe("bootstrap do SUPER_ADMIN", () => {
     );
   });
 
-  it("o workflow mascara o e-mail e usa o domínio sem www", () => {
+  it("o e-mail sai do evento e não entra em env nem em run", () => {
     const workflow = readFileSync(".github/workflows/primeiro-administrador.yml", "utf8");
+    expect(workflow).toContain(`EMAIL=$(jq -r '.inputs.email' "$GITHUB_EVENT_PATH")`);
     expect(workflow).toContain('echo "::add-mask::$EMAIL"');
+    expect(workflow).toContain('echo "EMAIL=$EMAIL" >> "$GITHUB_ENV"');
     expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: https://adrielliflores.com.br");
-    expect(workflow).not.toContain("www.adrielliflores.com.br");
+    expect(workflow).not.toContain("${{ inputs.email }}");
     const readme = readFileSync("README.md", "utf8");
     expect(readme).toContain("SMTP do Resend já configurado");
     expect(readme).toContain("supabase/templates/invite.html");
     expect(readme).toContain("Este workflow não altera o SMTP.");
+
+    let section = "";
     for (const line of workflow.split("\n")) {
-      if (line.includes("run:")) {
+      if (/^\s+env:\s*$/.test(line)) section = "env";
+      else if (/^\s+run:/.test(line)) section = "run";
+      else if (section && line.trim() !== "" && !line.startsWith(" ")) section = "";
+      if (section === "env" || section === "run") {
+        expect(line).not.toContain("${{ inputs.email }}");
+      }
+      if (section === "env") {
         expect(line).not.toContain("inputs.email");
+        expect(line).not.toMatch(/^\s+EMAIL:/);
       }
     }
   });
