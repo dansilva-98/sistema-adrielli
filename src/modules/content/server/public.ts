@@ -4,7 +4,7 @@ import { cacheTag } from "next/cache";
 import { connection } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 
-import { sql } from "@/db/client";
+import { abandonRuntimeConnection, sql } from "@/db/client";
 import {
   CONTENT_FAQ_TAG,
   CONTENT_SERVICES_TAG,
@@ -22,43 +22,92 @@ import {
   type PublicSite,
   type PublicTestimonial,
 } from "@/modules/content/queries";
+import {
+  loadPublicHome,
+  PUBLIC_READ_TIMEOUT_MS,
+  withPublicReadTimeout,
+} from "@/modules/content/public-read";
 
 function reportReadFailure(error: unknown) {
   Sentry.captureException(error);
 }
 
-export async function getPublicSite(): Promise<PublicSite> {
+function timed<T>(load: () => Promise<T>): Promise<T> {
+  return withPublicReadTimeout(load, PUBLIC_READ_TIMEOUT_MS, abandonRuntimeConnection);
+}
+
+async function cachedPublicSite(): Promise<PublicSite> {
   "use cache";
   cacheTag(CONTENT_SITE_TAG);
-  return readOrEmpty(() => loadPublicSite(sql), EMPTY_PUBLIC_SITE, reportReadFailure);
+  return loadPublicSite(sql);
 }
 
-export async function getPublishedServices(): Promise<PublicService[]> {
+async function cachedPublishedServices(): Promise<PublicService[]> {
   "use cache";
   cacheTag(CONTENT_SERVICES_TAG);
-  return readOrEmpty(() => loadPublishedServices(sql), [], reportReadFailure);
+  return loadPublishedServices(sql);
 }
 
-export async function getPublishedService(slug: string): Promise<PublicService | null> {
+async function cachedPublishedService(slug: string): Promise<PublicService | null> {
   "use cache";
   cacheTag(CONTENT_SERVICES_TAG, `content-service:${slug}`);
+  return loadPublishedServiceBySlug(sql, slug);
+}
+
+async function cachedPublishedTestimonials(): Promise<PublicTestimonial[]> {
+  "use cache";
+  cacheTag(CONTENT_TESTIMONIALS_TAG);
+  return loadPublishedTestimonials(sql);
+}
+
+async function cachedPublishedFaq(): Promise<PublicFaq[]> {
+  "use cache";
+  cacheTag(CONTENT_FAQ_TAG);
+  return loadPublishedFaq(sql);
+}
+
+export function getPublicSite(): Promise<PublicSite> {
+  return readOrEmpty(() => timed(cachedPublicSite), EMPTY_PUBLIC_SITE, reportReadFailure);
+}
+
+export function getPublishedServices(): Promise<PublicService[]> {
+  return readOrEmpty(() => timed(cachedPublishedServices), [], reportReadFailure);
+}
+
+export function getPublishedService(slug: string): Promise<PublicService | null> {
   return readOrEmpty(
-    () => loadPublishedServiceBySlug(sql, slug),
+    () => timed(() => cachedPublishedService(slug)),
     null,
     reportReadFailure,
   );
 }
 
-export async function getPublishedTestimonials(): Promise<PublicTestimonial[]> {
-  "use cache";
-  cacheTag(CONTENT_TESTIMONIALS_TAG);
-  return readOrEmpty(() => loadPublishedTestimonials(sql), [], reportReadFailure);
+export function getPublishedTestimonials(): Promise<PublicTestimonial[]> {
+  return readOrEmpty(() => timed(cachedPublishedTestimonials), [], reportReadFailure);
 }
 
-export async function getPublishedFaq(): Promise<PublicFaq[]> {
-  "use cache";
-  cacheTag(CONTENT_FAQ_TAG);
-  return readOrEmpty(() => loadPublishedFaq(sql), [], reportReadFailure);
+export function getPublishedFaq(): Promise<PublicFaq[]> {
+  return readOrEmpty(() => timed(cachedPublishedFaq), [], reportReadFailure);
+}
+
+export async function loadTimedPublicHome(): Promise<{
+  site: PublicSite;
+  services: PublicService[];
+  testimonials: PublicTestimonial[];
+  faq: PublicFaq[];
+}> {
+  await connection();
+  return loadPublicHome(
+    {
+      site: cachedPublicSite,
+      services: cachedPublishedServices,
+      testimonials: cachedPublishedTestimonials,
+      faq: cachedPublishedFaq,
+    },
+    reportReadFailure,
+    PUBLIC_READ_TIMEOUT_MS,
+    abandonRuntimeConnection,
+  );
 }
 
 async function duringRequest<T>(read: () => Promise<T>): Promise<T> {
