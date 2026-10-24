@@ -53,7 +53,7 @@ jobs:
         env:
           MIGRATIONS_DATABASE_URL: ${{ secrets.PRODUCTION_MIGRATIONS_DATABASE_URL }}
       - name: Publicar produção na Netlify
-        run: pnpm dlx netlify-cli@27.14.2 deploy --build --prod --site ${{ steps.site.outputs.id }}
+        run: pnpm --package=netlify-cli@27.14.2 dlx netlify deploy --build --prod --site ${{ steps.site.outputs.id }}
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
