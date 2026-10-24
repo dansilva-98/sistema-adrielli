@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { ContactBlock } from "@/app/(public)/contact-block";
 import { hasContact } from "@/modules/content/home-sections";
 import { publicPageMetadata } from "@/modules/content/indexing";
-import { getPublicSite } from "@/modules/content/server/public";
+import { readPublicSite } from "@/modules/content/server/public";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const site = await getPublicSite();
+  const site = await readPublicSite();
   return publicPageMetadata({
     pageName: "Contato",
     seoTitle: site.seoTitle,
@@ -15,8 +16,16 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export default async function ContatoPage() {
-  const site = await getPublicSite();
+export default function ContatoPage() {
+  return (
+    <Suspense fallback={null}>
+      <ContatoContent />
+    </Suspense>
+  );
+}
+
+async function ContatoContent() {
+  const site = await readPublicSite();
   return (
     <div className="flex flex-col gap-4">
       <h1 className="font-serif text-4xl">Contato</h1>
