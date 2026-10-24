@@ -37,10 +37,27 @@ describe("site público", () => {
             imageAlt: null,
           },
         ],
-        [{ quote: "Texto", authorLabel: "Ana" }],
-        [{ question: "Como?", answer: "Assim." }],
+        [{ id: "testimonial-1", quote: "Texto", authorLabel: "Ana" }],
+        [{ id: "faq-1", question: "Como?", answer: "Assim." }],
       ),
     ).toEqual(["hero", "about", "services", "how", "testimonials", "faq", "contact"]);
+  });
+
+  it("esconde Como funciona quando as etapas não têm texto", () => {
+    expect(
+      homeSectionKeys(
+        {
+          ...EMPTY_PUBLIC_SITE,
+          howItWorks: [
+            { title: "Contato", body: "" },
+            { title: "Avaliação", body: " " },
+          ],
+        },
+        [],
+        [],
+        [],
+      ),
+    ).toEqual([]);
   });
 
   it("mostra só o começo do texto", () => {

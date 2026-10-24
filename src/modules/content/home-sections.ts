@@ -6,6 +6,10 @@ import type {
   PublicTestimonial,
 } from "@/modules/content/queries";
 
+export function hasHowItWorks(site: PublicSite): boolean {
+  return site.howItWorks.some((step) => step.body.trim().length > 0);
+}
+
 export function hasContact(site: PublicSite): boolean {
   return Boolean(
     site.whatsappUrl ||
@@ -28,7 +32,7 @@ export function homeSectionKeys(
   }
   if (site.aboutTitle || openingText(site.aboutBody)) keys.push("about");
   if (services.length > 0) keys.push("services");
-  if (site.howItWorks.some((step) => step.title || step.body)) keys.push("how");
+  if (hasHowItWorks(site)) keys.push("how");
   if (testimonials.length > 0) keys.push("testimonials");
   if (faq.length > 0) keys.push("faq");
   if (hasContact(site)) keys.push("contact");

@@ -1,6 +1,19 @@
+import type { Metadata } from "next";
+
 import { SitePhoto } from "@/app/(public)/site-photo";
+import { publicPageMetadata } from "@/modules/content/indexing";
 import { RestrictedMarkdown } from "@/modules/content/markdown-view";
-import { getPublishedServices } from "@/modules/content/server/public";
+import { getPublishedServices, getPublicSite } from "@/modules/content/server/public";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getPublicSite();
+  return publicPageMetadata({
+    pageName: "Serviços",
+    seoTitle: site.seoTitle,
+    seoDescription: site.seoDescription,
+    path: "/servicos",
+  });
+}
 
 export default async function ServicosPage() {
   const services = await getPublishedServices();

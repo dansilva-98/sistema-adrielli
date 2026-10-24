@@ -66,8 +66,8 @@ export type PublicService = {
   imageAlt: string | null;
 };
 
-export type PublicTestimonial = { quote: string; authorLabel: string };
-export type PublicFaq = { question: string; answer: string };
+export type PublicTestimonial = { id: string; quote: string; authorLabel: string };
+export type PublicFaq = { id: string; question: string; answer: string };
 
 type Sql = postgres.Sql | postgres.TransactionSql;
 
@@ -226,7 +226,7 @@ export async function loadPublishedServiceBySlug(
 
 export async function loadPublishedTestimonials(sql: Sql): Promise<PublicTestimonial[]> {
   return sql<PublicTestimonial[]>`
-    select quote, author_label as "authorLabel"
+    select id, quote, author_label as "authorLabel"
     from content.testimonials
     where published = true
     order by sort_order, id
@@ -235,7 +235,7 @@ export async function loadPublishedTestimonials(sql: Sql): Promise<PublicTestimo
 
 export async function loadPublishedFaq(sql: Sql): Promise<PublicFaq[]> {
   return sql<PublicFaq[]>`
-    select question, answer
+    select id, question, answer
     from content.faq
     where published = true
     order by sort_order, id
