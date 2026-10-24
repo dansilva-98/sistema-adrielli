@@ -13,10 +13,22 @@ if (!process.env.APP_ENV) {
 const serverEnv = parseServerEnv(process.env);
 const clientEnv = parseClientEnv(process.env);
 
+const supabase = new URL(clientEnv.NEXT_PUBLIC_SUPABASE_URL);
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: supabase.protocol === "https:" ? "https" : "http",
+        hostname: supabase.hostname,
+        port: supabase.port,
+        pathname: "/storage/v1/object/public/site-public/**",
+      },
+    ],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "5mb",

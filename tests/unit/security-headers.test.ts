@@ -27,6 +27,7 @@ describe("security headers", () => {
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'self'");
     expect(csp).toContain("http://127.0.0.1:54321");
+    expect(csp).toContain("img-src 'self' data: blob: http://127.0.0.1:54321");
     expect(csp).toContain("https://o0.ingest.sentry.io");
     expect(csp).toContain("https://o0.ingest.us.sentry.io");
     expect(csp).not.toContain("unsafe-eval");

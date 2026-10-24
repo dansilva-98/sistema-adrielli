@@ -13,6 +13,17 @@ export const AUDIT_ACTIONS = [
   "user.disabled",
   "user.enabled",
   "access.denied",
+  "content.site.updated",
+  "content.service.created",
+  "content.service.updated",
+  "content.service.deleted",
+  "content.testimonial.created",
+  "content.testimonial.updated",
+  "content.testimonial.deleted",
+  "content.faq.created",
+  "content.faq.updated",
+  "content.faq.deleted",
+  "content.image.uploaded",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

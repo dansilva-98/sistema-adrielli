@@ -52,5 +52,13 @@ jobs:
         run: pnpm check:bundle
       - name: Instalar navegador do Playwright
         run: pnpm exec playwright install --with-deps chromium
+      - name: Site com banco vazio
+        run: pnpm exec playwright test tests/e2e/empty-site.spec.ts
+        env:
+          EMPTY_SITE: "1"
       - name: Teste de fumaça
         run: pnpm test:e2e
+      - name: Build sem banco
+        run: pnpm build
+        env:
+          DATABASE_URL: postgresql://127.0.0.1:9/inexistente
