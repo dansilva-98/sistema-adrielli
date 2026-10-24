@@ -4,6 +4,7 @@ import postgres from "postgres";
 
 import { parseClientEnv, parseServerEnv } from "../../lib/env.ts";
 import {
+  bootstrapLogMessage,
   bootstrapSuperAdmin,
   cancelStaffInvite,
   inviteStaffByEmail,
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
 const entry = process.argv[1]?.replaceAll("\\", "/");
 if (entry?.endsWith("src/modules/identity/admin-bootstrap.ts")) {
   main().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : "bootstrap falhou";
+    const message = bootstrapLogMessage(error);
     console.error(message);
     process.exit(1);
   });
