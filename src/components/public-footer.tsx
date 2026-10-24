@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/servicos", label: "Serviços" },
   { href: "/materiais", label: "Materiais" },
   { href: "/contato", label: "Contato" },
+  { href: "/privacidade", label: "Privacidade" },
 ] as const;
 
 export function PublicFooter({ site }: { site: PublicSite }) {
