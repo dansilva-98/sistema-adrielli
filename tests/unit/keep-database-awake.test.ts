@@ -10,7 +10,7 @@ import {
   summaryLine,
 } from "../../scripts/keep-database-awake.mjs";
 
-function jsonResponse(status, body) {
+function jsonResponse(status: number, body: { status: string }) {
   return {
     status,
     json: async () => body,
@@ -38,8 +38,8 @@ describe("rotina contra a pausa", () => {
   });
 
   it("consulta produção e staging e falha se um não responder", async () => {
-    const calls = [];
-    const fetchImpl = async (url) => {
+    const calls: string[] = [];
+    const fetchImpl = async (url: string) => {
       calls.push(String(url));
       if (String(url).includes("staging"))
         return jsonResponse(503, { status: "degraded" });
@@ -64,7 +64,7 @@ describe("rotina contra a pausa", () => {
 
   it("repete o GET uma vez quando a primeira tentativa cai", async () => {
     let stagingCalls = 0;
-    const fetchImpl = async (url) => {
+    const fetchImpl = async (url: string) => {
       if (String(url).includes("staging")) {
         stagingCalls += 1;
         if (stagingCalls === 1) throw new Error("rede");
