@@ -30,6 +30,10 @@ describe("bootstrap do SUPER_ADMIN", () => {
     expect(workflow).toContain('echo "::add-mask::$EMAIL"');
     expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: https://adrielliflores.com.br");
     expect(workflow).not.toContain("www.adrielliflores.com.br");
+    const readme = readFileSync("README.md", "utf8");
+    expect(readme).toContain("SMTP do Resend já configurado");
+    expect(readme).toContain("supabase/templates/invite.html");
+    expect(readme).toContain("Este workflow não altera o SMTP.");
     for (const line of workflow.split("\n")) {
       if (line.includes("run:")) {
         expect(line).not.toContain("inputs.email");
