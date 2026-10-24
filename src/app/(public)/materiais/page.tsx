@@ -1,6 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
+import { publicPageMetadata } from "@/modules/content/indexing";
 import { getPublicSite } from "@/modules/content/server/public";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getPublicSite();
+  return publicPageMetadata({
+    pageName: "Materiais",
+    seoTitle: site.seoTitle,
+    seoDescription: site.seoDescription,
+    path: "/materiais",
+  });
+}
 
 export default async function MateriaisPage() {
   const site = await getPublicSite();

@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-import { hasContact, homeSectionKeys } from "@/modules/content/home-sections";
+import {
+  hasContact,
+  hasHowItWorks,
+  homeSectionKeys,
+} from "@/modules/content/home-sections";
 import { RestrictedMarkdown } from "@/modules/content/markdown-view";
 import { openingText } from "@/modules/content/opening";
 import type {
@@ -100,15 +104,15 @@ export function HomeContent({
           </ul>
         </section>
       ) : null}
-      {site.howItWorks.some((step) => step.title || step.body) ? (
+      {hasHowItWorks(site) ? (
         <section className="flex flex-col gap-3">
           <h2 className="font-serif text-2xl">Como funciona</h2>
           <ol className="flex list-decimal flex-col gap-3 pl-5">
             {site.howItWorks.map((step, index) =>
-              step.title || step.body ? (
+              step.body.trim() ? (
                 <li key={`${step.title}-${index}`}>
                   {step.title ? <p className="font-medium">{step.title}</p> : null}
-                  {step.body ? <p className="text-sm">{step.body}</p> : null}
+                  <p className="text-sm">{step.body}</p>
                 </li>
               ) : null,
             )}
@@ -119,10 +123,7 @@ export function HomeContent({
         <section className="flex flex-col gap-4">
           <h2 className="font-serif text-2xl">Depoimentos</h2>
           {testimonials.map((item) => (
-            <figure
-              key={`${item.authorLabel}-${item.quote}`}
-              className="flex flex-col gap-1"
-            >
+            <figure key={item.id} className="flex flex-col gap-1">
               <blockquote>{item.quote}</blockquote>
               {item.authorLabel ? (
                 <figcaption className="text-sm text-muted">{item.authorLabel}</figcaption>
@@ -135,7 +136,7 @@ export function HomeContent({
         <section className="flex flex-col gap-3">
           <h2 className="font-serif text-2xl">Perguntas frequentes</h2>
           {faq.map((item) => (
-            <details key={item.question} className="rounded-lg border border-border p-3">
+            <details key={item.id} className="rounded-lg border border-border p-3">
               <summary className="cursor-pointer focus-visible:outline-2">
                 {item.question}
               </summary>
