@@ -62,3 +62,7 @@ jobs:
         run: pnpm build
         env:
           DATABASE_URL: postgresql://127.0.0.1:9/inexistente
+      - name: Build com banco que não responde
+        run: pnpm build
+        env:
+          DATABASE_URL: postgresql://u:p@10.255.255.1:5432/x

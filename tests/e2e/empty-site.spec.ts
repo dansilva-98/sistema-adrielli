@@ -17,4 +17,14 @@ test("o site segue apresentável com o banco sem conteúdo", async ({ page }) =>
     0,
   );
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex");
+  await page.getByRole("link", { name: "Privacidade" }).click();
+  await expect(page).toHaveURL(/\/privacidade$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Privacidade" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "O e-mail de contato para assuntos de dados ainda vai ser cadastrado.",
+    ),
+  ).toBeVisible();
 });

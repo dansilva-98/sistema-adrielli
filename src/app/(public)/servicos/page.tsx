@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { SitePhoto } from "@/app/(public)/site-photo";
 import { publicPageMetadata } from "@/modules/content/indexing";
 import { RestrictedMarkdown } from "@/modules/content/markdown-view";
-import { getPublishedServices, getPublicSite } from "@/modules/content/server/public";
+import { readPublishedServices, readPublicSite } from "@/modules/content/server/public";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const site = await getPublicSite();
+  const site = await readPublicSite();
   return publicPageMetadata({
     pageName: "Serviços",
     seoTitle: site.seoTitle,
@@ -15,8 +16,16 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export default async function ServicosPage() {
-  const services = await getPublishedServices();
+export default function ServicosPage() {
+  return (
+    <Suspense fallback={null}>
+      <ServicosContent />
+    </Suspense>
+  );
+}
+
+async function ServicosContent() {
+  const services = await readPublishedServices();
   return (
     <div className="flex flex-col gap-8">
       <h1 className="font-serif text-4xl">Serviços</h1>
