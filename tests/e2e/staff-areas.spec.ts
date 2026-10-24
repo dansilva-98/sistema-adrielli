@@ -39,6 +39,36 @@ test.describe("áreas da equipe", () => {
     expect(opened?.status()).toBe(200);
     await expectDenied(page, "/consultorio");
     await expectDenied(page, "/admin/usuarios");
+    const editor = await page.goto("/admin/conteudo/site");
+    expect(editor?.status()).toBe(200);
+    await expect(page.getByRole("heading", { name: "Editar site" })).toBeVisible();
+  });
+
+  test("CONTENT_ADMIN salva o topo e confirma antes de sair", async ({ page }) => {
+    test.setTimeout(90_000);
+    const email = `site-conteudo-${crypto.randomUUID()}@example.com`;
+    created.push(await createStaff(email, "CONTENT_ADMIN"));
+    await signIn(page, email);
+    await expect(page).toHaveURL(/\/admin$/);
+    await page.goto("/admin/conteudo/site");
+    await expect(page.getByRole("heading", { name: "Editar site" })).toBeVisible();
+    const title = `Topo ${crypto.randomUUID().slice(0, 8)}`;
+    await page.getByLabel("Nome").fill(title);
+    await page
+      .locator("form")
+      .filter({ has: page.getByRole("heading", { name: "Topo" }) })
+      .getByRole("button", { name: "Salvar" })
+      .click();
+    await expect(page.getByText("Salvo. O site já mostra a alteração.")).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Nome")).toHaveValue(title);
+    await page.getByLabel("Nome").fill(`${title} editado`);
+    page.once("dialog", (dialog) => {
+      expect(dialog.message()).toContain("alterações não salvas");
+      dialog.dismiss();
+    });
+    await page.getByRole("link", { name: "Dashboard" }).click();
+    await expect(page.getByRole("heading", { name: "Editar site" })).toBeVisible();
   });
 
   test("CLINIC_ADMIN abre o consultório e recebe 403 na administração", async ({
@@ -55,6 +85,7 @@ test.describe("áreas da equipe", () => {
     await expect(page).toHaveURL(/\/consultorio$/);
     await expect(page.getByRole("heading", { name: "Consultório" })).toBeVisible();
     await expectDenied(page, "/admin");
+    await expectDenied(page, "/admin/conteudo/site");
   });
 
   test("SUPER_ADMIN abre as três áreas", async ({ page }) => {

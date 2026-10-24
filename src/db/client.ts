@@ -27,6 +27,16 @@ if (process.env.NODE_ENV !== "production") {
 
 export const db = drizzle(pg, { schema });
 
+// drizzle-orm swaps the json/jsonb serializers for an identity function so its
+// driver can send strings it already encoded. sql.json() still binds plain
+// objects as oid 3802, and the identity function then reaches Buffer.byteLength.
+function encodeJsonParameter(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+pg.options.serializers["114"] = encodeJsonParameter;
+pg.options.serializers["3802"] = encodeJsonParameter;
+
 export const sql = pg;
 
 export async function closeDatabase(): Promise<void> {

@@ -18,10 +18,17 @@ import {
   CONTENT_TESTIMONIALS_TAG,
 } from "@/modules/content/queries";
 import {
+  aboutSectionSchema,
+  contactSectionSchema,
   faqSchema,
+  heroSectionSchema,
+  howSectionSchema,
+  isSiteSection,
+  searchSectionSchema,
   serviceSchema,
   siteSettingsSchema,
   testimonialSchema,
+  type SiteSection,
 } from "@/modules/content/schema";
 import { slugFromTitle } from "@/modules/content/slug";
 import { removeSiteObject, uploadSiteObject } from "@/modules/content/storage";
@@ -34,6 +41,7 @@ import {
   createTestimonial,
   deleteContent,
   moveContent,
+  saveSiteSection,
   saveSiteSettings,
   updateFaq,
   updateService,
@@ -41,8 +49,8 @@ import {
 } from "@/modules/content/write";
 
 type ContentFormState =
-  | { ok: true; id?: string; path?: string }
-  | { ok: false; message: string; field?: string };
+  | { ok: true; id?: string; path?: string; version?: number }
+  | { ok: false; message: string; field?: string; fields?: Record<string, string> };
 
 const storage = {
   supabaseUrl: clientEnv.NEXT_PUBLIC_SUPABASE_URL,
@@ -67,6 +75,147 @@ export async function saveSiteSettingsAction(
   } catch (error) {
     return failure(error);
   }
+}
+
+export async function saveSiteSectionAction(
+  _state: ContentFormState,
+  formData: FormData,
+): Promise<ContentFormState> {
+  const actor = await requireStaff({ roles: ADMIN_ROLES });
+  const section = text(formData, "section");
+  if (!isSiteSection(section)) return invalid("Confira os dados e tente novamente.");
+  const image = await sectionImage(formData, section);
+  if (!image.ok) return image.state;
+  const parsed = parseSection(section, formData, image.path);
+  if (!parsed.ok) return parsed.state;
+  try {
+    const saved = await saveSiteSection(
+      sql,
+      section,
+      parsed.data,
+      await actorContext(actor.userId),
+    );
+    updateTag(CONTENT_SITE_TAG);
+    await forgetImages(saved.removedPaths);
+    return {
+      ok: true,
+      version: saved.version,
+      ...(section === "hero" || section === "about" ? { path: image.path } : {}),
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function parseSection(section: SiteSection, formData: FormData, imagePath: string) {
+  const version = numberValue(formData, "version");
+  const parsed =
+    section === "hero"
+      ? heroSectionSchema.safeParse({
+          version,
+          heroTitle: text(formData, "heroTitle"),
+          heroSubtitle: text(formData, "heroSubtitle"),
+          heroTagline: text(formData, "heroTagline"),
+          heroImagePath: imagePath,
+          heroImageAlt: text(formData, "heroImageAlt"),
+        })
+      : section === "about"
+        ? aboutSectionSchema.safeParse({
+            version,
+            aboutTitle: text(formData, "aboutTitle"),
+            aboutBody: text(formData, "aboutBody"),
+            aboutImagePath: imagePath,
+            aboutImageAlt: text(formData, "aboutImageAlt"),
+          })
+        : section === "how"
+          ? howSectionSchema.safeParse({
+              version,
+              howItWorks: jsonValue(formData, "howItWorks"),
+            })
+          : section === "contact"
+            ? contactSectionSchema.safeParse({
+                version,
+                whatsappNumber: text(formData, "whatsappNumber"),
+                whatsappMessage: text(formData, "whatsappMessage"),
+                contactEmail: text(formData, "contactEmail"),
+                addressText: text(formData, "addressText"),
+                serviceAreaText: text(formData, "serviceAreaText"),
+              })
+            : searchSectionSchema.safeParse({
+                version,
+                instagramHandle: text(formData, "instagramHandle"),
+                supportEmail: text(formData, "supportEmail"),
+                seoTitle: text(formData, "seoTitle"),
+                seoDescription: text(formData, "seoDescription"),
+              });
+  if (!parsed.success) {
+    const fields = fieldMap(parsed.error.issues);
+    const first = parsed.error.issues[0];
+    return {
+      ok: false as const,
+      state: invalid(
+        first?.message,
+        typeof first?.path[0] === "string" ? first.path[0] : undefined,
+        fields,
+      ),
+    };
+  }
+  return { ok: true as const, data: parsed.data };
+}
+
+async function sectionImage(
+  formData: FormData,
+  section: SiteSection,
+): Promise<{ ok: true; path: string } | { ok: false; state: ContentFormState }> {
+  if (section !== "hero" && section !== "about") return { ok: true, path: "" };
+  const pathName = section === "hero" ? "heroImagePath" : "aboutImagePath";
+  const altName = section === "hero" ? "heroImageAlt" : "aboutImageAlt";
+  if (formData.get("removeImage") === "true") return { ok: true, path: "" };
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0)
+    return { ok: true, path: text(formData, pathName) };
+  if (!text(formData, altName)) {
+    return {
+      ok: false,
+      state: invalid("Descreva a imagem.", altName, { [altName]: "Descreva a imagem." }),
+    };
+  }
+  try {
+    const webp = await prepareSiteImage(new Uint8Array(await file.arrayBuffer()));
+    return { ok: true, path: await uploadSiteObject(storage, webp) };
+  } catch (error) {
+    if (error instanceof SiteImageError) {
+      const message =
+        error.code === "size"
+          ? "A imagem precisa ter no máximo 4 MB."
+          : "Envie um JPEG, PNG ou WebP.";
+      return { ok: false, state: invalid(message, "image", { image: message }) };
+    }
+    Sentry.captureException(error);
+    return {
+      ok: false,
+      state: invalid("Não foi possível guardar a imagem.", "image", {
+        image: "Não foi possível guardar a imagem.",
+      }),
+    };
+  }
+}
+
+function fieldMap(
+  issues: { path: PropertyKey[]; message: string }[],
+): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const issue of issues) {
+    const head = issue.path[0];
+    const key =
+      head === "howItWorks" && typeof issue.path[1] === "number"
+        ? `howItWorks.${issue.path[1]}.${String(issue.path[2] ?? "title")}`
+        : typeof head === "string"
+          ? head
+          : "";
+    if (key && !fields[key]) fields[key] = issue.message;
+  }
+  return fields;
 }
 
 export async function createServiceAction(formData: FormData): Promise<ContentFormState> {
@@ -248,8 +397,9 @@ async function actorContext(actorId: string) {
 function invalid(
   message = "Confira os dados e tente novamente.",
   field?: string,
+  fields?: Record<string, string>,
 ): ContentFormState {
-  return { ok: false, message, field };
+  return { ok: false, message, field, fields };
 }
 
 function fieldOf(error: { issues: { path: PropertyKey[] }[] }): string | undefined {

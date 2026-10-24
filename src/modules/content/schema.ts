@@ -61,10 +61,17 @@ export const siteSettingsSchema = z
     howItWorks: howItWorksSchema,
     whatsappNumber: z
       .string()
-      .trim()
-      .max(CONTENT_LIMITS.whatsappNumber)
-      .regex(/^[0-9]*$/, "Use só os dígitos, com DDI.")
-      .transform((value) => (value === "" ? null : value)),
+      .transform((value) => value.replace(/\D/g, ""))
+      .pipe(
+        z
+          .string()
+          .max(
+            CONTENT_LIMITS.whatsappNumber,
+            `Use no máximo ${CONTENT_LIMITS.whatsappNumber} caracteres.`,
+          )
+          .regex(/^[0-9]*$/, "Use só os dígitos, com DDI.")
+          .transform((value) => (value === "" ? null : value)),
+      ),
     whatsappMessage: z.string().trim().max(CONTENT_LIMITS.whatsappMessage),
     instagramHandle: z
       .string()
@@ -151,7 +158,103 @@ export const faqSchema = z.object({
   version: z.number().int().min(1).optional(),
 });
 
+export const SITE_SECTIONS = ["hero", "about", "how", "contact", "search"] as const;
+export type SiteSection = (typeof SITE_SECTIONS)[number];
+
+export function isSiteSection(value: string): value is SiteSection {
+  return (SITE_SECTIONS as readonly string[]).includes(value);
+}
+
+const sectionVersion = z.number().int().min(1);
+
+export const heroSectionSchema = z
+  .object({
+    version: sectionVersion,
+    heroTitle: z.string().trim().max(CONTENT_LIMITS.heroTitle),
+    heroSubtitle: z.string().trim().max(CONTENT_LIMITS.heroSubtitle),
+    heroTagline: z.string().trim().max(CONTENT_LIMITS.heroTagline),
+    heroImagePath: optionalImagePath,
+    heroImageAlt: optionalText(CONTENT_LIMITS.heroImageAlt),
+  })
+  .superRefine((value, context) => {
+    if (value.heroImagePath && !value.heroImageAlt) {
+      context.addIssue({
+        code: "custom",
+        message: "Descreva a imagem.",
+        path: ["heroImageAlt"],
+      });
+    }
+  });
+
+export const aboutSectionSchema = z
+  .object({
+    version: sectionVersion,
+    aboutTitle: z.string().trim().max(CONTENT_LIMITS.aboutTitle),
+    aboutBody: z.string().trim().max(CONTENT_LIMITS.aboutBody),
+    aboutImagePath: optionalImagePath,
+    aboutImageAlt: optionalText(CONTENT_LIMITS.aboutImageAlt),
+  })
+  .superRefine((value, context) => {
+    if (value.aboutImagePath && !value.aboutImageAlt) {
+      context.addIssue({
+        code: "custom",
+        message: "Descreva a imagem.",
+        path: ["aboutImageAlt"],
+      });
+    }
+  });
+
+export const howSectionSchema = z.object({
+  version: sectionVersion,
+  howItWorks: howItWorksSchema,
+});
+
+export const contactSectionSchema = z.object({
+  version: sectionVersion,
+  whatsappNumber: z
+    .string()
+    .transform((value) => value.replace(/\D/g, ""))
+    .pipe(
+      z
+        .string()
+        .max(
+          CONTENT_LIMITS.whatsappNumber,
+          `Use no máximo ${CONTENT_LIMITS.whatsappNumber} caracteres.`,
+        )
+        .regex(/^[0-9]*$/, "Use só os dígitos, com DDI.")
+        .transform((value) => (value === "" ? null : value)),
+    ),
+  whatsappMessage: z.string().trim().max(CONTENT_LIMITS.whatsappMessage),
+  contactEmail: optionalText(CONTENT_LIMITS.contactEmail).refine(
+    (value) => value === null || z.email().safeParse(value).success,
+    "Informe um e-mail válido.",
+  ),
+  addressText: optionalText(CONTENT_LIMITS.addressText),
+  serviceAreaText: optionalText(CONTENT_LIMITS.serviceAreaText),
+});
+
+export const searchSectionSchema = z.object({
+  version: sectionVersion,
+  instagramHandle: z
+    .string()
+    .trim()
+    .max(CONTENT_LIMITS.instagramHandle)
+    .refine((value) => !value.includes("@"), "Não inclua o @.")
+    .transform((value) => (value === "" ? null : value)),
+  supportEmail: optionalText(CONTENT_LIMITS.supportEmail).refine(
+    (value) => value === null || z.email().safeParse(value).success,
+    "Informe um e-mail válido.",
+  ),
+  seoTitle: z.string().trim().max(CONTENT_LIMITS.seoTitle),
+  seoDescription: z.string().trim().max(CONTENT_LIMITS.seoDescription),
+});
+
 export type SiteSettingsInput = z.infer<typeof siteSettingsSchema>;
+export type HeroSectionInput = z.infer<typeof heroSectionSchema>;
+export type AboutSectionInput = z.infer<typeof aboutSectionSchema>;
+export type HowSectionInput = z.infer<typeof howSectionSchema>;
+export type ContactSectionInput = z.infer<typeof contactSectionSchema>;
+export type SearchSectionInput = z.infer<typeof searchSectionSchema>;
 export type ServiceInput = z.infer<typeof serviceSchema>;
 export type TestimonialInput = z.infer<typeof testimonialSchema>;
 export type FaqInput = z.infer<typeof faqSchema>;

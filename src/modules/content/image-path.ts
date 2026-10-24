@@ -4,3 +4,7 @@ export const SITE_IMAGE_PATH =
 export function isSiteImagePath(path: string): boolean {
   return SITE_IMAGE_PATH.test(path);
 }
+
+export function sitePublicImageUrl(origin: string, path: string): string {
+  return new URL(`/storage/v1/object/public/site-public/${path}`, origin).href;
+}

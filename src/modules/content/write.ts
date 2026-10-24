@@ -3,8 +3,14 @@ import type postgres from "postgres";
 import type { AuditAction } from "@/db/audit-actions";
 import { recordAudit } from "@/modules/audit/record";
 import type {
+  AboutSectionInput,
+  ContactSectionInput,
   FaqInput,
+  HeroSectionInput,
+  HowSectionInput,
+  SearchSectionInput,
   ServiceInput,
+  SiteSection,
   SiteSettingsInput,
   TestimonialInput,
 } from "@/modules/content/schema";
@@ -109,6 +115,152 @@ export async function saveSiteSettings(
       ),
     };
   });
+}
+
+export async function saveSiteSection(
+  sql: Sql,
+  section: SiteSection,
+  input:
+    | HeroSectionInput
+    | AboutSectionInput
+    | HowSectionInput
+    | ContactSectionInput
+    | SearchSectionInput,
+  actor: Actor,
+): Promise<{ removedPaths: string[]; version: number }> {
+  return sql.begin(async (tx) => {
+    const current = await tx<
+      { hero_image_path: string | null; about_image_path: string | null }[]
+    >`
+      select hero_image_path, about_image_path
+      from content.site_settings
+      where id = 1
+      for update
+    `;
+    const row = current[0];
+    if (!row) throw new ContentWriteError("missing");
+    const saved = await updateSiteSection(tx, section, input, actor.actorId);
+    if (!saved) throw new ContentWriteError("conflict");
+    await writeAudit(tx, actor, "content.site.updated", "site_settings", null);
+    const removed = removedSectionImage(section, row, input);
+    if (removed?.uploaded) {
+      await writeAudit(tx, actor, "content.image.uploaded", "site_settings", null);
+    }
+    return { removedPaths: removed?.removed ? [removed.removed] : [], version: saved };
+  });
+}
+
+async function updateSiteSection(
+  tx: Tx,
+  section: SiteSection,
+  input:
+    | HeroSectionInput
+    | AboutSectionInput
+    | HowSectionInput
+    | ContactSectionInput
+    | SearchSectionInput,
+  actorId: string,
+): Promise<number | null> {
+  const rows =
+    section === "hero"
+      ? await tx<{ version: number }[]>`
+          update content.site_settings
+          set hero_title = ${(input as HeroSectionInput).heroTitle},
+            hero_subtitle = ${(input as HeroSectionInput).heroSubtitle},
+            hero_tagline = ${(input as HeroSectionInput).heroTagline},
+            hero_image_path = ${(input as HeroSectionInput).heroImagePath},
+            hero_image_alt = ${(input as HeroSectionInput).heroImageAlt},
+            updated_at = now(),
+            updated_by = ${actorId}::uuid,
+            version = version + 1
+          where id = 1 and version = ${input.version}
+          returning version
+        `
+      : section === "about"
+        ? await tx<{ version: number }[]>`
+            update content.site_settings
+            set about_title = ${(input as AboutSectionInput).aboutTitle},
+              about_body = ${(input as AboutSectionInput).aboutBody},
+              about_image_path = ${(input as AboutSectionInput).aboutImagePath},
+              about_image_alt = ${(input as AboutSectionInput).aboutImageAlt},
+              updated_at = now(),
+              updated_by = ${actorId}::uuid,
+              version = version + 1
+            where id = 1 and version = ${input.version}
+            returning version
+          `
+        : section === "how"
+          ? await tx<{ version: number }[]>`
+              update content.site_settings
+              set how_it_works = ${tx.json((input as HowSectionInput).howItWorks)},
+                updated_at = now(),
+                updated_by = ${actorId}::uuid,
+                version = version + 1
+              where id = 1 and version = ${input.version}
+              returning version
+            `
+          : section === "contact"
+            ? await tx<{ version: number }[]>`
+                update content.site_settings
+                set whatsapp_number = ${(input as ContactSectionInput).whatsappNumber},
+                  whatsapp_message = ${(input as ContactSectionInput).whatsappMessage},
+                  contact_email = ${(input as ContactSectionInput).contactEmail},
+                  address_text = ${(input as ContactSectionInput).addressText},
+                  service_area_text = ${(input as ContactSectionInput).serviceAreaText},
+                  updated_at = now(),
+                  updated_by = ${actorId}::uuid,
+                  version = version + 1
+                where id = 1 and version = ${input.version}
+                returning version
+              `
+            : await tx<{ version: number }[]>`
+                update content.site_settings
+                set instagram_handle = ${(input as SearchSectionInput).instagramHandle},
+                  support_email = ${(input as SearchSectionInput).supportEmail},
+                  seo_title = ${(input as SearchSectionInput).seoTitle},
+                  seo_description = ${(input as SearchSectionInput).seoDescription},
+                  updated_at = now(),
+                  updated_by = ${actorId}::uuid,
+                  version = version + 1
+                where id = 1 and version = ${input.version}
+                returning version
+              `;
+  return rows[0]?.version ?? null;
+}
+
+function removedSectionImage(
+  section: SiteSection,
+  row: { hero_image_path: string | null; about_image_path: string | null },
+  input:
+    | HeroSectionInput
+    | AboutSectionInput
+    | HowSectionInput
+    | ContactSectionInput
+    | SearchSectionInput,
+): { removed: string | null; uploaded: boolean } | null {
+  if (section === "hero") {
+    const next = (input as HeroSectionInput).heroImagePath;
+    const previous = row.hero_image_path;
+    return {
+      uploaded: Boolean(next && next !== previous),
+      removed:
+        previous && previous !== next && previous !== row.about_image_path
+          ? previous
+          : null,
+    };
+  }
+  if (section === "about") {
+    const next = (input as AboutSectionInput).aboutImagePath;
+    const previous = row.about_image_path;
+    return {
+      uploaded: Boolean(next && next !== previous),
+      removed:
+        previous && previous !== next && previous !== row.hero_image_path
+          ? previous
+          : null,
+    };
+  }
+  return null;
 }
 
 export async function createService(

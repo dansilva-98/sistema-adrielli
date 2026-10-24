@@ -1,5 +1,7 @@
 import type postgres from "postgres";
 
+import { whatsAppUrl } from "@/modules/content/whatsapp";
+
 export const CONTENT_SITE_TAG = "content-site";
 export const CONTENT_SERVICES_TAG = "content-services";
 export const CONTENT_TESTIMONIALS_TAG = "content-testimonials";
@@ -102,6 +104,72 @@ export async function loadPublicSite(sql: Sql): Promise<PublicSite> {
   `;
   const row = rows[0];
   if (!row) return EMPTY_PUBLIC_SITE;
+  return mapSiteRow(row);
+}
+
+export { whatsAppUrl };
+
+export type EditableSite = PublicSite & { version: number };
+
+export async function loadEditableSite(sql: Sql): Promise<EditableSite | null> {
+  const rows = await sql<
+    {
+      hero_title: string;
+      hero_subtitle: string;
+      hero_tagline: string;
+      hero_image_path: string | null;
+      hero_image_alt: string | null;
+      about_title: string;
+      about_body: string;
+      about_image_path: string | null;
+      about_image_alt: string | null;
+      how_it_works: HowItWorksStep[] | string;
+      whatsapp_number: string | null;
+      whatsapp_message: string;
+      instagram_handle: string | null;
+      contact_email: string | null;
+      support_email: string | null;
+      address_text: string | null;
+      service_area_text: string | null;
+      seo_title: string;
+      seo_description: string;
+      version: number;
+    }[]
+  >`
+    select hero_title, hero_subtitle, hero_tagline, hero_image_path, hero_image_alt,
+      about_title, about_body, about_image_path, about_image_alt, how_it_works,
+      whatsapp_number, whatsapp_message, instagram_handle, contact_email, support_email,
+      address_text, service_area_text, seo_title, seo_description, version
+    from content.site_settings
+    where id = 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  const site = mapSiteRow(row);
+  return { ...site, version: row.version };
+}
+
+function mapSiteRow(row: {
+  hero_title: string;
+  hero_subtitle: string;
+  hero_tagline: string;
+  hero_image_path: string | null;
+  hero_image_alt: string | null;
+  about_title: string;
+  about_body: string;
+  about_image_path: string | null;
+  about_image_alt: string | null;
+  how_it_works: HowItWorksStep[] | string;
+  whatsapp_number: string | null;
+  whatsapp_message: string;
+  instagram_handle: string | null;
+  contact_email: string | null;
+  support_email: string | null;
+  address_text: string | null;
+  service_area_text: string | null;
+  seo_title: string;
+  seo_description: string;
+}): PublicSite {
   const steps = Array.isArray(row.how_it_works)
     ? row.how_it_works
     : (JSON.parse(row.how_it_works) as HowItWorksStep[]);
@@ -115,7 +183,10 @@ export async function loadPublicSite(sql: Sql): Promise<PublicSite> {
     aboutBody: row.about_body,
     aboutImagePath: row.about_image_path,
     aboutImageAlt: row.about_image_alt,
-    howItWorks: steps,
+    howItWorks: steps.map((step) => ({
+      title: typeof step?.title === "string" ? step.title : "",
+      body: typeof step?.body === "string" ? step.body : "",
+    })),
     whatsappNumber: row.whatsapp_number,
     whatsappMessage: row.whatsapp_message,
     whatsappUrl: whatsAppUrl(row.whatsapp_number, row.whatsapp_message),
@@ -130,13 +201,6 @@ export async function loadPublicSite(sql: Sql): Promise<PublicSite> {
     seoTitle: row.seo_title,
     seoDescription: row.seo_description,
   };
-}
-
-export function whatsAppUrl(number: string | null, message: string): string | null {
-  if (!number) return null;
-  const text = message.trim();
-  const query = text ? `?text=${encodeURIComponent(text)}` : "";
-  return `https://wa.me/${number}${query}`;
 }
 
 export async function loadPublishedServices(sql: Sql): Promise<PublicService[]> {
