@@ -57,7 +57,12 @@ No ambiente local, use a conexão direta do Supabase (no exemplo, porta 54322). 
 
 Em cada projeto (local, staging e produção), na configuração da API de dados, não exponha os schemas `identity`, `content`, `commerce`, `clinic` e `audit`. O `supabase/config.toml` local também não os lista.
 
-O convite da equipe usa o modelo `supabase/templates/invite.html`, com o link `{{ .SiteURL }}/equipe/primeiro-acesso?token_hash={{ .TokenHash }}`. No Supabase local isso vem do `config.toml`. Em staging e produção o mesmo assunto, o mesmo HTML e a URL `https://<domínio>/equipe/primeiro-acesso` na lista de redirecionamentos precisam ser configurados no painel do Auth. Sem isso, a pessoa convidada não consegue criar a senha.
+O convite da equipe usa o modelo `supabase/templates/invite.html`, com o link `{{ .SiteURL }}/equipe/primeiro-acesso?token_hash={{ .TokenHash }}`. No Supabase local isso vem do `config.toml`. Em produção o mesmo assunto, o mesmo HTML e a URL `https://<domínio>/equipe/primeiro-acesso` na lista de redirecionamentos precisam ser configurados no painel do Auth. Sem isso, a pessoa convidada não consegue criar a senha.
+
+No Supabase de staging, a Site URL é `https://staging--adrielli-flores.netlify.app`. As URLs de redirecionamento são:
+
+- `https://staging--adrielli-flores.netlify.app/equipe/primeiro-acesso`
+- `https://staging--adrielli-flores.netlify.app/equipe/redefinir-senha`
 
 O cadastro aberto fica desligado com `enable_signup = false` em `[auth]` no `config.toml` local. Com isso, `POST /auth/v1/signup` usando a chave pública é recusado. Em `[auth.email]`, `enable_signup` continua `true`: neste Auth, `false` desliga o provedor de e-mail inteiro e impede o login e o convite da equipe. Em staging e produção o equivalente é desligar o cadastro de novos usuários no painel do Auth, sem desativar o provedor de e-mail. Esse ajuste permanece até o E4 decidir como o login do cliente cria contas. O convite da equipe e o `pnpm admin:bootstrap` usam a API de administração e continuam funcionando.
 
@@ -68,7 +73,7 @@ Checklist do banco e o padrão de RLS: `src/db/README.md`.
 O Git não publica o site. O site da Netlify não fica ligado ao repositório, então um push não publica sozinho.
 
 - Todo pull request roda `.github/workflows/ci.yml`. Qualquer falha bloqueia o merge depois que a proteção da branch `main` estiver ligada. Passos em `docs/specs/E0-verificacao-manual.md`.
-- Push em `main` roda `.github/workflows/staging.yml` só quando a variável `STAGING_ENABLED` do ambiente `staging` é `true`. As migrations usam `STAGING_MIGRATIONS_DATABASE_URL`, só nesse passo. O deploy é `netlify deploy` sem `--prod` (rascunho). A URL de migration não é enviada à Netlify.
+- Push em `main` roda `.github/workflows/staging.yml` só quando a variável `STAGING_ENABLED` do ambiente `staging` é `true`. As migrations usam `STAGING_MIGRATIONS_DATABASE_URL`, só nesse passo. O deploy é `netlify deploy --context deploy-preview --alias staging`, sem `--prod`. O endereço fixo do rascunho é `https://staging--adrielli-flores.netlify.app`. `NEXT_PUBLIC_SITE_URL` desse ambiente sai de `scripts/netlify-site.mjs` e é esse endereço, nunca o de produção. A URL de migration não é enviada à Netlify.
 - Produção só pelo workflow manual `Production`, na `main`, no ambiente GitHub `production`, com revisor obrigatório. O job exige a variável `NETLIFY_SITE_ID` e não procura nem cria site. Depois das migrations, roda `netlify deploy --prod`.
 - O site se chama `adrielli-flores`. Só o workflow de staging cria esse nome, se ele ainda não existir.
 - A CLI fica fixa em `netlify-cli@27.14.2`. O plugin `@netlify/plugin-nextjs` fica em `5.16.4`. O build roda no GitHub Actions.
