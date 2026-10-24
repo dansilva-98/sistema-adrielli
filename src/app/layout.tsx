@@ -3,6 +3,7 @@ import { Newsreader, Source_Sans_3 } from "next/font/google";
 
 import { Toaster } from "@/components/ui/toast";
 import { clientEnv } from "@/lib/env-client";
+import { serverEnv } from "@/lib/env.server";
 
 import "./globals.css";
 
@@ -30,6 +31,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="pt-BR"
       className={`${sans.variable} ${serif.variable} h-full antialiased`}
     >
+      {serverEnv.APP_ENV === "production" ? null : (
+        <head>
+          <meta name="robots" content="noindex" />
+        </head>
+      )}
       <body className="flex min-h-full flex-col bg-surface font-sans text-text">
         {children}
         <Toaster />
