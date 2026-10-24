@@ -30,6 +30,11 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
           NETLIFY_SITE_MODE: production
+      - name: Ligar o domínio de produção
+        run: node scripts/netlify-domain.mjs
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ steps.site.outputs.id }}
       - name: Publicar variáveis de runtime
         run: node scripts/netlify-env.mjs
         env:
