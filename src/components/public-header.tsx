@@ -19,8 +19,15 @@ export function PublicHeader() {
   return (
     <header className="border-b border-border bg-surface">
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-        <Link href="/" className="font-serif text-2xl text-text">
-          Adrielli Flores
+        <Link href="/" aria-label="Adrielli Flores" className="inline-flex shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logo-horizontal.svg"
+            alt="Adrielli Flores"
+            width={227}
+            height={46}
+            className="h-[38px] w-auto md:h-[46px]"
+          />
         </Link>
         <button
           type="button"

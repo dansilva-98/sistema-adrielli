@@ -24,11 +24,18 @@ export function PublicFooter({ site }: { site: PublicSite }) {
       : null,
   ].filter((item) => item !== null);
   return (
-    <footer className="border-t border-border bg-surface">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+    <footer className="border-t border-border bg-text text-gold-light">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6 text-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2">
-          <p className="font-serif text-base text-text">Adrielli Flores</p>
-          {site.addressText ? <p className="text-text">{site.addressText}</p> : null}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logo-horizontal-claro.svg"
+            alt="Adrielli Flores"
+            width={227}
+            height={46}
+            className="h-[38px] w-auto md:h-[46px]"
+          />
+          {site.addressText ? <p>{site.addressText}</p> : null}
           {contacts.length > 0 ? (
             <ul className="flex flex-col gap-1">
               {contacts.map((item) => (
