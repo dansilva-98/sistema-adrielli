@@ -20,7 +20,10 @@ describe("página de privacidade", () => {
       "Para assuntos de dados pessoais, escreva para dados@adrielli.example.",
     );
     expect(content.emailPending).toBe(false);
-    expect(content.responsible).toBe("A responsável por este site é Adrielli Flores.");
+    expect(content.responsible).toBe(
+      "A responsável por este site é Adrielli Flores, neuropsicopedagoga, pessoa física.",
+    );
+    expect(JSON.stringify(content)).not.toMatch(/CPF|\d{3}\.\d{3}\.\d{3}-\d{2}/);
     expect(content.draftNotice).toMatch(/rascunho/);
     expect(content.draftNotice).toMatch(/não substitui orientação jurídica/);
     expect(content.noCollection).toMatch(/não tem formulário/);

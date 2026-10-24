@@ -35,7 +35,8 @@ export function privacyContent(contactEmail: string | null | undefined): Privacy
     title: "Privacidade",
     draftNotice:
       "Este texto é um rascunho para revisão da responsável pelo site. Ele não substitui orientação jurídica.",
-    responsible: "A responsável por este site é Adrielli Flores.",
+    responsible:
+      "A responsável por este site é Adrielli Flores, neuropsicopedagoga, pessoa física.",
     contactLine: emailPending
       ? "O e-mail de contato para assuntos de dados ainda vai ser cadastrado."
       : `Para assuntos de dados pessoais, escreva para ${email}.`,
