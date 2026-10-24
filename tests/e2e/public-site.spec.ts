@@ -2,7 +2,14 @@ import { expect, test } from "@playwright/test";
 
 import { createStaff, removeStaff, signIn } from "./staff-fixtures";
 
-const PAGES = ["/", "/sobre", "/servicos", "/contato", "/materiais"] as const;
+const PAGES = [
+  "/",
+  "/sobre",
+  "/servicos",
+  "/contato",
+  "/privacidade",
+  "/materiais",
+] as const;
 
 test.describe("site público", () => {
   for (const width of [360, 1280]) {
@@ -20,6 +27,21 @@ test.describe("site público", () => {
       await expect(page.getByText("Em breve.")).toBeVisible();
     });
   }
+
+  test("a privacidade está no rodapé sem aviso de rascunho", async ({ page }) => {
+    await page.goto("/");
+    await page
+      .getByRole("navigation", { name: "Rodapé" })
+      .getByRole("link", { name: "Privacidade" })
+      .click();
+    await expect(page).toHaveURL(/\/privacidade$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Privacidade" }),
+    ).toBeVisible();
+    await expect(page.getByText(/rascunho para revisão/)).toHaveCount(0);
+    await expect(page.getByText(/não substitui orientação jurídica/)).toHaveCount(0);
+    await expect(page.getByText("Adrielli Flores").first()).toBeVisible();
+  });
 
   test("salvar no CMS aparece no site e o serviço oculto fica de fora", async ({
     page,

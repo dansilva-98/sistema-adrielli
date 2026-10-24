@@ -2,20 +2,25 @@ import { appendFileSync } from "node:fs";
 
 import {
   assertExactSiteName,
+  publicSiteUrl,
   resolveSitePlan,
   SITE_NAME,
 } from "./netlify-site-policy.mjs";
 
 const accountSlug = "dansilva-98";
 const token = required("NETLIFY_AUTH_TOKEN");
+const mode = process.env.NETLIFY_SITE_MODE ?? "staging";
 const plan = resolveSitePlan({
-  mode: process.env.NETLIFY_SITE_MODE ?? "staging",
+  mode,
   siteId: process.env.NETLIFY_SITE_ID,
 });
 
 const site =
   plan.action === "read" ? await readSite(plan.siteId) : await findOrCreateSite();
-const url = site.url || `https://${site.name}.netlify.app`;
+const url = publicSiteUrl({
+  mode,
+  siteUrl: site.url || `https://${site.name}.netlify.app`,
+});
 
 const output = [`id=${site.id}`, `name=${site.name}`, `url=${url}`].join("\n");
 if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${output}\n`);

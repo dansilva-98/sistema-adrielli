@@ -1,4 +1,23 @@
 export const SITE_NAME = "adrielli-flores";
+export const STAGING_PUBLIC_URL = "https://staging--adrielli-flores.netlify.app";
+export const PRODUCTION_ORIGIN = "https://adrielliflores.com.br";
+export const PRODUCTION_WWW_HOST = "www.adrielliflores.com.br";
+
+export function publicSiteUrl(input) {
+  if (input.mode === "production") return PRODUCTION_ORIGIN;
+  return STAGING_PUBLIC_URL;
+}
+
+export function productionDomainUpdate(domainAliases) {
+  const aliases = new Set(
+    (domainAliases ?? []).filter((alias) => alias && alias !== "adrielliflores.com.br"),
+  );
+  aliases.add(PRODUCTION_WWW_HOST);
+  return {
+    custom_domain: "adrielliflores.com.br",
+    domain_aliases: [...aliases].sort(),
+  };
+}
 
 export function assertExactSiteName(name) {
   if (name === "landingpageadrielliflores") {

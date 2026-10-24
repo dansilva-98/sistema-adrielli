@@ -58,7 +58,7 @@ jobs:
         env:
           MIGRATIONS_DATABASE_URL: ${{ secrets.STAGING_MIGRATIONS_DATABASE_URL }}
       - name: Publicar rascunho na Netlify
-        run: pnpm --package=netlify-cli@27.14.2 dlx netlify deploy --build --context deploy-preview --site ${{ steps.site.outputs.id }}
+        run: pnpm --package=netlify-cli@27.14.2 dlx netlify deploy --build --context deploy-preview --alias staging --site ${{ steps.site.outputs.id }}
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}

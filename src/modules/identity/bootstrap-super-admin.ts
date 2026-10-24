@@ -25,6 +25,12 @@ export function readBootstrapEmail(argv: readonly string[]): string {
   return emailSchema.parse(email.trim().toLowerCase());
 }
 
+export function bootstrapLogMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "bootstrap falhou";
+  if (message.includes("@")) return "Recusado: o e-mail informado não pode ser usado.";
+  return message;
+}
+
 export function displayNameFromEmail(email: string): string {
   const local = email.split("@")[0]?.trim();
   return local ? local : "Administrador";

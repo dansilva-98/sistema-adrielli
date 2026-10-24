@@ -24,6 +24,18 @@ O Sentry do browser precisa do ambiente. `next.config.ts` embute `APP_ENV` como 
 
 A migration cria esses papéis se eles não existirem, para o `REVOKE` ser válido. No Supabase local eles já existem e o `CREATE` não roda.
 
+## L1.1 — horário da rotina
+
+A spec pede uma consulta por dia, fora do pico, e não fixa o relógio. A rotina ficou às 06:00 em America/Sao_Paulo (cron `0 9 * * *` em UTC). Confirmar se outro horário fora do pico é preferível.
+
+## L1.1 — URLs públicas
+
+Os nomes das variáveis de repositório são `PRODUCTION_PUBLIC_URL` e `STAGING_PUBLIC_URL`. A spec não publica os endereços. Enquanto a produção não responder em `/api/health`, a execução manual e a rotina diária falham, como a spec pede quando um health não responde. Confirmar os dois endereços antes de deixar o workflow na `main`, para o GitHub não avisar falha todo dia.
+
 ## Fora desta máquina
 
 Docker não estava instalado, então `supabase start` não rodou aqui. Não há remoto GitHub: proteção de branch, Dependabot e os workflows de staging e produção estão no repositório e ainda não foram executados.
+
+## L1.2 — texto de privacidade
+
+O texto de `/privacidade` é um rascunho para a responsável revisar antes do lançamento. Não é orientação jurídica. A spec não traz nome jurídico completo, CPF, CNPJ nem endereço da controladora: a página usa a marca Adrielli Flores e o `contact_email` do CMS. Confirmar o texto e se o aviso de rascunho deve sair da página depois da aprovação.
