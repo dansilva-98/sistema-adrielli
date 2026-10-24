@@ -1,6 +1,5 @@
 import { pathToFileURL } from "node:url";
 
-export const PRODUCTION_ORIGIN = "https://adrielliflores.com.br";
 export const PUBLIC_PATHS = ["/", "/sobre", "/servicos", "/contato", "/materiais"];
 const BLOCKED_ROBOTS = ["/admin", "/consultorio", "/equipe", "/api"];
 const SECURITY_HEADERS = [
@@ -10,6 +9,28 @@ const SECURITY_HEADERS = [
   "strict-transport-security",
   "x-content-type-options",
 ];
+
+export function productionOrigin(value) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error("PRODUCTION_PUBLIC_URL ausente.");
+  }
+  let url;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    throw new Error("PRODUCTION_PUBLIC_URL inválida.");
+  }
+  if (url.protocol !== "https:") {
+    throw new Error("PRODUCTION_PUBLIC_URL precisa usar https.");
+  }
+  if (url.username || url.password) {
+    throw new Error("PRODUCTION_PUBLIC_URL não pode carregar credencial.");
+  }
+  url.pathname = "/";
+  url.search = "";
+  url.hash = "";
+  return url.origin;
+}
 
 export function assessRobots(body) {
   const lines = String(body)
@@ -36,11 +57,11 @@ export function pageIsIndexable(page) {
   return !(meta && /noindex/i.test(meta[0]));
 }
 
-export function adminRedirectsToLogin(admin) {
+export function adminRedirectsToLogin(admin, origin) {
   if (![301, 302, 303, 307, 308].includes(admin.status)) return false;
   try {
-    const url = new URL(admin.location, PRODUCTION_ORIGIN);
-    return url.origin === PRODUCTION_ORIGIN && url.pathname === "/equipe/sair";
+    const url = new URL(admin.location, origin);
+    return url.origin === origin && url.pathname === "/equipe/sair";
   } catch {
     return false;
   }
@@ -58,10 +79,11 @@ export function assessProduction(input) {
   if (!assessRobots(input.robots)) failures.push("robots");
   for (const page of input.pages) {
     if (!pageIsIndexable(page)) failures.push(`pagina ${page.path}`);
-    if (page.path === "/" && !hasSecurityHeaders(page.headers))
+    if (page.path === "/" && !hasSecurityHeaders(page.headers)) {
       failures.push("cabecalhos");
+    }
   }
-  if (!adminRedirectsToLogin(input.admin)) failures.push("admin");
+  if (!adminRedirectsToLogin(input.admin, input.origin)) failures.push("admin");
   return failures;
 }
 
@@ -79,26 +101,26 @@ function headerRecord(response) {
   return headers;
 }
 
-async function fetchPath(pathname, fetchImpl) {
-  return fetchImpl(new URL(pathname, PRODUCTION_ORIGIN), {
+async function fetchPath(origin, pathname, fetchImpl) {
+  return fetchImpl(new URL(pathname, origin), {
     redirect: "manual",
     signal: AbortSignal.timeout(30_000),
   });
 }
 
-export async function collectProduction(fetchImpl) {
-  const healthResponse = await fetchPath("/api/health", fetchImpl);
+export async function collectProduction(origin, fetchImpl) {
+  const healthResponse = await fetchPath(origin, "/api/health", fetchImpl);
   let healthBody = null;
   try {
     healthBody = await healthResponse.json();
   } catch {
     healthBody = null;
   }
-  const robotsResponse = await fetchPath("/robots.txt", fetchImpl);
+  const robotsResponse = await fetchPath(origin, "/robots.txt", fetchImpl);
   const robots = await readText(robotsResponse);
   const pages = [];
   for (const path of PUBLIC_PATHS) {
-    const response = await fetchPath(path, fetchImpl);
+    const response = await fetchPath(origin, path, fetchImpl);
     pages.push({
       path,
       status: response.status,
@@ -107,8 +129,9 @@ export async function collectProduction(fetchImpl) {
       headers: headerRecord(response),
     });
   }
-  const adminResponse = await fetchPath("/admin", fetchImpl);
+  const adminResponse = await fetchPath(origin, "/admin", fetchImpl);
   return {
+    origin,
     health: { status: healthResponse.status, body: healthBody },
     robots,
     pages,
@@ -126,8 +149,17 @@ function invokedDirectly() {
 }
 
 if (invokedDirectly()) {
+  let origin;
   try {
-    const failures = assessProduction(await collectProduction(globalThis.fetch));
+    origin = productionOrigin(process.env.PRODUCTION_PUBLIC_URL);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "PRODUCTION_PUBLIC_URL ausente.";
+    console.log(message);
+    process.exit(1);
+  }
+  try {
+    const failures = assessProduction(await collectProduction(origin, globalThis.fetch));
     if (failures.length === 0) {
       console.log("producao ok");
     } else {

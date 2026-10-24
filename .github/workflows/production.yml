@@ -71,3 +71,5 @@ jobs:
           NEXT_PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}
       - name: Conferir a produção
         run: node scripts/check-production-site.mjs
+        env:
+          PRODUCTION_PUBLIC_URL: ${{ vars.PRODUCTION_PUBLIC_URL }}

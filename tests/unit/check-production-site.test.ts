@@ -7,7 +7,7 @@ import {
   assessProduction,
   assessRobots,
   pageIsIndexable,
-  PRODUCTION_ORIGIN,
+  productionOrigin,
   PUBLIC_PATHS,
 } from "../../scripts/check-production-site.mjs";
 
@@ -19,6 +19,7 @@ const headers = {
   "x-content-type-options": "nosniff",
 };
 
+const origin = "https://adrielliflores.com.br";
 const robots = [
   "User-Agent: *",
   "Allow: /",
@@ -30,6 +31,7 @@ const robots = [
 
 function productionSample() {
   return {
+    origin,
     health: { status: 200, body: { status: "ok" } },
     robots,
     pages: PUBLIC_PATHS.map((path) => ({
@@ -39,15 +41,22 @@ function productionSample() {
       robotsHeader: "",
       headers,
     })),
-    admin: { status: 307, location: `${PRODUCTION_ORIGIN}/equipe/sair` },
+    admin: { status: 307, location: `${origin}/equipe/sair` },
   };
 }
 
 describe("conferência de produção", () => {
-  it("aceita o site no domínio sem www", () => {
-    expect(PRODUCTION_ORIGIN).toBe("https://adrielliflores.com.br");
+  it("lê PRODUCTION_PUBLIC_URL e aceita o site nesse endereço", () => {
+    expect(productionOrigin("  https://adrielliflores.com.br/ ")).toBe(origin);
+    expect(() => productionOrigin("")).toThrow(/ausente/);
+    expect(() => productionOrigin("http://adrielliflores.com.br")).toThrow(/https/);
+    expect(() => productionOrigin("https://user:secret@adrielliflores.com.br")).toThrow(
+      /credencial/,
+    );
     expect(assessProduction(productionSample())).toEqual([]);
-    expect(adminRedirectsToLogin({ status: 307, location: "/equipe/sair" })).toBe(true);
+    expect(adminRedirectsToLogin({ status: 307, location: "/equipe/sair" }, origin)).toBe(
+      true,
+    );
   });
 
   it("recusa health, robots aberto demais, noindex e admin sem redirecionamento", () => {
@@ -80,9 +89,11 @@ describe("conferência de produção", () => {
     const check = workflow.indexOf("node scripts/check-production-site.mjs");
     expect(deploy).toBeGreaterThan(0);
     expect(check).toBeGreaterThan(deploy);
-    expect(script).toContain(
-      'export const PRODUCTION_ORIGIN = "https://adrielliflores.com.br"',
+    expect(workflow).toContain(
+      "PRODUCTION_PUBLIC_URL: ${{ vars.PRODUCTION_PUBLIC_URL }}",
     );
+    expect(script).toContain("process.env.PRODUCTION_PUBLIC_URL");
+    expect(script).not.toContain("https://adrielli-flores.netlify.app");
     expect(workflow).toContain("NETLIFY_ENV_CONTEXTS: production");
     const staging = readFileSync(".github/workflows/staging.yml", "utf8");
     expect(staging).toContain("NETLIFY_ENV_CONTEXTS: deploy-preview,branch-deploy");
