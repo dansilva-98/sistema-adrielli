@@ -1,6 +1,15 @@
 import { pathToFileURL } from "node:url";
 
-export const PUBLIC_PATHS = ["/", "/sobre", "/servicos", "/contato", "/materiais"];
+export const PUBLIC_PATHS = [
+  "/",
+  "/sobre",
+  "/servicos",
+  "/contato",
+  "/materiais",
+  "/privacidade",
+];
+export const RETRY_LIMIT_MS = 15 * 60 * 1000;
+export const RETRY_INTERVAL_MS = 30_000;
 const BLOCKED_ROBOTS = ["/admin", "/consultorio", "/equipe", "/api"];
 const SECURITY_HEADERS = [
   "content-security-policy",
@@ -67,6 +76,21 @@ export function adminRedirectsToLogin(admin, origin) {
   }
 }
 
+export function wwwUrl(origin) {
+  const url = new URL(origin);
+  return `https://www.${url.hostname}/`;
+}
+
+export function wwwRedirectsToApex(www, origin) {
+  if (www?.status !== 301) return false;
+  try {
+    const target = new URL(www.location, origin);
+    return target.origin === origin && target.pathname === "/";
+  } catch {
+    return false;
+  }
+}
+
 export function hasSecurityHeaders(headers) {
   return SECURITY_HEADERS.every((name) => (headers[name] ?? "").trim() !== "");
 }
@@ -84,6 +108,7 @@ export function assessProduction(input) {
     }
   }
   if (!adminRedirectsToLogin(input.admin, input.origin)) failures.push("admin");
+  if (!wwwRedirectsToApex(input.www, input.origin)) failures.push("www");
   return failures;
 }
 
@@ -130,6 +155,10 @@ export async function collectProduction(origin, fetchImpl) {
     });
   }
   const adminResponse = await fetchPath(origin, "/admin", fetchImpl);
+  const wwwResponse = await fetchImpl(wwwUrl(origin), {
+    redirect: "manual",
+    signal: AbortSignal.timeout(30_000),
+  });
   return {
     origin,
     health: { status: healthResponse.status, body: healthBody },
@@ -139,7 +168,34 @@ export async function collectProduction(origin, fetchImpl) {
       status: adminResponse.status,
       location: adminResponse.headers.get("location") ?? "",
     },
+    www: {
+      status: wwwResponse.status,
+      location: wwwResponse.headers.get("location") ?? "",
+    },
   };
+}
+
+export async function waitForProduction(origin, fetchImpl, options = {}) {
+  const limitMs = options.limitMs ?? RETRY_LIMIT_MS;
+  const intervalMs = options.intervalMs ?? RETRY_INTERVAL_MS;
+  const sleep =
+    options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const now = options.now ?? Date.now;
+  const started = now();
+  const collect = options.collect ?? collectProduction;
+  let last = ["rede"];
+  for (;;) {
+    try {
+      const failures = assessProduction(await collect(origin, fetchImpl));
+      if (failures.length === 0) return [];
+      if (!failures.includes("health")) return failures;
+      last = failures;
+    } catch {
+      last = ["rede"];
+    }
+    if (now() - started + intervalMs > limitMs) return last;
+    await sleep(intervalMs);
+  }
 }
 
 function invokedDirectly() {
@@ -159,7 +215,7 @@ if (invokedDirectly()) {
     process.exit(1);
   }
   try {
-    const failures = assessProduction(await collectProduction(origin, globalThis.fetch));
+    const failures = await waitForProduction(origin, globalThis.fetch);
     if (failures.length === 0) {
       console.log("producao ok");
     } else {
