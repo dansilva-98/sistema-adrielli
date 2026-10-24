@@ -484,7 +484,7 @@ function jsonValue(formData: FormData, name: string): unknown {
 
 async function actorContext(actorId: string) {
   const headerStore = await headers();
-  return { actorId, ip: clientIp(headerStore.get("x-forwarded-for")) };
+  return { actorId, ip: clientIp(headerStore) };
 }
 
 function invalid(
