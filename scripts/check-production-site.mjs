@@ -188,7 +188,7 @@ export async function waitForProduction(origin, fetchImpl, options = {}) {
     try {
       const failures = assessProduction(await collect(origin, fetchImpl));
       if (failures.length === 0) return [];
-      if (!failures.includes("health")) return failures;
+      if (!failures.includes("health") && !failures.includes("www")) return failures;
       last = failures;
     } catch {
       last = ["rede"];

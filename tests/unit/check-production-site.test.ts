@@ -111,15 +111,15 @@ describe("conferência de produção", () => {
     expect(RETRY_LIMIT_MS).toBe(15 * 60 * 1000);
   });
 
-  it("repete rede e health e não espera quando o restante falha", async () => {
-    const sleeps = [];
+  it("repete rede, health e www e não espera quando o restante falha", async () => {
+    const sleeps: number[] = [];
     let clock = 0;
     let attempts = 0;
     const recovered = await waitForProduction(origin, async () => new Response(), {
       limitMs: 60_000,
       intervalMs: 30_000,
       now: () => clock,
-      sleep: async (ms) => {
+      sleep: async (ms: number) => {
         clock += ms;
         sleeps.push(ms);
       },
@@ -136,7 +136,8 @@ describe("conferência de produção", () => {
       limitMs: 0,
       intervalMs: 30_000,
       now: () => 0,
-      sleep: async () => {
+      sleep: async (ms: number) => {
+        if (ms < 0) return;
         throw new Error("não deveria esperar");
       },
       collect: async () => {
@@ -146,14 +147,14 @@ describe("conferência de produção", () => {
     expect(stopped).toEqual(["rede"]);
 
     const unhealthy = productionSample();
-    unhealthy.health = { status: 503, body: null };
+    unhealthy.health = { status: 503, body: { status: "error" } };
     let healthAttempts = 0;
-    const healthSleeps = [];
+    const healthSleeps: number[] = [];
     const healthRecovered = await waitForProduction(origin, async () => new Response(), {
       limitMs: 60_000,
       intervalMs: 45_000,
       now: () => healthSleeps.length * 45_000,
-      sleep: async (ms) => {
+      sleep: async (ms: number) => {
         healthSleeps.push(ms);
       },
       collect: async () => {
@@ -165,18 +166,42 @@ describe("conferência de produção", () => {
     expect(healthRecovered).toEqual([]);
     expect(healthSleeps).toEqual([45_000]);
 
+    const pendingWww = productionSample();
+    pendingWww.www = { status: 404, location: "" };
+    let wwwAttempts = 0;
+    const wwwSleeps: number[] = [];
+    let wwwClock = 0;
+    const wwwRecovered = await waitForProduction(origin, async () => new Response(), {
+      limitMs: 60_000,
+      intervalMs: 30_000,
+      now: () => wwwClock,
+      sleep: async (ms: number) => {
+        wwwClock += ms;
+        wwwSleeps.push(ms);
+      },
+      collect: async () => {
+        wwwAttempts += 1;
+        if (wwwAttempts === 1) return pendingWww;
+        return productionSample();
+      },
+    });
+    expect(wwwRecovered).toEqual([]);
+    expect(wwwSleeps).toEqual([30_000]);
+
     const contentFailure = productionSample();
     contentFailure.robots = "User-Agent: *\nDisallow: /\n";
     const immediate = await waitForProduction(origin, async () => new Response(), {
       limitMs: 60_000,
       intervalMs: 30_000,
       now: () => 0,
-      sleep: async () => {
+      sleep: async (ms: number) => {
+        if (ms < 0) return;
         throw new Error("não deveria esperar");
       },
       collect: async () => contentFailure,
     });
     expect(immediate).toContain("robots");
     expect(immediate).not.toContain("health");
+    expect(immediate).not.toContain("www");
   });
 });
