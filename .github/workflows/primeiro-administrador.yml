@@ -1,0 +1,47 @@
+name: Primeiro administrador
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: E-mail da responsável
+        required: true
+        type: string
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Mascarar o e-mail
+        run: echo "::add-mask::$EMAIL"
+        env:
+          EMAIL: ${{ inputs.email }}
+      - name: Criar o primeiro SUPER_ADMIN
+        run: pnpm admin:bootstrap -- --email "$EMAIL"
+        env:
+          EMAIL: ${{ inputs.email }}
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
+          SENTRY_DSN: ${{ secrets.PRODUCTION_SENTRY_DSN }}
+          APP_ENV: production
+          STAFF_SESSION_SECRET: ${{ secrets.PRODUCTION_STAFF_SESSION_SECRET }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_SITE_URL: https://adrielliflores.com.br

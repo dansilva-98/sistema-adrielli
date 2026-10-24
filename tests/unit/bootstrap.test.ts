@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
+  bootstrapLogMessage,
   inviteStaffByEmail,
   readBootstrapEmail,
 } from "@/modules/identity/bootstrap-super-admin";
@@ -11,6 +14,27 @@ describe("bootstrap do SUPER_ADMIN", () => {
       "admin@example.com",
     );
     expect(() => readBootstrapEmail([])).toThrow(/Uso: pnpm admin:bootstrap/);
+  });
+
+  it("não deixa o e-mail aparecer na mensagem de erro", () => {
+    expect(bootstrapLogMessage(new Error("Falha em admin@example.com"))).toBe(
+      "Recusado: o e-mail informado não pode ser usado.",
+    );
+    expect(bootstrapLogMessage(new Error("Recusado: já existe um SUPER_ADMIN."))).toBe(
+      "Recusado: já existe um SUPER_ADMIN.",
+    );
+  });
+
+  it("o workflow mascara o e-mail e usa o domínio sem www", () => {
+    const workflow = readFileSync(".github/workflows/primeiro-administrador.yml", "utf8");
+    expect(workflow).toContain('echo "::add-mask::$EMAIL"');
+    expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: https://adrielliflores.com.br");
+    expect(workflow).not.toContain("www.adrielliflores.com.br");
+    for (const line of workflow.split("\n")) {
+      if (line.includes("run:")) {
+        expect(line).not.toContain("inputs.email");
+      }
+    }
   });
 
   it("convida pela API admin e não revela a chave quando o convite falha", async () => {
