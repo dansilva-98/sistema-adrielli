@@ -87,15 +87,20 @@ export async function saveSiteSectionAction(
   const actor = await requireStaff({ roles: ADMIN_ROLES });
   const section = text(formData, "section");
   if (!isSiteSection(section)) return invalid("Confira os dados e tente novamente.");
-  const image = await sectionImage(formData, section);
-  if (!image.ok) return image.state;
-  const parsed = parseSection(section, formData, image.path);
+  const intent = sectionImageIntent(formData, section);
+  const parsed = parseSection(section, formData, intent.pathForParse);
   if (!parsed.ok) return parsed.state;
+  let uploaded = "";
+  if (intent.upload) {
+    const image = await uploadSectionFile(formData);
+    if (!image.ok) return image.state;
+    uploaded = image.path;
+  }
   try {
     const saved = await saveSiteSection(
       sql,
       section,
-      parsed.data,
+      applyUploadedPath(section, parsed.data, uploaded),
       await actorContext(actor.userId),
     );
     updateTag(CONTENT_SITE_TAG);
@@ -103,9 +108,12 @@ export async function saveSiteSectionAction(
     return {
       ok: true,
       version: saved.version,
-      ...(section === "hero" || section === "about" ? { path: image.path } : {}),
+      ...(section === "hero" || section === "about"
+        ? { path: uploaded || intent.persistPath }
+        : {}),
     };
   } catch (error) {
+    if (uploaded) await forgetImages([uploaded]);
     return failure(error);
   }
 }
@@ -166,22 +174,37 @@ function parseSection(section: SiteSection, formData: FormData, imagePath: strin
   return { ok: true as const, data: parsed.data };
 }
 
-async function sectionImage(
-  formData: FormData,
-  section: SiteSection,
-): Promise<{ ok: true; path: string } | { ok: false; state: ContentFormState }> {
-  if (section !== "hero" && section !== "about") return { ok: true, path: "" };
+const SECTION_IMAGE_PLACEHOLDER = "00000000-0000-4000-8000-000000000000.webp";
+
+function sectionImageIntent(formData: FormData, section: SiteSection) {
+  if (section !== "hero" && section !== "about") {
+    return { upload: false, pathForParse: "", persistPath: "" };
+  }
   const pathName = section === "hero" ? "heroImagePath" : "aboutImagePath";
-  const altName = section === "hero" ? "heroImageAlt" : "aboutImageAlt";
-  if (formData.get("removeImage") === "true") return { ok: true, path: "" };
+  if (formData.get("removeImage") === "true") {
+    return { upload: false, pathForParse: "", persistPath: "" };
+  }
   const file = formData.get("image");
-  if (!(file instanceof File) || file.size === 0)
-    return { ok: true, path: text(formData, pathName) };
-  if (!text(formData, altName)) {
-    return {
-      ok: false,
-      state: invalid("Descreva a imagem.", altName, { [altName]: "Descreva a imagem." }),
-    };
+  const current = text(formData, pathName);
+  if (!(file instanceof File) || file.size === 0) {
+    return { upload: false, pathForParse: current, persistPath: current };
+  }
+  return { upload: true, pathForParse: SECTION_IMAGE_PLACEHOLDER, persistPath: "" };
+}
+
+function applyUploadedPath<T>(section: SiteSection, data: T, uploaded: string): T {
+  if (!uploaded) return data;
+  if (section === "hero") return { ...data, heroImagePath: uploaded };
+  if (section === "about") return { ...data, aboutImagePath: uploaded };
+  return data;
+}
+
+async function uploadSectionFile(
+  formData: FormData,
+): Promise<{ ok: true; path: string } | { ok: false; state: ContentFormState }> {
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, state: invalid("Escolha uma imagem.", "image") };
   }
   try {
     const webp = await prepareSiteImage(new Uint8Array(await file.arrayBuffer()));
