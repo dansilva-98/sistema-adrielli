@@ -29,6 +29,15 @@ describe("página de privacidade", () => {
     expect(content.technicalLogs).toMatch(/Sentry/);
     expect(content.technicalLogs).toMatch(/sem dados pessoais/);
     expect(content.technicalLogs).toMatch(/área da equipe/);
+    expect(content.accessLogs).toMatch(/Netlify/);
+    expect(content.accessLogs).toMatch(/Supabase/);
+    expect(content.accessLogs).toMatch(/endereço IP, a data e a hora e o navegador/);
+    expect(content.accessLogs).toMatch(/fora do Brasil/);
+    expect(content.accessLogs).toMatch(/limitar tentativas de login/);
+    expect(content.anpd).toMatch(
+      /peticionar à Autoridade Nacional de Proteção de Dados \(ANPD\)/,
+    );
+    expect(content.draftNotice).toMatch(/rascunho/);
     expect(content.rights).toEqual(
       expect.arrayContaining([
         "acesso aos dados",

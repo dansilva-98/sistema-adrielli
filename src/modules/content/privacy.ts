@@ -9,7 +9,9 @@ export type PrivacyContent = {
   contactEmail: string | null;
   noCollection: string;
   technicalLogs: string;
+  accessLogs: string;
   rightsIntro: string;
+  anpd: string;
   rights: string[];
   rightsExercise: string;
   updated: string;
@@ -43,9 +45,12 @@ export function privacyContent(contactEmail: string | null | undefined): Privacy
       "Este site não tem formulário e não usa cookies de rastreamento. O contato acontece por WhatsApp, Instagram ou e-mail, fora do site.",
     technicalLogs:
       "Existem registros técnicos de erro, feitos pelo Sentry, sem dados pessoais. Cookies técnicos existem só na área da equipe, para manter a sessão de quem trabalha no painel.",
+    accessLogs:
+      "A Netlify, que entrega o site, e a Supabase, que guarda o acesso da equipe, registram o endereço IP, a data e a hora e o navegador de quem acessa. Esses servidores podem ficar fora do Brasil. Na área da equipe, o endereço IP também é usado para limitar tentativas de login.",
     rightsIntro:
       "A Lei Geral de Proteção de Dados garante à pessoa titular estes direitos:",
     rights: RIGHTS,
+    anpd: "A pessoa titular também pode peticionar à Autoridade Nacional de Proteção de Dados (ANPD).",
     rightsExercise: emailPending
       ? "Esses direitos serão exercidos pelo e-mail de contato, quando ele estiver cadastrado."
       : "Esses direitos são exercidos por esse e-mail de contato.",

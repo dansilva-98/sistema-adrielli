@@ -52,6 +52,10 @@ async function PrivacidadeContent() {
         <p>{content.technicalLogs}</p>
       </section>
       <section className="flex flex-col gap-2">
+        <h2 className="font-serif text-2xl">Registros de acesso</h2>
+        <p>{content.accessLogs}</p>
+      </section>
+      <section className="flex flex-col gap-2">
         <h2 className="font-serif text-2xl">Direitos de quem é titular</h2>
         <p>{content.rightsIntro}</p>
         <ul className="list-disc pl-5">
@@ -60,6 +64,7 @@ async function PrivacidadeContent() {
           ))}
         </ul>
         <p>{content.rightsExercise}</p>
+        <p>{content.anpd}</p>
       </section>
       <p>{content.updated}</p>
     </article>
