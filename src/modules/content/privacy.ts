@@ -2,7 +2,6 @@ export const PRIVACY_UPDATED_ON = "24 de outubro de 2026";
 
 export type PrivacyContent = {
   title: "Privacidade";
-  draftNotice: string;
   responsible: string;
   contactLine: string;
   emailPending: boolean;
@@ -33,8 +32,6 @@ export function privacyContent(contactEmail: string | null | undefined): Privacy
   const emailPending = email.length === 0;
   return {
     title: "Privacidade",
-    draftNotice:
-      "Este texto é um rascunho para revisão da responsável pelo site. Ele não substitui orientação jurídica.",
     responsible:
       "A responsável por este site é Adrielli Flores, neuropsicopedagoga, pessoa física.",
     contactLine: emailPending

@@ -13,7 +13,7 @@ describe("página de privacidade", () => {
     }
   });
 
-  it("usa o e-mail de contato do CMS e marca o texto como rascunho", () => {
+  it("usa o e-mail de contato do CMS sem aviso de rascunho", () => {
     const content = privacyContent("  dados@adrielli.example  ");
     expect(content.contactEmail).toBe("dados@adrielli.example");
     expect(content.contactLine).toBe(
@@ -24,8 +24,8 @@ describe("página de privacidade", () => {
       "A responsável por este site é Adrielli Flores, neuropsicopedagoga, pessoa física.",
     );
     expect(JSON.stringify(content)).not.toMatch(/CPF|\d{3}\.\d{3}\.\d{3}-\d{2}/);
-    expect(content.draftNotice).toMatch(/rascunho/);
-    expect(content.draftNotice).toMatch(/não substitui orientação jurídica/);
+    expect(JSON.stringify(content)).not.toMatch(/rascunho/);
+    expect(JSON.stringify(content)).not.toMatch(/não substitui orientação jurídica/);
     expect(content.noCollection).toMatch(/não tem formulário/);
     expect(content.noCollection).toMatch(/cookies de rastreamento/);
     expect(content.noCollection).toMatch(/WhatsApp, Instagram ou e-mail/);
@@ -40,7 +40,6 @@ describe("página de privacidade", () => {
     expect(content.anpd).toMatch(
       /peticionar à Autoridade Nacional de Proteção de Dados \(ANPD\)/,
     );
-    expect(content.draftNotice).toMatch(/rascunho/);
     expect(content.rights).toEqual(
       expect.arrayContaining([
         "acesso aos dados",

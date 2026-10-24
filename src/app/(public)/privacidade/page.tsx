@@ -32,7 +32,6 @@ async function PrivacidadeContent() {
   return (
     <article className="flex flex-col gap-4">
       <h1 className="font-serif text-4xl">{content.title}</h1>
-      <p>{content.draftNotice}</p>
       <section className="flex flex-col gap-2">
         <h2 className="font-serif text-2xl">Responsável</h2>
         <p>{content.responsible}</p>

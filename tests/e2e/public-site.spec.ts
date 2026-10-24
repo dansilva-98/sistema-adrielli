@@ -28,7 +28,7 @@ test.describe("site público", () => {
     });
   }
 
-  test("a privacidade está no rodapé como rascunho para revisão", async ({ page }) => {
+  test("a privacidade está no rodapé sem aviso de rascunho", async ({ page }) => {
     await page.goto("/");
     await page
       .getByRole("navigation", { name: "Rodapé" })
@@ -38,8 +38,8 @@ test.describe("site público", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Privacidade" }),
     ).toBeVisible();
-    await expect(page.getByText(/rascunho para revisão/)).toBeVisible();
-    await expect(page.getByText(/não substitui orientação jurídica/)).toBeVisible();
+    await expect(page.getByText(/rascunho para revisão/)).toHaveCount(0);
+    await expect(page.getByText(/não substitui orientação jurídica/)).toHaveCount(0);
     await expect(page.getByText("Adrielli Flores").first()).toBeVisible();
   });
 
