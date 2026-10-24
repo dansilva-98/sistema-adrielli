@@ -1,12 +1,14 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { appendFileSync } from "node:fs";
+import { createRequire } from "node:module";
 
 import { createClient } from "@supabase/supabase-js";
 import { generateSync } from "otplib";
-import { chromium } from "playwright";
 import postgres from "postgres";
 
 import { chooseDraft, evidenceText, summarize } from "./measure-staging-math.mjs";
+
+const { chromium } = createRequire(import.meta.resolve("@playwright/test"))("playwright");
 
 const tokenNames = [
   "NETLIFY_AUTH_TOKEN",

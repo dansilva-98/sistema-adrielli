@@ -61,6 +61,8 @@ describe("medição de staging", () => {
     const main = script.slice(script.indexOf("async function main"));
     const cleanup = main.slice(main.indexOf("finally"));
     expect(cleanup).toContain("removeUser");
+    expect(script).not.toMatch(/from ["']playwright["']/);
+    expect(script).toContain('import.meta.resolve("@playwright/test")');
     expect(workflow).toContain("--context deploy-preview");
     expect(measure).toContain("environment: staging");
     expect(measure).toContain("github.ref == 'refs/heads/main'");
