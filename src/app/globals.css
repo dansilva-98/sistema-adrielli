@@ -8,8 +8,10 @@
   --surface: #f6f0e8;
   --text: #3a2418;
   --muted: #5c4334;
-  --primary: #8f3d24;
-  --primary-foreground: #fff8f4;
+  --primary: #7d5618;
+  --primary-foreground: #ffffff;
+  --gold: #b38937;
+  --gold-light: #e3c88f;
   --support: #1e5a38;
   --support-foreground: #f4fff8;
   --danger: #9f1239;
@@ -54,6 +56,8 @@
   --color-muted: var(--muted);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
   --color-support: var(--support);
   --color-support-foreground: var(--support-foreground);
   --color-danger: var(--danger);
