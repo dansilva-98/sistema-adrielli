@@ -3,12 +3,7 @@ import { Suspense } from "react";
 
 import { HomeContent } from "@/app/(public)/home-sections";
 import { publicPageMetadata } from "@/modules/content/indexing";
-import {
-  readPublishedFaq,
-  readPublishedServices,
-  readPublishedTestimonials,
-  readPublicSite,
-} from "@/modules/content/server/public";
+import { loadTimedPublicHome, readPublicSite } from "@/modules/content/server/public";
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await readPublicSite();
@@ -29,13 +24,6 @@ export default function HomePage() {
 }
 
 async function HomePageContent() {
-  const [site, services, testimonials, faq] = await Promise.all([
-    readPublicSite(),
-    readPublishedServices(),
-    readPublishedTestimonials(),
-    readPublishedFaq(),
-  ]);
-  return (
-    <HomeContent site={site} services={services} testimonials={testimonials} faq={faq} />
-  );
+  const content = await loadTimedPublicHome();
+  return <HomeContent {...content} />;
 }
