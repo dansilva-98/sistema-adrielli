@@ -48,6 +48,10 @@ public/_headers
 # local database backups
 /backups/
 
+# age private identity and ciphertext; the public recipient in ops/backup is committed
+age-identity.txt
+*.age
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

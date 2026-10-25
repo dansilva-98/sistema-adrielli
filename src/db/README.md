@@ -42,6 +42,8 @@ docker exec supabase_db_adrielli-flores rm -f /tmp/restore.sql
 
 Apagar ou esvaziar o banco de rascunho é um comando destrutivo e só acontece com autorização explícita.
 
+O backup diário de produção é outro arquivo: sai criptografado com age e não usa `pnpm db:backup`. A restauração dele está no README da raiz, na seção "Backup de produção".
+
 - `pnpm test:integration` usa `TEST_DATABASE_URL`, no banco `adrielli_flores_test`. É esse banco que o setup apaga e migra de novo. O banco `postgres` de desenvolvimento não entra nesse caminho.
 
 Não use `supabase db reset` como caminho das migrations da aplicação: ele só aplica `supabase/migrations`. O histórico deste projeto está em `src/db/migrations`.
