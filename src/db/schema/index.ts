@@ -9,5 +9,13 @@ export {
 } from "./identity";
 export { content, faq, services, siteSettings, testimonials } from "./content";
 export { commerce } from "./commerce";
-export { clinic } from "./clinic";
+export {
+  attachmentCategory,
+  clinic,
+  guardianRelationship,
+  guardians,
+  patientAttachments,
+  patientGuardians,
+  patients,
+} from "./clinic";
 export { audit, auditLog } from "./audit";

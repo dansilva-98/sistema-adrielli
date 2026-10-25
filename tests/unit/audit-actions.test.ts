@@ -31,15 +31,33 @@ describe("ações de auditoria", () => {
 
   it("inclui os eventos de conteúdo no check e cria o bucket público", () => {
     const sql = readFileSync("src/db/migrations/0006_content_tables.sql", "utf8");
-    for (const action of AUDIT_ACTIONS) {
+    for (const action of AUDIT_ACTIONS.filter(
+      (action) => !action.startsWith("clinic."),
+    )) {
       expect(sql).toContain(`'${action}'`);
     }
-    expect(AUDIT_ACTIONS).toHaveLength(T1_7_ACTIONS.length + 11);
+    expect(AUDIT_ACTIONS.filter((action) => !action.startsWith("clinic."))).toHaveLength(
+      T1_7_ACTIONS.length + 11,
+    );
     expect(sql).toContain("'site-public'");
     expect(sql).toContain("4194304");
     expect(sql).toContain("'image/jpeg'");
     expect(sql).toContain("'image/png'");
     expect(sql).toContain("'image/webp'");
     expect(sql.toLowerCase()).toContain("on conflict (id) do nothing");
+  });
+
+  it("inclui os eventos da clínica e cria o bucket privado", () => {
+    const sql = readFileSync("src/db/migrations/0009_clinic_patients.sql", "utf8");
+    for (const action of AUDIT_ACTIONS) {
+      expect(sql).toContain(`'${action}'`);
+    }
+    expect(sql).toContain('"clinic"."patient_attachments"');
+    expect(sql).toContain("'clinic-private'");
+    expect(sql).toContain("10485760");
+    expect(sql).toContain("false");
+    expect(sql).toContain("'application/pdf'");
+    expect(sql.toLowerCase()).toContain("on conflict (id) do nothing");
+    expect(sql.toLowerCase()).not.toContain("on delete cascade");
   });
 });

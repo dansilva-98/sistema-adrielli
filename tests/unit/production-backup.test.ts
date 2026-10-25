@@ -500,6 +500,12 @@ describe("backup de produção", () => {
     }
   });
 
+  it("exige clinic-private quando a migration da E7.1 entra no dump", () => {
+    const sql = readFileSync("src/db/migrations/0009_clinic_patients.sql", "utf8");
+    expect(clinicPrivateBucketRequired(sql)).toBe(true);
+    expect(clinicPrivateBucketRequired("CREATE TABLE clinic.patients ()")).toBe(false);
+  });
+
   it("criptografa antes do envio e apaga a área temporária se a criptografia falha", async () => {
     const order: string[] = [];
     const env = configuredEnv();
