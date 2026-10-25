@@ -7,7 +7,9 @@ import { TEST_DATABASE_NAME } from "../../src/db/seed";
 
 const STAFF_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1";
 const PATIENT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1";
+const PATIENT_2_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2";
 const GUARDIAN_ID = "cccccccc-cccc-4ccc-8ccc-ccccccccccc1";
+const GUARDIAN_2_ID = "cccccccc-cccc-4ccc-8ccc-ccccccccccc2";
 const ATTACHMENT_ID = "dddddddd-dddd-4ddd-8ddd-ddddddddddd1";
 const VALID_CPF = "52998224725";
 const TABLES = [
@@ -40,9 +42,17 @@ describe("tabelas de pacientes", () => {
   afterAll(async () => {
     await owner`alter table clinic.patient_guardians disable trigger "patient_guardians_keep_one"`;
     await owner`delete from clinic.patient_attachments where uploaded_by = ${STAFF_ID}::uuid`;
-    await owner`delete from clinic.patient_guardians where patient_id = ${PATIENT_ID}::uuid`;
+    await owner`
+      delete from clinic.patient_guardians
+      where patient_id in (
+        select id from clinic.patients where created_by = ${STAFF_ID}::uuid
+      )
+    `;
     await owner`delete from clinic.patients where created_by = ${STAFF_ID}::uuid`;
-    await owner`delete from clinic.guardians where id = ${GUARDIAN_ID}::uuid`;
+    await owner`
+      delete from clinic.guardians
+      where id in (${GUARDIAN_ID}::uuid, ${GUARDIAN_2_ID}::uuid)
+    `;
     await owner`delete from identity.users where id = ${STAFF_ID}::uuid`;
     await owner`delete from auth.users where id = ${STAFF_ID}::uuid`;
     await owner?.end({ timeout: 5 });
@@ -142,6 +152,37 @@ describe("tabelas de pacientes", () => {
         values ('Cpf', '2019-02-03', '11111111111', ${STAFF_ID}::uuid)
       `,
     ).rejects.toThrow(/patients_cpf_valid/);
+  });
+
+  it("recusa um segundo responsável principal e liga o mesmo responsável a dois pacientes", async () => {
+    await runtime`
+      insert into clinic.guardians (id, full_name, relationship, phone)
+      values (${GUARDIAN_2_ID}::uuid, 'Paulo da Silva', 'FATHER', '11987654322')
+    `;
+    await expect(
+      runtime`
+        insert into clinic.patient_guardians (patient_id, guardian_id, is_primary)
+        values (${PATIENT_ID}::uuid, ${GUARDIAN_2_ID}::uuid, true)
+      `,
+    ).rejects.toThrow(/patient_guardians_one_primary|duplicate key/);
+
+    await runtime.begin(async (transaction) => {
+      await transaction`
+        insert into clinic.patients (id, full_name, birth_date, created_by)
+        values (${PATIENT_2_ID}::uuid, 'Pedro da Silva', '2016-03-04', ${STAFF_ID}::uuid)
+      `;
+      await transaction`
+        insert into clinic.patient_guardians (patient_id, guardian_id, is_primary)
+        values (${PATIENT_2_ID}::uuid, ${GUARDIAN_ID}::uuid, true)
+      `;
+    });
+
+    const links = await runtime<{ patient_id: string }[]>`
+      select patient_id
+      from clinic.patient_guardians
+      where guardian_id = ${GUARDIAN_ID}::uuid
+    `;
+    expect(links).toHaveLength(2);
   });
 
   it("grava anexo no caminho do paciente e cria o bucket privado", async () => {

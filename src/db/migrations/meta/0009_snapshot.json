@@ -220,12 +220,8 @@
           "tableFrom": "faq",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -542,12 +538,8 @@
           "tableFrom": "patient_attachments",
           "tableTo": "patients",
           "schemaTo": "clinic",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -556,12 +548,8 @@
           "tableFrom": "patient_attachments",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "uploaded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["uploaded_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -570,12 +558,8 @@
           "tableFrom": "patient_attachments",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "deleted_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deleted_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -651,12 +635,8 @@
           "tableFrom": "patient_guardians",
           "tableTo": "patients",
           "schemaTo": "clinic",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -665,12 +645,8 @@
           "tableFrom": "patient_guardians",
           "tableTo": "guardians",
           "schemaTo": "clinic",
-          "columnsFrom": [
-            "guardian_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["guardian_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -678,10 +654,7 @@
       "compositePrimaryKeys": {
         "patient_guardians_patient_id_guardian_id_pk": {
           "name": "patient_guardians_patient_id_guardian_id_pk",
-          "columns": [
-            "patient_id",
-            "guardian_id"
-          ]
+          "columns": ["patient_id", "guardian_id"]
         }
       },
       "uniqueConstraints": {},
@@ -842,12 +815,8 @@
           "tableFrom": "patients",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -981,12 +950,8 @@
           "tableFrom": "services",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -996,9 +961,7 @@
         "services_slug_unique": {
           "name": "services_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -1172,12 +1135,8 @@
           "tableFrom": "site_settings",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1317,12 +1276,8 @@
           "tableFrom": "testimonials",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1376,12 +1331,8 @@
           "tableFrom": "user_roles",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1390,12 +1341,8 @@
           "tableFrom": "user_roles",
           "tableTo": "users",
           "schemaTo": "identity",
-          "columnsFrom": [
-            "granted_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["granted_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1403,10 +1350,7 @@
       "compositePrimaryKeys": {
         "user_roles_user_id_role_pk": {
           "name": "user_roles_user_id_role_pk",
-          "columns": [
-            "user_id",
-            "role"
-          ]
+          "columns": ["user_id", "role"]
         }
       },
       "uniqueConstraints": {},
@@ -1481,39 +1425,22 @@
     "clinic.guardian_relationship": {
       "name": "guardian_relationship",
       "schema": "clinic",
-      "values": [
-        "MOTHER",
-        "FATHER",
-        "GRANDMOTHER",
-        "SELF",
-        "OTHER"
-      ]
+      "values": ["MOTHER", "FATHER", "GRANDMOTHER", "SELF", "OTHER"]
     },
     "identity.login_attempt_kind": {
       "name": "login_attempt_kind",
       "schema": "identity",
-      "values": [
-        "EMAIL",
-        "IP",
-        "MFA"
-      ]
+      "values": ["EMAIL", "IP", "MFA"]
     },
     "identity.staff_role": {
       "name": "staff_role",
       "schema": "identity",
-      "values": [
-        "SUPER_ADMIN",
-        "CONTENT_ADMIN",
-        "CLINIC_ADMIN"
-      ]
+      "values": ["SUPER_ADMIN", "CONTENT_ADMIN", "CLINIC_ADMIN"]
     },
     "identity.user_kind": {
       "name": "user_kind",
       "schema": "identity",
-      "values": [
-        "STAFF",
-        "CUSTOMER"
-      ]
+      "values": ["STAFF", "CUSTOMER"]
     }
   },
   "schemas": {

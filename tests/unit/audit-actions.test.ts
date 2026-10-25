@@ -53,6 +53,8 @@ describe("ações de auditoria", () => {
       expect(sql).toContain(`'${action}'`);
     }
     expect(sql).toContain('"clinic"."patient_attachments"');
+    expect(sql).toContain("CREATE EXTENSION unaccent WITH SCHEMA extensions");
+    expect(sql).toContain("extensions.unaccent");
     expect(sql).toContain("'clinic-private'");
     expect(sql).toContain("10485760");
     expect(sql).toContain("false");

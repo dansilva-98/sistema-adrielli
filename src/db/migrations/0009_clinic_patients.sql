@@ -80,13 +80,33 @@ CREATE UNIQUE INDEX "patients_cpf_unique" ON "clinic"."patients" USING btree ("c
 CREATE INDEX "patients_full_name_search_idx" ON "clinic"."patients" USING btree ("full_name_search");--> statement-breakpoint
 CREATE INDEX "patients_archived_at_idx" ON "clinic"."patients" USING btree ("archived_at");
 --> statement-breakpoint
-CREATE EXTENSION IF NOT EXISTS unaccent;
+CREATE SCHEMA IF NOT EXISTS extensions;
+--> statement-breakpoint
+DO $$
+DECLARE
+  extension_schema name;
+BEGIN
+  SELECT n.nspname
+    INTO extension_schema
+  FROM pg_extension AS e
+  JOIN pg_namespace AS n ON n.oid = e.extnamespace
+  WHERE e.extname = 'unaccent';
+
+  IF extension_schema IS NULL THEN
+    CREATE EXTENSION unaccent WITH SCHEMA extensions;
+  ELSIF extension_schema <> 'extensions' THEN
+    ALTER EXTENSION unaccent SET SCHEMA extensions;
+  END IF;
+END
+$$;
+--> statement-breakpoint
+GRANT USAGE ON SCHEMA extensions TO app_runtime;
 --> statement-breakpoint
 CREATE FUNCTION "clinic"."fold_search"(value text) RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
-  SELECT public.unaccent(lower(coalesce(value, '')))
+  SELECT extensions.unaccent(lower(coalesce(value, '')))
 $$;
 --> statement-breakpoint
 CREATE FUNCTION "clinic"."cpf_is_valid"(value text) RETURNS boolean
