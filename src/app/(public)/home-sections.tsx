@@ -104,6 +104,16 @@ export function HomeContent({
           </ul>
         </section>
       ) : null}
+      <section className="rounded-lg border border-border p-4">
+        <h2 className="font-serif text-2xl">Materiais</h2>
+        <p className="mt-2 text-sm">Em breve</p>
+        <Link
+          href="/materiais"
+          className="mt-3 inline-flex w-fit underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          Ver materiais
+        </Link>
+      </section>
       {hasHowItWorks(site) ? (
         <section className="flex flex-col gap-3">
           <h2 className="font-serif text-2xl">Como funciona</h2>

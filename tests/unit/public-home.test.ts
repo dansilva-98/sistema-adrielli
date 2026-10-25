@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { createElement, type ComponentType } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import { describe, expect, it } from "vitest";
 
@@ -58,6 +60,32 @@ describe("site público", () => {
         [],
       ),
     ).toEqual([]);
+  });
+
+  it("mostra o cartão de materiais mesmo sem conteúdo", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||= "http://127.0.0.1:54321";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||= "test-anon-key";
+    process.env.NEXT_PUBLIC_SENTRY_DSN ||= "https://public@sentry.example/1";
+    process.env.NEXT_PUBLIC_SITE_URL ||= "http://127.0.0.1:3000";
+    const home = await import("@/app/(public)/home-sections");
+    const HomeContent = home.HomeContent as ComponentType<{
+      site: typeof EMPTY_PUBLIC_SITE;
+      services: [];
+      testimonials: [];
+      faq: [];
+    }>;
+    const html = renderToStaticMarkup(
+      createElement(HomeContent, {
+        site: EMPTY_PUBLIC_SITE,
+        services: [],
+        testimonials: [],
+        faq: [],
+      }),
+    );
+    expect(html).toContain("Materiais");
+    expect(html).toContain("Em breve");
+    expect(html).toContain('href="/materiais"');
+    expect(html).toContain("Ver materiais");
   });
 
   it("mostra só o começo do texto", () => {
