@@ -26,7 +26,15 @@ export function PublicHeader() {
             alt="Adrielli Flores"
             width={227}
             height={46}
-            className="h-[38px] w-auto md:h-[46px]"
+            className="h-[38px] w-auto md:hidden"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logo-horizontal-subtitulo.svg"
+            alt="Adrielli Flores"
+            width={474}
+            height={96}
+            className="hidden h-[96px] w-auto md:block"
           />
         </Link>
         <button
