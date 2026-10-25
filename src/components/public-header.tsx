@@ -19,19 +19,23 @@ export function PublicHeader() {
   return (
     <header className="border-b border-border bg-surface">
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-        <Link href="/" aria-label="Adrielli Flores" className="inline-flex shrink-0">
+        <Link
+          href="/"
+          aria-label="Adrielli Flores"
+          className="inline-flex w-full max-w-full shrink-0 basis-full min-[30rem]:w-auto min-[30rem]:basis-auto md:w-auto"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brand/logo-horizontal.svg"
+            src="/brand/logo-horizontal-subtitulo.svg"
             alt="Adrielli Flores"
-            width={227}
-            height={46}
-            className="h-[38px] w-auto md:h-[46px]"
+            width={434}
+            height={88}
+            className="h-auto w-full min-[30rem]:h-[72px] min-[30rem]:w-auto md:h-[96px]"
           />
         </Link>
         <button
           type="button"
-          className="rounded-md border border-border px-3 py-2 text-sm md:hidden"
+          className="ml-auto rounded-md border border-border px-3 py-2 text-sm md:hidden"
           aria-expanded={open}
           aria-controls="public-nav"
           onClick={() => setOpen((current) => !current)}
