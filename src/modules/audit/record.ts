@@ -1,7 +1,7 @@
 import type postgres from "postgres";
 import { z } from "zod";
 
-import type { AuditAction } from "@/db/audit-actions";
+import type { AuditAction } from "../../db/audit-actions.ts";
 
 const metadataSchema = z.object({}).strict();
 
@@ -23,8 +23,8 @@ export async function recordAudit(event: AuditEvent, tx?: AuditExecutor): Promis
     await insertAudit(tx, event, metadata.data);
     return;
   }
-  const { db } = await import("@/db/client");
-  const { auditLog } = await import("@/db/schema");
+  const { db } = await import("../../db/client.ts");
+  const { auditLog } = await import("../../db/schema/index.ts");
   await db.insert(auditLog).values({
     action: event.action,
     actorUserId: event.actorUserId ?? null,

@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { z } from "zod";
 
-import { recordAudit } from "@/modules/audit/record";
+import { recordAudit } from "../audit/record.ts";
 
 const emailSchema = z.email();
 const userIdSchema = z.uuid();
