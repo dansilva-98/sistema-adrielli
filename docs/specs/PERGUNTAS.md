@@ -39,3 +39,31 @@ Docker não estava instalado, então `supabase start` não rodou aqui. Não há 
 ## L1.2 — texto de privacidade
 
 O texto de `/privacidade` é um rascunho para a responsável revisar antes do lançamento. Não é orientação jurídica. A spec não traz nome jurídico completo, CPF, CNPJ nem endereço da controladora: a página usa a marca Adrielli Flores e o `contact_email` do CMS. Confirmar o texto e se o aviso de rascunho deve sair da página depois da aprovação.
+
+## E7.0 — horário do backup
+
+Aprovado: 03:15 em America/Sao_Paulo (cron `15 6 * * *`), separado da rotina das 06:00 que mantém o banco acordado.
+
+## E7.0 — ambiente GitHub
+
+Aprovado: ambiente `backup`, só na `main`, sem revisor obrigatório. O ambiente `production` continua com revisor e não serve para a rotina diária.
+
+## E7.0 — dados de auth
+
+Aprovado: o dump inclui o schema `auth` e os dados de `auth.users`, `auth.identities` e `auth.mfa_factors`. Sessões, refresh tokens e desafios de MFA ficam de fora.
+
+## E7.0 — bucket ainda inexistente
+
+Enquanto o dump não tiver `clinic.patient_attachments`, a ausência de `clinic-private` segue só com o banco e fica registrada no arquivo criptografado. Depois da E7.1, essa ausência falha o job.
+
+## E7.0 — Storage público
+
+O backup inclui `site-public` junto com `clinic-private`. A ausência de `site-public` falha o job.
+
+## E7.0 — restauração real
+
+Um Supabase local temporário, fora deste repositório, atende ao projeto descartável. A responsável restaura com a chave privada, pelo README, com a orientação do Tech Lead, logo depois do primeiro backup real. O resultado fica registrado no PR ou numa issue.
+
+## E7.0 — alerta de backup parado
+
+O workflow Banco ativo consulta a API pública do GitHub, sem segredo, e falha se a última execução bem-sucedida do backup na `main` tiver 30 horas ou mais.

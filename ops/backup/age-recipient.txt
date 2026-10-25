@@ -1,0 +1,3 @@
+# Cole abaixo uma única linha age1..., a chave pública gerada pela responsável.
+# A chave privada não entra neste arquivo, nem no repositório, nem no GitHub.
+age1reuuqukflcacgppq4qgqwek89cydln3tz0haqm44wf7p2ch753ssags0hg
