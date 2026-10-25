@@ -23,10 +23,12 @@ export function PublicFooter({ site }: { site: PublicSite }) {
       ? { href: `mailto:${site.contactEmail}`, label: site.contactEmail, external: false }
       : null,
   ].filter((item) => item !== null);
+  const spacing = site.whatsappUrl
+    ? "mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pt-6 pb-[calc(5rem+env(safe-area-inset-bottom))] text-sm sm:flex-row sm:items-center sm:justify-between xl:pb-6"
+    : "mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6 text-sm sm:flex-row sm:items-center sm:justify-between";
   return (
     <footer className="border-t border-border bg-text text-gold-light">
-      {/* O selo da Netlify é fixo no canto e o CSS do site não consegue escondê-lo. */}
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pt-6 pb-20 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className={spacing}>
         <div className="flex flex-col gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
