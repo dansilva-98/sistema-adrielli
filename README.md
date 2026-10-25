@@ -84,7 +84,7 @@ O Git não publica o site. O site da Netlify não fica ligado ao repositório, e
 - O site se chama `adrielli-flores`. Só o workflow de staging cria esse nome, se ele ainda não existir.
 - A CLI fica fixa em `netlify-cli@27.14.2`. O plugin `@netlify/plugin-nextjs` fica em `5.16.4`. O build roda no GitHub Actions.
 - Dependabot abre PRs de segurança em `.github/dependabot.yml`.
-- `.github/workflows/keep-database-awake.yml` chama `GET /api/health` da produção e do staging uma vez por dia, às 06:00 em America/Sao_Paulo (09:00 UTC). O health consulta o banco, então o projeto gratuito da Supabase não fica sete dias sem atividade. As URLs são as variáveis de repositório `PRODUCTION_PUBLIC_URL` e `STAGING_PUBLIC_URL`. Não são segredos e não ficam no arquivo do workflow. Se uma delas não responder `{ "status": "ok" }`, o job falha e o GitHub avisa como em qualquer workflow que falha.
+- `.github/workflows/keep-database-awake.yml` chama `GET /api/health` da produção e do staging uma vez por dia, às 06:00 em America/Sao_Paulo (09:00 UTC). O health consulta o banco, então o projeto gratuito da Supabase não fica sete dias sem atividade. As URLs são as variáveis de repositório `PRODUCTION_PUBLIC_URL` e `STAGING_PUBLIC_URL`. Não são segredos e não ficam no arquivo do workflow. Se uma delas não responder `{ "status": "ok" }`, o job falha e o GitHub avisa como em qualquer workflow que falha. O mesmo job consulta a API pública do GitHub, sem token e sem segredo, e falha se a última execução bem-sucedida do backup na `main` tiver 30 horas ou mais. Assim um agendamento pulado também gera o e-mail de falha.
 
 O GitHub desativa workflows agendados de repositório público que fica 60 dias sem atividade (sem push e sem outra atividade no repositório). A pessoa dona do repositório recebe um e-mail. Para reativar: abra a aba Actions, escolha o workflow **Banco ativo** e clique em **Enable workflow**. Um commit novo no repositório também volta a permitir o agendamento. A rotina só passa a rodar sozinha depois que este workflow está na `main`.
 
@@ -97,8 +97,9 @@ O job usa o ambiente GitHub `backup`, não o ambiente `production`. O de produç
 O que entra no arquivo, ainda no runner:
 
 1. Dump do banco de produção, com a URL de migration (papel `postgres`, pooler de sessão, porta 5432). Entra o schema `auth` e os dados de `auth.users`, `auth.identities` e `auth.mfa_factors`. Sessões e refresh tokens ficam de fora. Em seguida vêm os schemas da aplicação.
-2. Arquivos do bucket privado `clinic-private`. Se o bucket ainda não existir, o job segue só com o banco e registra isso dentro do arquivo criptografado.
-3. `age` criptografa o conjunto com a chave pública de `ops/backup/age-recipient.txt`. O texto puro é apagado do runner antes do envio. O arquivo só sai se começar com o cabeçalho do age.
+2. Arquivos do bucket privado `clinic-private`. Enquanto o dump não tiver a tabela `clinic.patient_attachments` da E7.1, a ausência desse bucket segue só com o banco e fica registrada no arquivo criptografado. Depois da E7.1, a ausência falha o job.
+3. Arquivos do bucket público `site-public`. A ausência desse bucket falha o job.
+4. `age` criptografa o conjunto com a chave pública de `ops/backup/age-recipient.txt`. O texto puro é apagado do runner antes do envio. O arquivo só sai se começar com o cabeçalho do age.
 
 O destino é uma pasta `adrielli-flores-backups` criada na conta Google da responsável pelo escopo `https://www.googleapis.com/auth/drive.file`. O job guarda 30 cópias diárias. Um segundo disparo no mesmo dia substitui a cópia daquele dia. Não há artefato do GitHub: o repositório é público.
 
@@ -123,15 +124,15 @@ No Google Cloud, um projeto gratuito só para este backup:
 
 Ambiente GitHub `backup`, restrito à branch `main`, sem revisor obrigatório. Segredos só desse ambiente:
 
-| Nome                               | Valor                                                   |
-| ---------------------------------- | ------------------------------------------------------- |
-| `BACKUP_DATABASE_URL`              | URL de migration de produção. Porta 5432, não 6543.     |
-| `BACKUP_SUPABASE_URL`              | URL HTTPS do Supabase de produção.                      |
-| `BACKUP_SUPABASE_SERVICE_ROLE_KEY` | Service role de produção, só para ler o bucket privado. |
-| `BACKUP_DRIVE_CLIENT_ID`           | Id do cliente OAuth.                                    |
-| `BACKUP_DRIVE_CLIENT_SECRET`       | Segredo desse cliente.                                  |
-| `BACKUP_DRIVE_REFRESH_TOKEN`       | Token gerado pelo script, escopo `drive.file`.          |
-| `BACKUP_DRIVE_FOLDER_ID`           | Id da pasta `adrielli-flores-backups`.                  |
+| Nome                               | Valor                                                                   |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| `BACKUP_DATABASE_URL`              | URL de migration de produção. Porta 5432, não 6543.                     |
+| `BACKUP_SUPABASE_URL`              | URL HTTPS do Supabase de produção.                                      |
+| `BACKUP_SUPABASE_SERVICE_ROLE_KEY` | Service role de produção, só para ler `clinic-private` e `site-public`. |
+| `BACKUP_DRIVE_CLIENT_ID`           | Id do cliente OAuth.                                                    |
+| `BACKUP_DRIVE_CLIENT_SECRET`       | Segredo desse cliente.                                                  |
+| `BACKUP_DRIVE_REFRESH_TOKEN`       | Token gerado pelo script, escopo `drive.file`.                          |
+| `BACKUP_DRIVE_FOLDER_ID`           | Id da pasta `adrielli-flores-backups`.                                  |
 
 Não conceder o escopo `https://www.googleapis.com/auth/drive`, Gmail, Calendar, delegação de domínio, nem compartilhar o Drive inteiro. Não colocar esses segredos no repositório, no log ou em artefato.
 
@@ -141,12 +142,12 @@ Este teste não foi executado neste PR: faltam a chave privada, os segredos do D
 
 1. Baixar o `.age` pelo navegador, na conta dona da pasta. O aplicativo não recebe acesso ao resto do Drive.
 2. Descriptografar fora do repositório: `age -d -i age-identity.txt -o backup.tar adrielli-flores-backup-AAAAMMDD.age`.
-3. Extrair: `tar -xf backup.tar`. O `manifest.json` diz se o bucket privado entrou, se estava vazio ou se ainda não existia.
+3. Extrair: `tar -xf backup.tar`. O `manifest.json` diz se o bucket privado entrou, se estava vazio ou se ainda não existia, e se o `site-public` entrou.
 4. Num diretório temporário, fora deste repositório, criar um projeto Supabase só para o teste (`supabase init` e `supabase start`). Não mudar o `project_id` deste repositório. Não usar o banco `postgres` de development nem `adrielli_flores_test`.
 5. Criar nesse stack um banco vazio, por exemplo `adrielli_flores_restore_check`.
 6. Aplicar `database.sql` como `supabase_admin`, com `ON_ERROR_STOP=1`. O schema `auth` exige esse papel. O destino precisa estar sem os schemas da aplicação.
 7. Conferir que `auth.users` e `identity.users` voltaram e que as chaves batem. Conferir que existem `identity`, `content`, `commerce`, `clinic` e `audit`.
-8. Se o manifesto disser que o bucket entrou, criar `clinic-private` nesse projeto temporário e enviar os arquivos de `storage/clinic-private/`. A quantidade de objetos tem de ser a do manifesto.
+8. Se o manifesto disser que o bucket privado entrou, criar `clinic-private` nesse projeto temporário e enviar os arquivos de `storage/clinic-private/`. A quantidade de objetos tem de ser a do manifesto. Fazer o mesmo com `site-public` e `storage/site-public/` quando `public_bucket_status` for `included`.
 9. Apagar o tar, o SQL e a cópia da chave privada da máquina de teste. Parar e remover o stack temporário só com autorização explícita.
 
 ### Domínio

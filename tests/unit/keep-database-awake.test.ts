@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  BACKUP_MAX_AGE_MS,
+  backupIsFresh,
+  backupRunsUrl,
   checkAll,
+  checkBackupFreshness,
   exitCode,
   healthEndpoint,
   isHealthyResponse,
@@ -107,7 +111,58 @@ describe("rotina contra a pausa", () => {
     expect(workflow).toContain("vars.STAGING_PUBLIC_URL");
     expect(workflow).toContain('cron: "0 9 * * *"');
     expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("último backup");
+    expect(workflow).not.toContain("BACKUP_");
+    expect(workflow).not.toMatch(/github_token|secrets\./i);
     expect(readme).toMatch(/60 dias/);
     expect(readme).toMatch(/Enable workflow/);
+    expect(readme).toMatch(/30 horas/);
+  });
+
+  it("falha se o último backup bem-sucedido na main tiver 30 horas ou mais", async () => {
+    const now = Date.parse("2026-10-25T12:00:00.000Z");
+    const fresh = new Date(now - BACKUP_MAX_AGE_MS + 1).toISOString();
+    const stale = new Date(now - BACKUP_MAX_AGE_MS).toISOString();
+    expect(
+      backupIsFresh(
+        { conclusion: "success", head_branch: "main", updated_at: fresh },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      backupIsFresh(
+        { conclusion: "success", head_branch: "main", updated_at: stale },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      backupIsFresh({ conclusion: "success", head_branch: "e7", updated_at: fresh }, now),
+    ).toBe(false);
+
+    const headers: Record<string, string>[] = [];
+    const fetchImpl = async (
+      _url: string,
+      init?: { headers?: Record<string, string> },
+    ) => {
+      headers.push(init?.headers ?? {});
+      return {
+        ok: true,
+        json: async () => ({
+          workflow_runs: [
+            { conclusion: "success", head_branch: "main", updated_at: stale },
+          ],
+        }),
+      };
+    };
+    const result = await checkBackupFreshness(fetchImpl, {
+      now,
+      repository: "dansilva-98/sistema-adrielli",
+    });
+    expect(result).toEqual({ ok: false, detail: "atrasado" });
+    expect(backupRunsUrl()).toContain("/actions/workflows/backup.yml/runs?");
+    expect(backupRunsUrl()).toContain("status=success");
+    expect(backupRunsUrl()).toContain("branch=main");
+    expect(JSON.stringify(headers)).not.toMatch(/authorization/i);
+    expect(backupRunsUrl()).not.toMatch(/token|client_secret/i);
   });
 });

@@ -22,15 +22,18 @@ import {
   backupListQuery,
   buildConsentUrl,
   classifyBucketResponse,
+  clinicPrivateBucketRequired,
   driveFileMetadata,
   dumpPlan,
   excludedAuthTables,
+  manifestDocument,
   parseAgeRecipient,
   safeObjectPath,
   scrubSecrets,
   selectDeletions,
 } from "../../scripts/production-backup-lib.mjs";
 import {
+  downloadBackupBuckets,
   downloadPrivateObjects,
   listPrivateObjects,
   pruneDriveBackups,
@@ -382,6 +385,10 @@ describe("backup de produção", () => {
       listPrivateObjects({ env: configuredEnv(), fetchImpl: traversal }),
     ).rejects.toThrow(/Caminho de anexo/);
     expect(classifyBucketResponse(400, "Bucket not found")).toBe("absent");
+    expect(clinicPrivateBucketRequired("CREATE TABLE content.pages ();")).toBe(false);
+    expect(
+      clinicPrivateBucketRequired('CREATE TABLE "clinic"."patient_attachments" ();'),
+    ).toBe(true);
     expect(() => safeObjectPath("../secret")).toThrow(/recusado/);
 
     const directory = mkdtempSync(join(tmpdir(), "adrielli-backup-test-"));
@@ -409,6 +416,85 @@ describe("backup de produção", () => {
         }),
       ).rejects.toThrow(/recusado/);
       expect(fetchImpl).toHaveBeenCalledTimes(1);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("inclui site-public e recusa clinic-private ausente depois da E7.1", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "adrielli-backup-buckets-"));
+    const fetchImpl = vi.fn(async (url: string) => {
+      const target = String(url);
+      if (target.includes("/object/list/clinic-private")) {
+        return new Response(JSON.stringify({ message: "Bucket not found" }), {
+          status: 404,
+        });
+      }
+      if (target.includes("/object/list/site-public")) {
+        return Response.json([{ name: "hero.jpg", id: "obj-1" }]);
+      }
+      if (target.includes("/object/site-public/hero.jpg")) {
+        return new Response(Buffer.from("img"));
+      }
+      return new Response("no", { status: 500 });
+    });
+    try {
+      const storage = await downloadBackupBuckets({
+        env: configuredEnv(),
+        workdir: directory,
+        databaseSql: "CREATE TABLE content.pages ();",
+        fetchImpl,
+      });
+      expect(storage).toMatchObject({
+        status: "absent",
+        objectCount: 0,
+        publicStatus: "included",
+        publicObjectCount: 1,
+      });
+      expect(
+        readFileSync(join(directory, "storage", "site-public", "hero.jpg"), "utf8"),
+      ).toBe("img");
+      await expect(
+        downloadBackupBuckets({
+          env: configuredEnv(),
+          workdir: directory,
+          databaseSql: 'CREATE TABLE "clinic"."patient_attachments" ();',
+          fetchImpl,
+        }),
+      ).rejects.toThrow(/clinic-private não existe/);
+      const missingPublic = vi.fn(async (url: string) => {
+        if (String(url).includes("site-public")) {
+          return new Response("Bucket not found", { status: 404 });
+        }
+        return Response.json([]);
+      });
+      await expect(
+        downloadBackupBuckets({
+          env: configuredEnv(),
+          workdir: directory,
+          databaseSql: "",
+          fetchImpl: missingPublic,
+        }),
+      ).rejects.toThrow(/site-public não existe/);
+      expect(
+        manifestDocument(
+          {
+            status: "absent",
+            objectCount: 0,
+            objectBytes: 0,
+            publicStatus: "included",
+            publicObjectCount: 1,
+            publicObjectBytes: 3,
+          },
+          new Date("2026-10-25T06:15:00.000Z"),
+        ).public_bucket,
+      ).toBe("site-public");
+      expect(() =>
+        manifestDocument(
+          { status: "absent", objectCount: 0, objectBytes: 0 },
+          new Date("2026-10-25T06:15:00.000Z"),
+        ),
+      ).toThrow(/site-public/);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

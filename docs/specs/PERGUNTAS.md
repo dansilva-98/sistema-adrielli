@@ -42,24 +42,28 @@ O texto de `/privacidade` é um rascunho para a responsável revisar antes do la
 
 ## E7.0 — horário do backup
 
-A spec pede uma cópia por dia e perda máxima de 24 horas. Não fixa o relógio. O job ficou às 03:15 em America/Sao_Paulo (cron `15 6 * * *`), separado da rotina das 06:00 que mantém o banco acordado. Confirmar se outro horário fora do pico é preferível.
+Aprovado: 03:15 em America/Sao_Paulo (cron `15 6 * * *`), separado da rotina das 06:00 que mantém o banco acordado.
 
 ## E7.0 — ambiente GitHub
 
-O ambiente `production` tem revisor obrigatório. Um job diário nesse ambiente esperaria um clique todo dia. O backup usa um ambiente novo, `backup`, só na `main`, sem revisor, com os segredos próprios. Confirmar.
+Aprovado: ambiente `backup`, só na `main`, sem revisor obrigatório. O ambiente `production` continua com revisor e não serve para a rotina diária.
 
 ## E7.0 — dados de auth
 
-O dump inclui o schema `auth` e os dados de `auth.users`, `auth.identities` e `auth.mfa_factors`, como o `pnpm db:backup` local. Sessões, refresh tokens e desafios de MFA ficam de fora do arquivo de dados. Confirmar se a restauração precisa de mais alguma tabela de `auth`.
+Aprovado: o dump inclui o schema `auth` e os dados de `auth.users`, `auth.identities` e `auth.mfa_factors`. Sessões, refresh tokens e desafios de MFA ficam de fora.
 
 ## E7.0 — bucket ainda inexistente
 
-A E7.1 é que cria `clinic-private`. Enquanto o bucket não existe, o job grava o banco e registra `absent` dentro do arquivo criptografado, em vez de falhar. Confirmar se, depois que o bucket existir, a ausência dele deve passar a falhar o job.
+Enquanto o dump não tiver `clinic.patient_attachments`, a ausência de `clinic-private` segue só com o banco e fica registrada no arquivo criptografado. Depois da E7.1, essa ausência falha o job.
 
 ## E7.0 — Storage público
 
-O plano de publicação diz "arquivos do Storage". A E7.0 diz "bucket privado de anexos". Este PR inclui só `clinic-private`. O bucket público do site fica de fora.
+O backup inclui `site-public` junto com `clinic-private`. A ausência de `site-public` falha o job.
 
 ## E7.0 — restauração real
 
-Não foi executada. Faltam a chave privada age, os segredos do Drive e um projeto que possa ser apagado. O plano gratuito já ocupa staging e produção. O README descreve um Supabase local temporário, fora deste repositório. Confirmar se isso atende "projeto Supabase descartável" ou se a responsável autoriza outro caminho.
+Um Supabase local temporário, fora deste repositório, atende ao projeto descartável. A responsável restaura com a chave privada, pelo README, com a orientação do Tech Lead, logo depois do primeiro backup real. O resultado fica registrado no PR ou numa issue.
+
+## E7.0 — alerta de backup parado
+
+O workflow Banco ativo consulta a API pública do GitHub, sem segredo, e falha se a última execução bem-sucedida do backup na `main` tiver 30 horas ou mais.

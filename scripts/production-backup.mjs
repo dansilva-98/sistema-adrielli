@@ -23,6 +23,7 @@ import { pipeline } from "node:stream/promises";
 import {
   AGE_HEADER,
   PRIVATE_BUCKET,
+  PUBLIC_BUCKET,
   RETENTION_COUNT,
   assembleDatabaseSql,
   assertAgeCiphertext,
@@ -32,6 +33,7 @@ import {
   backupFileName,
   backupListQuery,
   classifyBucketResponse,
+  clinicPrivateBucketRequired,
   driveFileMetadata,
   dumpPlan,
   manifestDocument,
@@ -246,7 +248,11 @@ export async function uploadAgeFile({
   return { id: payload.id };
 }
 
-export async function listPrivateObjects({ env, fetchImpl = fetch }) {
+export async function listPrivateObjects({
+  env,
+  bucket = PRIVATE_BUCKET,
+  fetchImpl = fetch,
+}) {
   const base = env.BACKUP_SUPABASE_URL.replace(/\/$/, "");
   const objects = [];
   const pending = [""];
@@ -260,41 +266,38 @@ export async function listPrivateObjects({ env, fetchImpl = fetch }) {
     }
     let offset = 0;
     for (;;) {
-      const response = await fetchImpl(
-        `${base}/storage/v1/object/list/${PRIVATE_BUCKET}`,
-        {
-          method: "POST",
-          headers: storageHeaders(env),
-          body: JSON.stringify({
-            prefix,
-            limit: 100,
-            offset,
-            sortBy: { column: "name", order: "asc" },
-          }),
-          signal: AbortSignal.timeout(60_000),
-        },
-      );
+      const response = await fetchImpl(`${base}/storage/v1/object/list/${bucket}`, {
+        method: "POST",
+        headers: storageHeaders(env),
+        body: JSON.stringify({
+          prefix,
+          limit: 100,
+          offset,
+          sortBy: { column: "name", order: "asc" },
+        }),
+        signal: AbortSignal.timeout(60_000),
+      });
       const text = await response.text();
       const kind = classifyBucketResponse(response.status, text);
       if (kind === "absent") {
         if (prefix === "" && objects.length === 0) {
           return { status: "absent", objects: [] };
         }
-        throw new Error(`Leitura do bucket privado falhou (${response.status}).`);
+        throw new Error(`Leitura do bucket ${bucket} falhou (${response.status}).`);
       }
       if (kind !== "ok") {
-        throw new Error(`Leitura do bucket privado falhou (${response.status}).`);
+        throw new Error(`Leitura do bucket ${bucket} falhou (${response.status}).`);
       }
       let page;
       try {
         page = JSON.parse(text);
       } catch {
-        throw new Error("Leitura do bucket privado falhou.");
+        throw new Error(`Leitura do bucket ${bucket} falhou.`);
       }
-      if (!Array.isArray(page)) throw new Error("Leitura do bucket privado falhou.");
+      if (!Array.isArray(page)) throw new Error(`Leitura do bucket ${bucket} falhou.`);
       for (const item of page) {
         if (!item || typeof item.name !== "string") {
-          throw new Error("Leitura do bucket privado falhou.");
+          throw new Error(`Leitura do bucket ${bucket} falhou.`);
         }
         const relative =
           prefix && item.name.startsWith(prefix) ? item.name : `${prefix}${item.name}`;
@@ -303,7 +306,7 @@ export async function listPrivateObjects({ env, fetchImpl = fetch }) {
         else pending.push(relative.endsWith("/") ? relative : `${relative}/`);
       }
       if (objects.length > 100_000) {
-        throw new Error("Bucket privado grande demais para este job.");
+        throw new Error(`Bucket ${bucket} grande demais para este job.`);
       }
       if (page.length < 100) break;
       offset += page.length;
@@ -318,6 +321,7 @@ export async function listPrivateObjects({ env, fetchImpl = fetch }) {
 export async function downloadPrivateObjects({
   env,
   workdir,
+  bucket = PRIVATE_BUCKET,
   objects,
   fetchImpl = fetch,
 }) {
@@ -325,22 +329,19 @@ export async function downloadPrivateObjects({
   let objectBytes = 0;
   for (const objectName of objects) {
     const parts = safeObjectPath(objectName);
-    const destination = join(workdir, "storage", PRIVATE_BUCKET, ...parts);
+    const destination = join(workdir, "storage", bucket, ...parts);
     mkdirSync(dirname(destination), { recursive: true });
     const encoded = parts.map((part) => encodeURIComponent(part)).join("/");
-    const response = await fetchImpl(
-      `${base}/storage/v1/object/${PRIVATE_BUCKET}/${encoded}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${env.BACKUP_SUPABASE_SERVICE_ROLE_KEY}`,
-          apikey: env.BACKUP_SUPABASE_SERVICE_ROLE_KEY,
-        },
-        signal: AbortSignal.timeout(300_000),
+    const response = await fetchImpl(`${base}/storage/v1/object/${bucket}/${encoded}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${env.BACKUP_SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.BACKUP_SUPABASE_SERVICE_ROLE_KEY,
       },
-    );
+      signal: AbortSignal.timeout(300_000),
+    });
     if (!response.ok || !response.body) {
-      throw new Error(`Download do bucket privado falhou (${response.status}).`);
+      throw new Error(`Download do bucket ${bucket} falhou (${response.status}).`);
     }
     try {
       await pipeline(
@@ -348,11 +349,63 @@ export async function downloadPrivateObjects({
         createWriteStream(destination, { flags: "wx" }),
       );
     } catch {
-      throw new Error("Download do bucket privado falhou.");
+      throw new Error(`Download do bucket ${bucket} falhou.`);
     }
     objectBytes += statSync(destination).size;
   }
   return objectBytes;
+}
+
+async function takeBucket({ env, workdir, bucket, required, fetchImpl }) {
+  const listed = await listPrivateObjects({ env, bucket, fetchImpl });
+  if (listed.status === "absent") {
+    if (required) {
+      throw new Error(`O bucket ${bucket} não existe. O backup foi recusado.`);
+    }
+    return { status: "absent", objectCount: 0, objectBytes: 0 };
+  }
+  const objectBytes = await downloadPrivateObjects({
+    env,
+    workdir,
+    bucket,
+    objects: listed.objects,
+    fetchImpl,
+  });
+  return {
+    status: listed.status,
+    objectCount: listed.objects.length,
+    objectBytes,
+  };
+}
+
+export async function downloadBackupBuckets({
+  env,
+  workdir,
+  databaseSql,
+  fetchImpl = fetch,
+}) {
+  const privateStorage = await takeBucket({
+    env,
+    workdir,
+    bucket: PRIVATE_BUCKET,
+    required: clinicPrivateBucketRequired(databaseSql),
+    fetchImpl,
+  });
+  const publicStorage = await takeBucket({
+    env,
+    workdir,
+    bucket: PUBLIC_BUCKET,
+    required: true,
+    fetchImpl,
+  });
+  return {
+    status: privateStorage.status,
+    objectCount: privateStorage.objectCount,
+    objectBytes: privateStorage.objectBytes,
+    publicStatus: publicStorage.status,
+    publicObjectCount: publicStorage.objectCount,
+    publicObjectBytes: publicStorage.objectBytes,
+  };
 }
 
 async function listDriveFiles({ accessToken, folderId, fetchImpl }) {
@@ -492,26 +545,21 @@ function createDeps() {
       console.log("Backup de produção: dump do banco concluído.");
     },
     downloadPrivateBucket: async ({ env, workdir }) => {
-      const listed = await listPrivateObjects({ env });
-      if (listed.status === "absent") {
+      const databaseSql = readFileSync(join(workdir, "database.sql"), "utf8");
+      const storage = await downloadBackupBuckets({ env, workdir, databaseSql });
+      if (storage.status === "absent") {
         console.log(
           "Backup de produção: bucket privado ausente. O arquivo segue só com o banco.",
         );
-        return { status: "absent", objectCount: 0, objectBytes: 0 };
+      } else {
+        console.log(
+          `Backup de produção: ${storage.objectCount} arquivos do bucket privado incluídos.`,
+        );
       }
-      const objectBytes = await downloadPrivateObjects({
-        env,
-        workdir,
-        objects: listed.objects,
-      });
       console.log(
-        `Backup de produção: ${listed.objects.length} arquivos do bucket privado incluídos.`,
+        `Backup de produção: ${storage.publicObjectCount} arquivos do bucket público incluídos.`,
       );
-      return {
-        status: listed.status,
-        objectCount: listed.objects.length,
-        objectBytes,
-      };
+      return storage;
     },
     writeManifest: async ({ workdir, storage, now }) => {
       writeFileSync(

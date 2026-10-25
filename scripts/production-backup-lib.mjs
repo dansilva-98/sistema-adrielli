@@ -1,4 +1,5 @@
 export const PRIVATE_BUCKET = "clinic-private";
+export const PUBLIC_BUCKET = "site-public";
 export const RETENTION_COUNT = 30;
 export const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 export const BACKUP_FOLDER_NAME = "adrielli-flores-backups";
@@ -370,6 +371,14 @@ export function assembleDatabaseSql({ authSchema, authData, appSchema, appData }
   ].join("\n");
 }
 
+export function clinicPrivateBucketRequired(databaseSql) {
+  const sql = String(databaseSql ?? "");
+  return (
+    sql.includes("clinic.patient_attachments") ||
+    sql.includes('"clinic"."patient_attachments"')
+  );
+}
+
 export function classifyBucketResponse(status, bodyText) {
   if (status === 200) return "ok";
   if (status === 404 || (status === 400 && /bucket not found/i.test(bodyText ?? ""))) {
@@ -408,6 +417,9 @@ export function scrubSecrets(text, secrets) {
 }
 
 export function manifestDocument(storage, date) {
+  if (storage.publicStatus !== "included" && storage.publicStatus !== "empty") {
+    throw new Error("O manifesto não registra o bucket site-public.");
+  }
   return {
     product: "adrielli-flores",
     kind: "production-backup",
@@ -418,5 +430,9 @@ export function manifestDocument(storage, date) {
     private_bucket_status: storage.status,
     object_count: storage.objectCount,
     object_bytes: storage.objectBytes,
+    public_bucket: PUBLIC_BUCKET,
+    public_bucket_status: storage.publicStatus,
+    public_object_count: storage.publicObjectCount,
+    public_object_bytes: storage.publicObjectBytes,
   };
 }

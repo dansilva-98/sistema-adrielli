@@ -101,6 +101,57 @@ export function exitCode(results) {
   return results.every((result) => result.ok) ? 0 : 1;
 }
 
+export const BACKUP_WORKFLOW_FILE = "backup.yml";
+export const BACKUP_MAX_AGE_MS = 30 * 60 * 60 * 1000;
+const GITHUB_REPOSITORY = "dansilva-98/sistema-adrielli";
+
+export function backupRunsUrl(repository = GITHUB_REPOSITORY) {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
+    throw new Error("Repositório do backup inválido.");
+  }
+  const url = new URL(
+    `https://api.github.com/repos/${repository}/actions/workflows/${BACKUP_WORKFLOW_FILE}/runs`,
+  );
+  url.searchParams.set("branch", "main");
+  url.searchParams.set("status", "success");
+  url.searchParams.set("per_page", "1");
+  return url.href;
+}
+
+export function backupIsFresh(run, now, maxAgeMs = BACKUP_MAX_AGE_MS) {
+  if (!run || run.conclusion !== "success" || run.head_branch !== "main") return false;
+  const completed = Date.parse(run.updated_at);
+  if (!Number.isFinite(completed)) return false;
+  return now - completed < maxAgeMs;
+}
+
+export async function checkBackupFreshness(fetchImpl, options = {}) {
+  const now = options.now ?? Date.now();
+  const repository = options.repository ?? GITHUB_REPOSITORY;
+  try {
+    const response = await fetchImpl(backupRunsUrl(repository), {
+      method: "GET",
+      redirect: "manual",
+      headers: {
+        accept: "application/vnd.github+json",
+        "user-agent": "adrielli-flores-banco-ativo",
+      },
+      signal: AbortSignal.timeout(options.timeoutMs ?? 30_000),
+    });
+    if (!response.ok) return { ok: false, detail: "api" };
+    const body = await response.json();
+    const run = Array.isArray(body?.workflow_runs) ? body.workflow_runs[0] : undefined;
+    const ok = backupIsFresh(run, now);
+    return { ok, detail: ok ? "ok" : "atrasado" };
+  } catch {
+    return { ok: false, detail: "rede" };
+  }
+}
+
+export function combinedExit(healthResults, backupResult) {
+  return exitCode(healthResults) === 0 && backupResult.ok ? 0 : 1;
+}
+
 function invokedDirectly() {
   const entry = process.argv[1];
   if (!entry) return false;
@@ -110,5 +161,8 @@ function invokedDirectly() {
 if (invokedDirectly()) {
   const results = await checkAll(process.env, globalThis.fetch);
   for (const result of results) console.log(summaryLine(result));
-  process.exit(exitCode(results));
+  const repository = process.env.GITHUB_REPOSITORY || undefined;
+  const backup = await checkBackupFreshness(globalThis.fetch, { repository });
+  console.log(backup.ok ? "backup ok" : `backup ${backup.detail}`);
+  process.exit(combinedExit(results, backup));
 }
