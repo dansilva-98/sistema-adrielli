@@ -423,7 +423,7 @@ describe("backup de produção", () => {
 
   it("inclui site-public e recusa clinic-private ausente depois da E7.1", async () => {
     const directory = mkdtempSync(join(tmpdir(), "adrielli-backup-buckets-"));
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn(async (url: RequestInfo | URL) => {
       const target = String(url);
       if (target.includes("/object/list/clinic-private")) {
         return new Response(JSON.stringify({ message: "Bucket not found" }), {
@@ -462,7 +462,7 @@ describe("backup de produção", () => {
           fetchImpl,
         }),
       ).rejects.toThrow(/clinic-private não existe/);
-      const missingPublic = vi.fn(async (url: string) => {
+      const missingPublic = vi.fn(async (url: RequestInfo | URL) => {
         if (String(url).includes("site-public")) {
           return new Response("Bucket not found", { status: 404 });
         }
