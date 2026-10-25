@@ -35,6 +35,51 @@ jobs:
         run: pnpm test
       - name: Migrations
         run: pnpm db:migrate
+      - name: Carregar alinhamento da senha local
+        run: node --experimental-strip-types src/db/sync-app-runtime-password.ts
+      - name: Carregar seed
+        run: pnpm db:seed
+      - name: Carregar cabeçalhos estáticos
+        run: |
+          node --experimental-strip-types scripts/netlify-headers.ts
+          rm -f public/_headers
+        env:
+          APP_ENV: staging
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          SENTRY_DSN: https://public@o0.ingest.sentry.io/0
+          NEXT_PUBLIC_SENTRY_DSN: https://public@o0.ingest.sentry.io/0
+      - name: Bootstrap do primeiro administrador
+        env:
+          BOOTSTRAP_EMAIL: ci-primeiro-admin@example.com
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$BOOTSTRAP_EMAIL"
+          trap 'node --experimental-strip-types scripts/remove-local-bootstrap-user.ts' EXIT
+          code=0
+          first=$(pnpm --silent admin:bootstrap -- --email "$BOOTSTRAP_EMAIL" 2>&1) || code=$?
+          if printf '%s' "$first" | grep -F -q -- "$BOOTSTRAP_EMAIL"; then
+            echo "o e-mail apareceu na saida"
+            exit 1
+          fi
+          printf '%s\n' "$first"
+          if [ "$code" -ne 0 ]; then
+            exit "$code"
+          fi
+          if ! printf '%s\n' "$first" | grep -F -q "SUPER_ADMIN criado."; then
+            echo "a primeira execucao nao criou o SUPER_ADMIN"
+            exit 1
+          fi
+          code=0
+          second=$(pnpm --silent admin:bootstrap -- --email "$BOOTSTRAP_EMAIL" 2>&1) || code=$?
+          if printf '%s' "$second" | grep -F -q -- "$BOOTSTRAP_EMAIL"; then
+            echo "o e-mail apareceu na saida"
+            exit 1
+          fi
+          printf '%s\n' "$second"
+          if [ "$code" -eq 0 ] || ! printf '%s\n' "$second" | grep -F -q "Recusado: já existe um SUPER_ADMIN."; then
+            echo "a segunda execucao deveria ser recusada"
+            exit 1
+          fi
       - name: Histórico do Drizzle sem divergência
         run: |
           pnpm db:generate
