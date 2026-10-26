@@ -24,6 +24,17 @@ export const AUDIT_ACTIONS = [
   "content.faq.updated",
   "content.faq.deleted",
   "content.image.uploaded",
+  "clinic.patient.created",
+  "clinic.patient.updated",
+  "clinic.patient.archived",
+  "clinic.patient.restored",
+  "clinic.patient.viewed",
+  "clinic.guardian.linked",
+  "clinic.guardian.unlinked",
+  "clinic.guardian.updated",
+  "clinic.attachment.uploaded",
+  "clinic.attachment.downloaded",
+  "clinic.attachment.deleted",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
