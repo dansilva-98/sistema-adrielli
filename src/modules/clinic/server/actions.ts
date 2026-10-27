@@ -2,12 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 
 import { sql } from "@/db/client";
-import { type ClinicActionState } from "@/modules/clinic/form-state";
+import {
+  type ClinicActionState,
+  type GuardianSearchState,
+  type PatientSearchState,
+} from "@/modules/clinic/form-state";
 import { todayInClinic } from "@/modules/clinic/format";
 import {
   addGuardian,
@@ -21,6 +25,7 @@ import {
   updatePatient,
   type Actor,
 } from "@/modules/clinic/patients";
+import { readGuardianSearch, readPatientList } from "@/modules/clinic/server/read";
 import {
   parseCreatePatient,
   parseGuardianInput,
@@ -223,4 +228,57 @@ export async function unlinkGuardianAction(
     return failure(error);
   }
   return { ok: true, code: "", message: "Responsável desligado." };
+}
+
+function formText(value: FormDataEntryValue | null): string {
+  return typeof value === "string" ? value : "";
+}
+
+function reportSearchFailure(): void {
+  Sentry.captureException(new Error("Clinic search failed"));
+}
+
+export async function searchPatientsFormAction(
+  _previous: PatientSearchState,
+  formData: FormData,
+): Promise<PatientSearchState> {
+  await assertRole(CONSULTORIO_ROLES);
+  await requireStaff({ roles: CONSULTORIO_ROLES });
+  const query = formText(formData.get("query"));
+  const archived = formData.get("archived") === "arquivados";
+  try {
+    const patients = await readPatientList({ query, archived });
+    return { patients, hasQuery: query.trim().length > 0, message: "" };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof StaffAccessError) throw error;
+    reportSearchFailure();
+    return {
+      patients: [],
+      hasQuery: false,
+      message: "Não foi possível buscar. Tente novamente.",
+    };
+  }
+}
+
+export async function searchGuardiansFormAction(
+  _previous: GuardianSearchState,
+  formData: FormData,
+): Promise<GuardianSearchState> {
+  await assertRole(CONSULTORIO_ROLES);
+  await requireStaff({ roles: CONSULTORIO_ROLES });
+  const patientId = formText(formData.get("patientId"));
+  const query = formText(formData.get("query"));
+  if (!z.uuid().safeParse(patientId).success) {
+    return { matches: [], message: "Não foi possível buscar. Tente novamente." };
+  }
+  try {
+    const matches = await readGuardianSearch(patientId, query);
+    return { matches, message: "" };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof StaffAccessError) throw error;
+    reportSearchFailure();
+    return { matches: [], message: "Não foi possível buscar. Tente novamente." };
+  }
 }

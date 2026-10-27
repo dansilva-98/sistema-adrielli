@@ -15,6 +15,7 @@ import {
 import {
   addGuardianAction,
   linkGuardianAction,
+  searchGuardiansFormAction,
   setPrimaryGuardianAction,
   unlinkGuardianAction,
 } from "@/modules/clinic/server/actions";
@@ -40,16 +41,41 @@ export type GuardianSearchHit = {
 export function GuardianPanel({
   patientId,
   guardians,
-  matches,
 }: {
   patientId: string;
   guardians: GuardianCard[];
-  matches: GuardianSearchHit[];
 }) {
+  const [search, searchAction, searching] = useActionState(searchGuardiansFormAction, {
+    matches: [],
+    message: "",
+  });
   const last = guardians.length <= 1;
 
   return (
     <div className="flex flex-col gap-6">
+      <form method="post" action={searchAction} className="flex flex-col gap-3">
+        <input type="hidden" name="patientId" value={patientId} />
+        <label className="flex flex-col gap-2 text-sm font-medium">
+          Buscar responsável já cadastrado
+          <input
+            name="query"
+            autoComplete="off"
+            className="h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          />
+        </label>
+        {search.message ? (
+          <p className="text-sm text-danger" role="alert">
+            {search.message}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={searching}
+          className="inline-flex h-11 items-center justify-center rounded-lg border border-border text-sm font-medium disabled:opacity-50"
+        >
+          Buscar
+        </button>
+      </form>
       <ul className="flex flex-col gap-3">
         {guardians.map((guardian) => (
           <li key={guardian.id} className="rounded-xl border border-border p-4">
@@ -57,11 +83,11 @@ export function GuardianPanel({
           </li>
         ))}
       </ul>
-      {matches.length > 0 ? (
+      {search.matches.length > 0 ? (
         <section className="flex flex-col gap-3">
           <h3 className="text-base font-medium">Encontrados</h3>
           <ul className="flex flex-col gap-3">
-            {matches.map((match) => (
+            {search.matches.map((match) => (
               <li key={match.id}>
                 <LinkMatch patientId={patientId} match={match} />
               </li>

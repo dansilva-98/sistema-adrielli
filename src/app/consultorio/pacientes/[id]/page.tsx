@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 
 import {
@@ -8,7 +8,7 @@ import {
   formatClinicTimestamp,
   todayInClinic,
 } from "@/modules/clinic/format";
-import { readGuardianSearch, readPatient } from "@/modules/clinic/server/read";
+import { readPatient } from "@/modules/clinic/server/read";
 import { CONSULTORIO_ROLES } from "@/modules/identity/access";
 import { requireStaff } from "@/modules/identity/server/guard";
 
@@ -21,10 +21,9 @@ export const instant = false;
 const sections = ["dados", "responsaveis", "anexos"] as const;
 type Section = (typeof sections)[number];
 
-function sectionHref(patientId: string, section: Section, search = ""): string {
+function sectionHref(patientId: string, section: Section): string {
   const params = new URLSearchParams();
   if (section !== "dados") params.set("secao", section);
-  if (section === "responsaveis" && search) params.set("busca", search);
   const text = params.toString();
   const path = `/consultorio/pacientes/${patientId}`;
   return text ? `${path}?${text}` : path;
@@ -40,15 +39,13 @@ export default async function PatientPage({
   await requireStaff({ roles: CONSULTORIO_ROLES });
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
-  const patient = await readPatient(id);
-  if (!patient) notFound();
   const query = await searchParams;
   const section: Section = sections.includes(query.secao as Section)
     ? (query.secao as Section)
     : "dados";
-  const search = query.busca ?? "";
-  const matches =
-    section === "responsaveis" ? await readGuardianSearch(patient.id, search) : [];
+  if (query.busca !== undefined) redirect(sectionHref(id, section));
+  const patient = await readPatient(id);
+  if (!patient) notFound();
   const tabs: { id: Section; label: string }[] = [
     { id: "dados", label: "Dados" },
     { id: "responsaveis", label: "Responsáveis" },
@@ -75,7 +72,7 @@ export default async function PatientPage({
           return (
             <Link
               key={tab.id}
-              href={sectionHref(patient.id, tab.id, search)}
+              href={sectionHref(patient.id, tab.id)}
               aria-current={current ? "page" : undefined}
               className={
                 current
@@ -109,30 +106,7 @@ export default async function PatientPage({
         </div>
       ) : null}
       {section === "responsaveis" ? (
-        <div className="flex flex-col gap-6">
-          <form method="get" className="flex flex-col gap-3">
-            <input type="hidden" name="secao" value="responsaveis" />
-            <label className="flex flex-col gap-2 text-sm font-medium">
-              Buscar responsável já cadastrado
-              <input
-                name="busca"
-                defaultValue={search}
-                className="h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              />
-            </label>
-            <button
-              type="submit"
-              className="inline-flex h-11 items-center justify-center rounded-lg border border-border text-sm font-medium"
-            >
-              Buscar
-            </button>
-          </form>
-          <GuardianPanel
-            patientId={patient.id}
-            guardians={patient.guardians}
-            matches={matches}
-          />
-        </div>
+        <GuardianPanel patientId={patient.id} guardians={patient.guardians} />
       ) : null}
       {section === "anexos" ? (
         patient.attachments.length === 0 ? (
