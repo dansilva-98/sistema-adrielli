@@ -21,7 +21,9 @@ export class ClinicRuleError extends Error {
     | "invalid-phone"
     | "last-guardian"
     | "already-linked"
-    | "not-found";
+    | "not-found"
+    | "type"
+    | "size";
 
   constructor(code: ClinicRuleError["code"]) {
     super(code);
@@ -56,6 +58,7 @@ export type PatientAttachment = {
   category: AttachmentCategory;
   createdAt: Date | string;
   sizeBytes: number;
+  uploadedBy: string;
 };
 
 export type PatientRecord = PatientInput & {
@@ -396,13 +399,17 @@ export async function loadPatient(
       category: AttachmentCategory;
       created_at: Date | string;
       size_bytes: number;
+      uploaded_by_name: string | null;
     }[]
   >`
-    select id, original_name, category, created_at, size_bytes
-    from clinic.patient_attachments
-    where patient_id = ${patientId}::uuid
-      and deleted_at is null
-    order by created_at desc
+    select
+      a.id, a.original_name, a.category, a.created_at, a.size_bytes,
+      u.display_name as uploaded_by_name
+    from clinic.patient_attachments a
+    left join identity.users u on u.id = a.uploaded_by
+    where a.patient_id = ${patientId}::uuid
+      and a.deleted_at is null
+    order by a.created_at desc
   `;
   await audit(db, actor, "clinic.patient.viewed", "patient", patientId);
   return {
@@ -433,6 +440,7 @@ export async function loadPatient(
       category: attachment.category,
       createdAt: attachment.created_at,
       sizeBytes: attachment.size_bytes,
+      uploadedBy: attachment.uploaded_by_name ?? "Equipe",
     })),
   };
 }

@@ -7,11 +7,21 @@ import * as Sentry from "@sentry/nextjs";
 import { z, ZodError } from "zod";
 
 import { sql } from "@/db/client";
+import { clientEnv } from "@/lib/env-client";
+import { serverEnv } from "@/lib/env.server";
+import {
+  confirmAttachmentUpload,
+  deleteAttachment,
+  openAttachment,
+  prepareAttachmentUpload,
+} from "@/modules/clinic/attachments";
 import {
   type ClinicActionState,
   type GuardianSearchState,
   type PatientSearchState,
 } from "@/modules/clinic/form-state";
+import { ATTACHMENT_CATEGORIES, type AttachmentCategory } from "@/modules/clinic/format";
+import { clinicObjectStore } from "@/modules/clinic/storage";
 import { todayInClinic } from "@/modules/clinic/format";
 import {
   addGuardian,
@@ -68,6 +78,20 @@ function failure(error: unknown): ClinicActionState {
         ok: false,
         code: "",
         message: "Este responsável já está ligado ao paciente.",
+      };
+    }
+    if (error.code === "type") {
+      return {
+        ok: false,
+        code: "",
+        message: "Envie um PDF ou uma imagem JPG, PNG ou WebP.",
+      };
+    }
+    if (error.code === "size") {
+      return {
+        ok: false,
+        code: "",
+        message: "O arquivo precisa ter entre 1 byte e 10 MB.",
       };
     }
     return { ok: false, code: "", message: "Paciente não encontrado." };
@@ -280,5 +304,115 @@ export async function searchGuardiansFormAction(
     if (error instanceof StaffAccessError) throw error;
     reportSearchFailure();
     return { matches: [], message: "Não foi possível buscar. Tente novamente." };
+  }
+}
+
+const attachmentStore = () =>
+  clinicObjectStore({
+    supabaseUrl: clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+    serviceRoleKey: serverEnv.SUPABASE_SERVICE_ROLE_KEY,
+  });
+
+export type AttachmentUploadState =
+  | { ok: true; signedUrl: string; token: string; receipt: string }
+  | { ok: false; message: string };
+
+function formNumber(value: FormDataEntryValue | null): number {
+  const parsed = Number(formText(value));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formCategory(value: FormDataEntryValue | null): AttachmentCategory | null {
+  const text = formText(value);
+  return ATTACHMENT_CATEGORIES.some(([category]) => category === text)
+    ? (text as AttachmentCategory)
+    : null;
+}
+
+export async function prepareAttachmentUploadAction(
+  formData: FormData,
+): Promise<AttachmentUploadState> {
+  try {
+    const actor = await currentActor();
+    const patientId = parseRecordId(formData);
+    const prepared = await prepareAttachmentUpload(
+      sql,
+      actor,
+      attachmentStore(),
+      serverEnv.STAFF_SESSION_SECRET,
+      {
+        patientId,
+        mime: formText(formData.get("mime")),
+        size: formNumber(formData.get("size")),
+      },
+      Date.now(),
+    );
+    return { ok: true, ...prepared };
+  } catch (error) {
+    const result = failure(error);
+    return { ok: false, message: result.message };
+  }
+}
+
+export async function confirmAttachmentUploadAction(
+  _state: ClinicActionState,
+  formData: FormData,
+): Promise<ClinicActionState> {
+  const actor = await currentActor();
+  try {
+    const patientId = parseRecordId(formData);
+    const category = formCategory(formData.get("category"));
+    if (!category)
+      return { ok: false, code: "", message: "Escolha a categoria do anexo." };
+    await confirmAttachmentUpload(
+      sql,
+      actor,
+      attachmentStore(),
+      serverEnv.STAFF_SESSION_SECRET,
+      {
+        receipt: formText(formData.get("receipt")),
+        originalName: formText(formData.get("originalName")),
+        category,
+        now: Date.now(),
+      },
+    );
+    refresh(patientId);
+    return { ok: true, code: "", message: "" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function openAttachmentAction(
+  attachmentId: string,
+): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+  try {
+    const actor = await currentActor();
+    const parsed = z.uuid().safeParse(attachmentId);
+    if (!parsed.success) return { ok: false, message: "Anexo não encontrado." };
+    const url = await openAttachment(sql, actor, attachmentStore(), parsed.data);
+    return { ok: true, url };
+  } catch (error) {
+    const result = failure(error);
+    return { ok: false, message: result.message };
+  }
+}
+
+export async function deleteAttachmentAction(
+  _state: ClinicActionState,
+  formData: FormData,
+): Promise<ClinicActionState> {
+  const actor = await currentActor();
+  try {
+    if (formData.get("confirm") !== "sim") {
+      return { ok: false, code: "", message: "Confirme a exclusão do anexo." };
+    }
+    const patientId = parseRecordId(formData);
+    const attachmentId = z.uuid().parse(formText(formData.get("attachmentId")));
+    await deleteAttachment(sql, actor, attachmentId);
+    refresh(patientId);
+    return { ok: true, code: "", message: "" };
+  } catch (error) {
+    return failure(error);
   }
 }
