@@ -8,6 +8,7 @@ export type StaffNavLink = {
   href: string;
   label: string;
   group: string | null;
+  match?: "exact" | "prefix";
 };
 
 export function StaffNav({ links }: { links: readonly StaffNavLink[] }) {
@@ -24,7 +25,7 @@ export function StaffNav({ links }: { links: readonly StaffNavLink[] }) {
     <div className="w-full md:w-56 md:shrink-0">
       <button
         type="button"
-        className="rounded-md border border-border px-3 py-2 text-sm md:hidden"
+        className="min-h-11 rounded-md border border-border px-3 py-2 text-sm md:hidden"
         aria-expanded={open}
         aria-controls="staff-nav"
         onClick={() => setOpen((current) => !current)}
@@ -44,7 +45,10 @@ export function StaffNav({ links }: { links: readonly StaffNavLink[] }) {
               <p className="text-xs tracking-wide text-muted">{group.name}</p>
             ) : null}
             {group.links.map((link) => {
-              const active = pathname === link.href;
+              const active =
+                link.match === "prefix"
+                  ? pathname === link.href || pathname.startsWith(`${link.href}/`)
+                  : pathname === link.href;
               return (
                 <Link
                   key={link.href}

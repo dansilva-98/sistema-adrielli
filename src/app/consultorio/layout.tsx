@@ -16,7 +16,15 @@ export default async function ConsultorioLayout({
       title="Consultório"
       eyebrow="Atendimento clínico"
       roles={profile.roles}
-      links={[{ href: "/consultorio", label: "Dashboard", group: null }]}
+      links={[
+        { href: "/consultorio", label: "Dashboard", group: null },
+        {
+          href: "/consultorio/pacientes",
+          label: "Pacientes",
+          group: null,
+          match: "prefix",
+        },
+      ]}
     >
       {children}
     </StaffShell>
