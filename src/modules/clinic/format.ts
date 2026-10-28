@@ -36,6 +36,13 @@ export function attachmentCategoryLabel(value: AttachmentCategory): string {
   return categoryLabels[value];
 }
 
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  const megabytes = bytes / (1024 * 1024);
+  return `${megabytes.toFixed(1).replace(".", ",")} MB`;
+}
+
 export function onlyDigits(value: string): string {
   return value.replace(/\D/g, "");
 }
@@ -155,4 +162,10 @@ export function searchText(value: string): string {
     .trim()
     .slice(0, 80)
     .replace(/[%_\\]/g, "");
+}
+
+export function searchWords(value: string): string[] {
+  return searchText(value)
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
 }

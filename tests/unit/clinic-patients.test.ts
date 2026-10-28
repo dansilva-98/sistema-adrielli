@@ -7,6 +7,7 @@ import {
   maskPhone,
   phoneLinks,
   searchText,
+  searchWords,
 } from "../../src/modules/clinic/format";
 import { parseCreatePatient } from "../../src/modules/clinic/schema";
 
@@ -83,5 +84,9 @@ describe("pacientes", () => {
     expect(parsed.cpf).toBe("52998224725");
     expect(parsed.guardian.phone).toBe("11987654321");
     expect(searchText("100%_")).toBe("100");
+    expect(searchWords("  joao   conceicao ")).toEqual(["joao", "conceicao"]);
+    expect(searchWords("conce joao")).toEqual(["conce", "joao"]);
+    expect(searchWords("% joao _")).toEqual(["joao"]);
+    expect(searchWords("   ")).toEqual([]);
   });
 });

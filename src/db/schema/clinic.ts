@@ -143,6 +143,7 @@ export const patientAttachments = clinic
     },
     (table) => [
       index("patient_attachments_patient_id_idx").on(table.patientId),
+      uniqueIndex("patient_attachments_storage_path_key").on(table.storagePath),
       check(
         "patient_attachments_storage_path",
         sql`${table.storagePath} ~ ('^patients/' || ${table.patientId}::text || '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(pdf|jpg|jpeg|png|webp)$')`,

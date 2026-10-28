@@ -3,7 +3,7 @@ import type postgres from "postgres";
 import { recordAudit } from "@/modules/audit/record";
 
 import type { AttachmentCategory, GuardianRelationship } from "./format";
-import { searchText } from "./format";
+import { searchText, searchWords } from "./format";
 import type { CreatePatientInput, GuardianInput, PatientInput } from "./schema";
 
 type Database = postgres.Sql | postgres.TransactionSql;
@@ -21,7 +21,10 @@ export class ClinicRuleError extends Error {
     | "invalid-phone"
     | "last-guardian"
     | "already-linked"
-    | "not-found";
+    | "not-found"
+    | "type"
+    | "size"
+    | "already-confirmed";
 
   constructor(code: ClinicRuleError["code"]) {
     super(code);
@@ -56,6 +59,7 @@ export type PatientAttachment = {
   category: AttachmentCategory;
   createdAt: Date | string;
   sizeBytes: number;
+  uploadedBy: string;
 };
 
 export type PatientRecord = PatientInput & {
@@ -148,12 +152,38 @@ async function audit(
   );
 }
 
+function patientWordClause(db: Database, word: string) {
+  const digits = word.replace(/\D/g, "");
+  return db`(
+    p.full_name_search like '%' || clinic.fold_search(${word}) || '%'
+    or exists (
+      select 1
+      from clinic.patient_guardians other_link
+      join clinic.guardians other_guardian
+        on other_guardian.id = other_link.guardian_id
+      where other_link.patient_id = p.id
+        and (
+          other_guardian.full_name_search like '%' || clinic.fold_search(${word}) || '%'
+          or (${digits} <> '' and other_guardian.phone like '%' || ${digits} || '%')
+        )
+    )
+  )`;
+}
+
 export async function listPatients(
   db: Database,
   filter: { query: string; archived: boolean },
 ): Promise<PatientListItem[]> {
-  const query = searchText(filter.query);
-  const digits = query.replace(/\D/g, "");
+  const words = searchWords(filter.query);
+  const textMatch =
+    words.length === 0
+      ? db`true`
+      : words
+          .slice(1)
+          .reduce(
+            (clause, word) => db`${clause} and ${patientWordClause(db, word)}`,
+            patientWordClause(db, words[0]!),
+          );
   const rows = await db<
     {
       id: string;
@@ -179,21 +209,7 @@ export async function listPatients(
       ${filter.archived}::boolean = true and p.archived_at is not null
       or ${filter.archived}::boolean = false and p.archived_at is null
     )
-      and (
-        ${query} = ''
-        or p.full_name_search like '%' || clinic.fold_search(${query}) || '%'
-        or exists (
-          select 1
-          from clinic.patient_guardians other_link
-          join clinic.guardians other_guardian
-            on other_guardian.id = other_link.guardian_id
-          where other_link.patient_id = p.id
-            and (
-              other_guardian.full_name_search like '%' || clinic.fold_search(${query}) || '%'
-              or (${digits} <> '' and other_guardian.phone like '%' || ${digits} || '%')
-            )
-        )
-      )
+      and ${textMatch}
     order by p.full_name_search asc, p.id asc
   `;
   return rows.map((row) => ({
@@ -396,13 +412,17 @@ export async function loadPatient(
       category: AttachmentCategory;
       created_at: Date | string;
       size_bytes: number;
+      uploaded_by_name: string | null;
     }[]
   >`
-    select id, original_name, category, created_at, size_bytes
-    from clinic.patient_attachments
-    where patient_id = ${patientId}::uuid
-      and deleted_at is null
-    order by created_at desc
+    select
+      a.id, a.original_name, a.category, a.created_at, a.size_bytes,
+      u.display_name as uploaded_by_name
+    from clinic.patient_attachments a
+    left join identity.users u on u.id = a.uploaded_by
+    where a.patient_id = ${patientId}::uuid
+      and a.deleted_at is null
+    order by a.created_at desc
   `;
   await audit(db, actor, "clinic.patient.viewed", "patient", patientId);
   return {
@@ -433,6 +453,7 @@ export async function loadPatient(
       category: attachment.category,
       createdAt: attachment.created_at,
       sizeBytes: attachment.size_bytes,
+      uploadedBy: attachment.uploaded_by_name ?? "Equipe",
     })),
   };
 }

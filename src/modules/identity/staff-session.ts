@@ -4,10 +4,14 @@ export const STAFF_IDLE_MS = 30 * 60 * 1000;
 export const STAFF_MAX_MS = 12 * 60 * 60 * 1000;
 export const STAFF_SESSION_COOKIE = "staff_session";
 
-export function staffSessionCookieOptions() {
+export function staffCookieSecure(): boolean {
+  return process.env.E2E_INSECURE_COOKIE !== "1";
+}
+
+export function staffSessionCookieOptions(secure = true) {
   return {
     httpOnly: true,
-    secure: true,
+    secure,
     sameSite: "lax" as const,
     path: "/",
     maxAge: 60 * 60 * 12,

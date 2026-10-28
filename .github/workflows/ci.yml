@@ -96,7 +96,7 @@ jobs:
       - name: Varrer segredo no bundle
         run: pnpm check:bundle
       - name: Instalar navegador do Playwright
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium webkit
       - name: Site com banco vazio
         run: pnpm exec playwright test tests/e2e/empty-site.spec.ts
         env:

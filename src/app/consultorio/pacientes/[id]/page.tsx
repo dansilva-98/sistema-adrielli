@@ -2,17 +2,13 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 
-import {
-  attachmentCategoryLabel,
-  displayName,
-  formatClinicTimestamp,
-  todayInClinic,
-} from "@/modules/clinic/format";
+import { displayName, todayInClinic } from "@/modules/clinic/format";
 import { readPatient } from "@/modules/clinic/server/read";
 import { CONSULTORIO_ROLES } from "@/modules/identity/access";
 import { requireStaff } from "@/modules/identity/server/guard";
 
 import { ArchiveControl } from "../archive-control";
+import { AttachmentPanel } from "../attachment-panel";
 import { GuardianPanel } from "../guardian-panel";
 import { PatientEditForm } from "../patient-edit-form";
 
@@ -109,23 +105,7 @@ export default async function PatientPage({
         <GuardianPanel patientId={patient.id} guardians={patient.guardians} />
       ) : null}
       {section === "anexos" ? (
-        patient.attachments.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
-            Nenhum anexo.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {patient.attachments.map((attachment) => (
-              <li key={attachment.id} className="rounded-xl border border-border p-4">
-                <p className="font-medium break-words">{attachment.originalName}</p>
-                <p className="text-sm text-muted">
-                  {attachmentCategoryLabel(attachment.category)} ·{" "}
-                  {formatClinicTimestamp(attachment.createdAt)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )
+        <AttachmentPanel patientId={patient.id} attachments={patient.attachments} />
       ) : null}
     </section>
   );

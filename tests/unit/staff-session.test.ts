@@ -10,6 +10,7 @@ import {
   signStaffSession,
   STAFF_IDLE_MS,
   STAFF_MAX_MS,
+  staffCookieSecure,
   staffSessionMatches,
   touchStaffSession,
 } from "@/modules/identity/staff-session";
@@ -23,6 +24,16 @@ const staff = {
 };
 
 describe("sessão da equipe", () => {
+  it("só tira o Secure quando o teste pede", () => {
+    const previous = process.env.E2E_INSECURE_COOKIE;
+    delete process.env.E2E_INSECURE_COOKIE;
+    expect(staffCookieSecure()).toBe(true);
+    process.env.E2E_INSECURE_COOKIE = "1";
+    expect(staffCookieSecure()).toBe(false);
+    if (previous === undefined) delete process.env.E2E_INSECURE_COOKIE;
+    else process.env.E2E_INSECURE_COOKIE = previous;
+  });
+
   it("expira aos 30 minutos sem atividade e às 12 horas desde o login", () => {
     const startedAt = 1_000;
     const active = {

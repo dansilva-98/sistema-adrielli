@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { parseClientEnv } from "@/lib/env";
 import {
   STAFF_SESSION_COOKIE,
+  staffCookieSecure,
   staffSessionCookieOptions,
 } from "@/modules/identity/staff-session";
 
@@ -36,7 +37,11 @@ export async function createSupabaseServerClient() {
 
 export async function writeStaffSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(STAFF_SESSION_COOKIE, token, staffSessionCookieOptions());
+  cookieStore.set(
+    STAFF_SESSION_COOKIE,
+    token,
+    staffSessionCookieOptions(staffCookieSecure()),
+  );
 }
 
 export async function clearStaffSessionCookie(): Promise<void> {
