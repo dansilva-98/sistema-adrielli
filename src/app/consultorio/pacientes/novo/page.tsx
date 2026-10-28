@@ -8,6 +8,8 @@ import { PatientForm } from "../patient-form";
 
 export const instant = false;
 
+export const metadata = { title: { absolute: "Novo paciente" } };
+
 export default async function NewPatientPage() {
   await requireStaff({ roles: CONSULTORIO_ROLES });
   return (

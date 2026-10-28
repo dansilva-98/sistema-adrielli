@@ -1,7 +1,17 @@
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import postgres from "postgres";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/modules/identity/server/guard", () => ({
+  assertRole: async () => {},
+  requireStaff: async () => {
+    throw new Error("requireStaff");
+  },
+  StaffAccessError: class StaffAccessError extends Error {
+    reason = "forbidden";
+  },
+}));
 
 import { TEST_DATABASE_NAME } from "../../src/db/seed";
 import {

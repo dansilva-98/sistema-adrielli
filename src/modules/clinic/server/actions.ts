@@ -162,10 +162,10 @@ export async function archivePatientAction(
   _state: ClinicActionState,
   formData: FormData,
 ): Promise<ClinicActionState> {
+  const current = await currentActor();
   if (formData.get("confirm") !== "sim") {
     return { ok: false, code: "", message: "Confirme o arquivamento." };
   }
-  const current = await currentActor();
   try {
     const patientId = parseRecordId(formData);
     await archivePatient(sql, current, patientId);
@@ -242,10 +242,10 @@ export async function unlinkGuardianAction(
   _state: ClinicActionState,
   formData: FormData,
 ): Promise<ClinicActionState> {
+  const current = await currentActor();
   if (formData.get("confirm") !== "sim") {
     return { ok: false, code: "", message: "Confirme para desligar o responsável." };
   }
-  const current = await currentActor();
   try {
     const patientId = parseRecordId(formData);
     const guardianId = parseRecordId(formData, "guardianId");

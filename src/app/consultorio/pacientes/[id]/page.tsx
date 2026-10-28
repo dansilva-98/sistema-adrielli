@@ -15,6 +15,8 @@ import { SectionNav } from "../section-nav";
 
 export const instant = false;
 
+export const metadata = { title: { absolute: "Paciente" } };
+
 const sections = ["dados", "responsaveis", "anexos"] as const;
 type Section = (typeof sections)[number];
 

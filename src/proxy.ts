@@ -21,6 +21,13 @@ function isStaffArea(pathname: string): boolean {
   return pathname.startsWith("/admin") || pathname.startsWith("/consultorio");
 }
 
+function sealConsultorio(request: NextRequest, response: NextResponse): NextResponse {
+  if (request.nextUrl.pathname.startsWith("/consultorio")) {
+    response.headers.set("Cache-Control", "no-store");
+  }
+  return response;
+}
+
 function leaveStaffArea(request: NextRequest, expired: boolean): NextResponse {
   const url = request.nextUrl.clone();
   url.pathname = "/equipe/sair";
@@ -75,10 +82,10 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(STAFF_SESSION_COOKIE)?.value;
   const cookie = token ? readStaffSession(token, secret) : null;
   if (cookie && evaluateStaffSession(cookie, Date.now()) === "expired") {
-    return leaveStaffArea(request, true);
+    return sealConsultorio(request, leaveStaffArea(request, true));
   }
   if (!cookie || !identity || !staffSessionMatches(cookie, identity)) {
-    return leaveStaffArea(request, false);
+    return sealConsultorio(request, leaveStaffArea(request, false));
   }
   const requiredRoles = rolesForStaffPath(request.nextUrl.pathname);
   if (requiredRoles) {
@@ -96,7 +103,10 @@ export async function proxy(request: NextRequest) {
           ip: clientIp(request.headers),
           metadata: {},
         });
-        return redirectKeepingCookies(request, response, "/acesso-negado");
+        return sealConsultorio(
+          request,
+          redirectKeepingCookies(request, response, "/acesso-negado"),
+        );
       }
     }
   }
@@ -105,7 +115,7 @@ export async function proxy(request: NextRequest) {
     signStaffSession(touchStaffSession(cookie, Date.now()), secret),
     staffSessionCookieOptions(staffCookieSecure()),
   );
-  return response;
+  return sealConsultorio(request, response);
 }
 
 export const config = {

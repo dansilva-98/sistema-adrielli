@@ -71,13 +71,20 @@ test.describe("busca de pacientes fora da URL", () => {
     test.setTimeout(180_000);
     const terms: string[] = [];
     const leaked = rememberLeaks(page, terms);
+    const blocked = await page.request.get("/consultorio/pacientes", {
+      maxRedirects: 0,
+    });
+    expect(blocked.headers()["cache-control"] ?? "").toContain("no-store");
+
     await signIn(page, email);
     await expect(page).toHaveURL(/\/equipe\/mfa\/verificar$/);
     await page.getByLabel("Código").fill(totpCode(secret));
     await page.getByRole("button", { name: "Verificar" }).click();
     await expect(page).toHaveURL(/\/consultorio$/);
 
-    await page.goto("/consultorio/pacientes");
+    const listPage = await page.goto("/consultorio/pacientes");
+    expect(listPage?.headers()["cache-control"] ?? "").toContain("no-store");
+    await expect(page).toHaveTitle("Pacientes");
     await expect(page.getByRole("heading", { name: "Pacientes" })).toBeVisible();
     const listTerm = `Urlproibido${crypto.randomUUID().slice(0, 8)}`;
     terms.push(listTerm);
@@ -93,6 +100,7 @@ test.describe("busca de pacientes fora da URL", () => {
     );
     await page.getByRole("button", { name: "Buscar" }).click();
     const listResponse = await listed;
+    expect(listResponse.headers()["cache-control"] ?? "").toContain("no-store");
     expect(decoded(listResponse.url()).toLowerCase()).not.toContain(
       listTerm.toLowerCase(),
     );
@@ -138,9 +146,18 @@ test.describe("busca de pacientes fora da URL", () => {
     const token = crypto.randomUUID().slice(0, 8);
     const patientName = `Urlproibido Paciente ${token}`;
     const guardianName = `Urlproibido Responsavel ${token}`;
-    terms.push(patientName, guardianName, "Urlproibido");
+    terms.push(
+      patientName,
+      guardianName,
+      "Urlproibido",
+      "11988887777",
+      "52998224725",
+      "529.982.247-25",
+    );
     await page.goto("/consultorio/pacientes/novo");
+    await expect(page).toHaveTitle("Novo paciente");
     await page.getByLabel("Nome completo").fill(patientName);
+    await page.getByLabel("CPF", { exact: true }).fill("52998224725");
     await page.getByLabel("Data de nascimento").fill("2018-03-04");
     await page.getByLabel("Nome do responsável").fill(guardianName);
     await page.getByLabel("Parentesco").selectOption("MOTHER");
@@ -152,7 +169,11 @@ test.describe("busca de pacientes fora da URL", () => {
     const patientId = new URL(page.url()).pathname.split("/").pop() ?? "";
     expect(patientId).toMatch(patientIdPattern);
     patientIds.push(patientId);
+    await expect(page).toHaveTitle("Paciente");
     await expectAddressHasNoTerm(page, "Urlproibido", page.url());
+    const ficha = await page.goto(page.url());
+    expect(ficha?.headers()["cache-control"] ?? "").toContain("no-store");
+    await expect(page).toHaveTitle("Paciente");
 
     await page.getByRole("link", { name: "Responsáveis" }).click();
     await expect(page).toHaveURL(

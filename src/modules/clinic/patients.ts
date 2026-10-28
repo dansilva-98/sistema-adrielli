@@ -1,6 +1,8 @@
 import type postgres from "postgres";
 
 import { recordAudit } from "@/modules/audit/record";
+import { CONSULTORIO_ROLES } from "@/modules/identity/access";
+import { assertRole } from "@/modules/identity/server/guard";
 
 import type { AttachmentCategory, GuardianRelationship } from "./format";
 import { searchText, searchWords } from "./format";
@@ -174,6 +176,7 @@ export async function listPatients(
   db: Database,
   filter: { query: string; archived: boolean },
 ): Promise<PatientListItem[]> {
+  await assertRole(CONSULTORIO_ROLES);
   const words = searchWords(filter.query);
   const textMatch =
     words.length === 0
@@ -261,6 +264,7 @@ export async function createPatient(
   actor: Actor,
   input: CreatePatientInput,
 ): Promise<string> {
+  await assertRole(CONSULTORIO_ROLES);
   return transaction(db, async (tx) => {
     if (!input.confirmDuplicate) {
       const existing = await duplicateId(tx, input.fullName, input.birthDate);
@@ -303,6 +307,7 @@ export async function updatePatient(
   patientId: string,
   input: PatientInput,
 ): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
   await transaction(db, async (tx) => {
     const rows = await tx<{ id: string }[]>`
       update clinic.patients
@@ -328,6 +333,7 @@ export async function archivePatient(
   actor: Actor,
   patientId: string,
 ): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
   await transaction(db, async (tx) => {
     const rows = await tx<{ id: string }[]>`
       update clinic.patients
@@ -345,6 +351,7 @@ export async function restorePatient(
   actor: Actor,
   patientId: string,
 ): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
   await transaction(db, async (tx) => {
     const rows = await tx<{ id: string }[]>`
       update clinic.patients
@@ -362,6 +369,7 @@ export async function loadPatient(
   actor: Actor,
   patientId: string,
 ): Promise<PatientRecord | null> {
+  await assertRole(CONSULTORIO_ROLES);
   const rows = await db<
     {
       id: string;
@@ -463,6 +471,7 @@ export async function searchGuardians(
   patientId: string,
   query: string,
 ): Promise<GuardianMatch[]> {
+  await assertRole(CONSULTORIO_ROLES);
   const text = searchText(query);
   const digits = text.replace(/\D/g, "");
   if (text.length < 2 && digits.length < 3) return [];
@@ -490,6 +499,7 @@ export async function addGuardian(
   patientId: string,
   guardian: GuardianInput,
 ): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
   await transaction(db, async (tx) => {
     const patient = await tx<{ id: string }[]>`
       select id from clinic.patients where id = ${patientId}::uuid
@@ -516,6 +526,7 @@ export async function linkGuardian(
   patientId: string,
   guardianId: string,
 ): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
   await transaction(db, async (tx) => {
     const primary = await tx<{ present: boolean }[]>`
       select exists (
@@ -541,6 +552,7 @@ export async function setPrimaryGuardian(
   patientId: string,
   guardianId: string,
 ): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
   await transaction(db, async (tx) => {
     const linked = await tx<{ guardian_id: string }[]>`
       select guardian_id
@@ -571,6 +583,7 @@ export async function unlinkGuardian(
   patientId: string,
   guardianId: string,
 ): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
   await transaction(db, async (tx) => {
     const rows = await tx<{ guardian_id: string; is_primary: boolean }[]>`
       select guardian_id, is_primary

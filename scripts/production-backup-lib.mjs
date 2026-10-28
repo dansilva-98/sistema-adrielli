@@ -436,3 +436,36 @@ export function manifestDocument(storage, date) {
     public_object_bytes: storage.publicObjectBytes,
   };
 }
+
+export const ORPHAN_PATIENT_OBJECT_MS = 24 * 60 * 60 * 1000;
+
+const PATIENT_OBJECT =
+  /patients\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:pdf|jpe?g|png|webp)/gi;
+
+export function storagePathsInDump(sql) {
+  return new Set(
+    [...String(sql ?? "").matchAll(PATIENT_OBJECT)].map((match) =>
+      match[0].toLowerCase(),
+    ),
+  );
+}
+
+export function selectOrphanPatientObjects(objects, registeredPaths, nowMs) {
+  const registered =
+    registeredPaths instanceof Set
+      ? registeredPaths
+      : new Set([...(registeredPaths ?? [])].map((path) => String(path).toLowerCase()));
+  const now = Number(nowMs);
+  if (!Number.isFinite(now)) throw new Error("Relógio do backup inválido.");
+  const selected = [];
+  for (const object of objects ?? []) {
+    const name = object?.name;
+    if (typeof name !== "string" || !name.startsWith("patients/")) continue;
+    if (registered.has(name.toLowerCase())) continue;
+    const created = Date.parse(object.createdAt);
+    if (!Number.isFinite(created)) continue;
+    if (now - created <= ORPHAN_PATIENT_OBJECT_MS) continue;
+    selected.push(name);
+  }
+  return selected;
+}

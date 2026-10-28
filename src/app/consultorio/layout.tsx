@@ -4,6 +4,8 @@ import { requireStaff } from "@/modules/identity/server/guard";
 
 export const instant = false;
 
+export const metadata = { title: { absolute: "Consultório" } };
+
 export default async function ConsultorioLayout({
   children,
 }: {

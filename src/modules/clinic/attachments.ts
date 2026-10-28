@@ -1,6 +1,8 @@
 import type postgres from "postgres";
 
 import { recordAudit } from "@/modules/audit/record";
+import { CONSULTORIO_ROLES } from "@/modules/identity/access";
+import { assertRole } from "@/modules/identity/server/guard";
 
 import {
   issueUploadReceipt,
@@ -45,6 +47,7 @@ export async function prepareAttachmentUpload(
   input: { patientId: string; mime: string; size: number },
   now: number,
 ): Promise<{ signedUrl: string; token: string; receipt: string }> {
+  await assertRole(CONSULTORIO_ROLES);
   if (!isStoredMime(input.mime) || input.size < 1 || input.size > ATTACHMENT_MAX_BYTES) {
     throw new ClinicRuleError(input.size > ATTACHMENT_MAX_BYTES ? "size" : "type");
   }
@@ -77,6 +80,7 @@ export async function confirmAttachmentUpload(
     now: number;
   },
 ): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
   const receipt = readUploadReceipt(secret, input.receipt, input.now);
   if (!receipt || receipt.actorId !== actor.userId)
     throw new ClinicRuleError("not-found");
@@ -174,6 +178,7 @@ export async function openAttachment(
   store: ClinicObjectStore,
   attachmentId: string,
 ): Promise<string> {
+  await assertRole(CONSULTORIO_ROLES);
   const rows = await db<{ storage_path: string }[]>`
     select storage_path
     from clinic.patient_attachments
@@ -202,6 +207,7 @@ export async function deleteAttachment(
   actor: Actor,
   attachmentId: string,
 ): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
   await db.begin(async (tx) => {
     const rows = await tx<{ id: string }[]>`
       update clinic.patient_attachments
