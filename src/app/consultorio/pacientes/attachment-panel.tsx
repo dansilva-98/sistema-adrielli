@@ -175,15 +175,27 @@ function AttachmentCard({
   );
 
   async function open() {
+    const popup = window.open("", "_blank");
     setOpening(true);
     setMessage("");
     const result = await openAttachmentAction(attachment.id);
     setOpening(false);
     if (!result.ok) {
+      popup?.close();
       setMessage(result.message);
       return;
     }
-    window.location.assign(result.url);
+    if (!popup) {
+      window.location.assign(result.url);
+      return;
+    }
+    try {
+      popup.opener = null;
+      popup.location.replace(result.url);
+    } catch {
+      popup.close();
+      window.location.assign(result.url);
+    }
   }
 
   return (

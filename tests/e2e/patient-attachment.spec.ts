@@ -38,12 +38,8 @@ test.describe("anexo na ficha pelo iPhone", () => {
     }
   });
 
-  test("envia e abre um PDF na mesma aba", async ({ page }) => {
+  test("abre o PDF em nova aba e mantém a seção ao recarregar", async ({ page }) => {
     test.setTimeout(180_000);
-    let popped = false;
-    page.on("popup", () => {
-      popped = true;
-    });
     await signIn(page, email);
     await expect(page).toHaveURL(/\/equipe\/mfa\/verificar$/, { timeout: 20_000 });
     await page.getByLabel("Código").fill(totpCode(secret));
@@ -62,30 +58,58 @@ test.describe("anexo na ficha pelo iPhone", () => {
     await page.getByRole("button", { name: "Enviar anexo" }).click();
     await expect(page.getByText("laudo.pdf")).toBeVisible({ timeout: 20_000 });
 
-    const opened = pdfFromOpen(page);
+    const opened = page.waitForEvent("popup").then((popup) => pdfFromOpen(popup));
     await page.getByRole("button", { name: "Abrir" }).click();
     expect((await opened).subarray(0, 5).toString()).toBe("%PDF-");
-    expect(popped).toBe(false);
+    await expect(page).toHaveURL(
+      new RegExp(`/consultorio/pacientes/${patientId}\\?secao=anexos$`),
+    );
+    await expect(page).toHaveURL(
+      new RegExp(`/consultorio/pacientes/${patientId}\\?secao=anexos$`),
+    );
+
+    await page.getByRole("link", { name: "Responsáveis" }).click();
+    await expect(page).toHaveURL(
+      new RegExp(`/consultorio/pacientes/${patientId}\\?secao=responsaveis$`),
+    );
+    await page.reload();
+    await expect(page).toHaveURL(
+      new RegExp(`/consultorio/pacientes/${patientId}\\?secao=responsaveis$`),
+    );
+    await expect(page.getByRole("link", { name: "Responsáveis" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(page.getByLabel("Buscar responsável já cadastrado")).toBeVisible();
   });
 });
 
-function pdfFromOpen(page: Page): Promise<Buffer> {
+function pdfFromOpen(popup: Page): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("O anexo não abriu.")), 20_000);
+    const timer = setTimeout(
+      () => reject(new Error(`O anexo não abriu. ${popup.url()}`)),
+      20_000,
+    );
+    let settled = false;
     const finish = (bytes: Buffer) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       resolve(bytes);
     };
-    page.once("download", async (download) => {
+    popup.once("download", async (download) => {
       const saved = await download.path();
       if (!saved) {
-        clearTimeout(timer);
-        reject(new Error("Download sem arquivo."));
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(new Error("Download sem arquivo."));
+        }
         return;
       }
       finish(readFileSync(saved));
     });
-    page.on("response", (response) => {
+    popup.on("response", (response) => {
       if (
         response.request().method() !== "GET" ||
         !response.url().includes("/storage/v1/") ||
