@@ -3,18 +3,26 @@ name: Primeiro administrador
 on:
   workflow_dispatch:
     inputs:
+      destino:
+        description: Destino
+        required: true
+        type: choice
+        default: production
+        options:
+          - production
+          - staging
       email:
         description: E-mail da responsável
         required: true
         type: string
 
 concurrency:
-  group: production
+  group: ${{ inputs.destino == 'staging' && 'staging' || 'production' }}
   cancel-in-progress: false
 
 jobs:
   bootstrap:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (inputs.destino == 'production' || inputs.destino == '')
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -45,3 +53,35 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.PRODUCTION_NEXT_PUBLIC_SENTRY_DSN }}
           NEXT_PUBLIC_SITE_URL: https://adrielliflores.com.br
+  bootstrap-staging:
+    if: github.ref == 'refs/heads/main' && inputs.destino == 'staging'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Ler e mascarar o e-mail
+        run: |
+          EMAIL=$(jq -r '.inputs.email' "$GITHUB_EVENT_PATH")
+          echo "::add-mask::$EMAIL"
+          echo "EMAIL=$EMAIL" >> "$GITHUB_ENV"
+      - name: Criar o primeiro SUPER_ADMIN
+        run: pnpm admin:bootstrap -- --email "$EMAIL"
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+          SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN }}
+          APP_ENV: staging
+          STAFF_SESSION_SECRET: ${{ secrets.STAGING_STAFF_SESSION_SECRET }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.STAGING_NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_SITE_URL: https://staging--adrielli-flores.netlify.app

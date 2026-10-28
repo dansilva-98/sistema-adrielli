@@ -30,12 +30,29 @@ describe("bootstrap do SUPER_ADMIN", () => {
     expect(workflow).toContain(`EMAIL=$(jq -r '.inputs.email' "$GITHUB_EVENT_PATH")`);
     expect(workflow).toContain('echo "::add-mask::$EMAIL"');
     expect(workflow).toContain('echo "EMAIL=$EMAIL" >> "$GITHUB_ENV"');
+    expect(workflow).toContain("default: production");
+    expect(workflow).toContain("environment: production");
+    expect(workflow).toContain("environment: staging");
+    expect(workflow).toContain("inputs.destino == 'staging'");
+    expect(workflow).toContain("secrets.PRODUCTION_DATABASE_URL");
+    expect(workflow).toContain("secrets.STAGING_DATABASE_URL");
+    expect(workflow).toContain("APP_ENV: production");
+    expect(workflow).toContain("APP_ENV: staging");
     expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: https://adrielliflores.com.br");
+    expect(workflow).toContain(
+      "NEXT_PUBLIC_SITE_URL: https://staging--adrielli-flores.netlify.app",
+    );
     expect(workflow).not.toContain("${{ inputs.email }}");
+    const productionJob = workflow.split("bootstrap-staging:")[0] ?? "";
+    expect(productionJob).toContain("secrets.PRODUCTION_DATABASE_URL");
+    expect(productionJob).not.toContain("secrets.STAGING_");
+    expect(productionJob).not.toContain("APP_ENV: staging");
     const readme = readFileSync("README.md", "utf8");
     expect(readme).toContain("SMTP do Resend já configurado");
     expect(readme).toContain("supabase/templates/invite.html");
     expect(readme).toContain("Este workflow não altera o SMTP.");
+    expect(readme).toContain("A opção `staging` usa o ambiente `staging`");
+    expect(readme).toContain("segredos `STAGING_*`");
 
     let section = "";
     for (const line of workflow.split("\n")) {
