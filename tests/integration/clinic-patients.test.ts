@@ -96,6 +96,22 @@ describe("cadastro de pacientes", () => {
       archived: false,
     });
     expect(byName.map((row) => row.id)).toContain(patientId);
+    const byWords = await listPatients(runtime, {
+      query: "joao conceicao",
+      archived: false,
+    });
+    expect(byWords.map((row) => row.id)).toContain(patientId);
+    const byReversed = await listPatients(runtime, {
+      query: "conce joao",
+      archived: false,
+    });
+    expect(byReversed.map((row) => row.id)).toContain(patientId);
+    const missing = await listPatients(runtime, {
+      query: "zzzznaoexiste",
+      archived: false,
+    });
+    expect(missing.map((row) => row.id)).not.toContain(patientId);
+    expect(missing).toEqual([]);
     const byPhone = await listPatients(runtime, { query: "987654321", archived: false });
     expect(byPhone.map((row) => row.id)).toContain(patientId);
 

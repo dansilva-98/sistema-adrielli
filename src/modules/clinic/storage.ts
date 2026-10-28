@@ -35,6 +35,12 @@ function headers(config: StorageConfig, extra?: HeadersInit): Headers {
   return result;
 }
 
+async function missingObject(response: Response): Promise<boolean> {
+  if (response.status !== 400) return false;
+  const text = await response.text();
+  return text.includes("NoSuchKey") || text.includes('"not_found"');
+}
+
 function absoluteStorageUrl(config: StorageConfig, value: string): string {
   if (value.startsWith("http://") || value.startsWith("https://")) return value;
   const relative = value.startsWith("/storage/v1/")
@@ -67,8 +73,9 @@ export function clinicObjectStore(config: StorageConfig): ClinicObjectStore {
         storageUrl(config, `object/${BUCKET}/${encodedPath(path)}`),
         { headers: headers(config) },
       );
-      if (response.status === 404) return null;
-      if (!response.ok) throw new Error("Falha ao ler o arquivo.");
+      if (response.status === 404 || (await missingObject(response))) return null;
+      if (!response.ok)
+        throw new Error(`Falha ao ler o arquivo (HTTP ${response.status}).`);
       return new Uint8Array(await response.arrayBuffer());
     },
     async write(path, bytes, mime) {
@@ -87,8 +94,9 @@ export function clinicObjectStore(config: StorageConfig): ClinicObjectStore {
         storageUrl(config, `object/${BUCKET}/${encodedPath(path)}`),
         { method: "DELETE", headers: headers(config) },
       );
-      if (!response.ok && response.status !== 404)
-        throw new Error("Falha ao apagar o arquivo.");
+      if (!response.ok && response.status !== 404 && !(await missingObject(response))) {
+        throw new Error(`Falha ao apagar o arquivo (HTTP ${response.status}).`);
+      }
     },
     async signedDownload(path, seconds) {
       const response = await fetch(

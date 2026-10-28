@@ -71,6 +71,13 @@
       "when": 1792968777590,
       "tag": "0009_clinic_patients",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793194016761,
+      "tag": "0010_attachment_storage_path",
+      "breakpoints": true
     }
   ]
 }

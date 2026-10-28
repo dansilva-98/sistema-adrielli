@@ -10,6 +10,7 @@ import {
   signStaffSession,
   STAFF_IDLE_MS,
   STAFF_MAX_MS,
+  staffCookieSecure,
   staffSessionMatches,
   touchStaffSession,
 } from "@/modules/identity/staff-session";
@@ -23,6 +24,13 @@ const staff = {
 };
 
 describe("sessão da equipe", () => {
+  it("só marca o cookie como seguro fora do computador local", () => {
+    expect(staffCookieSecure("localhost:3000")).toBe(false);
+    expect(staffCookieSecure("127.0.0.1:3000")).toBe(false);
+    expect(staffCookieSecure("adrielli.example")).toBe(true);
+    expect(staffCookieSecure(null)).toBe(true);
+  });
+
   it("expira aos 30 minutos sem atividade e às 12 horas desde o login", () => {
     const startedAt = 1_000;
     const active = {

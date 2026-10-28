@@ -163,3 +163,9 @@ export function searchText(value: string): string {
     .slice(0, 80)
     .replace(/[%_\\]/g, "");
 }
+
+export function searchWords(value: string): string[] {
+  return searchText(value)
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+}

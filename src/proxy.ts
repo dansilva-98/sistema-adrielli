@@ -7,6 +7,7 @@ import {
   evaluateStaffSession,
   readStaffSession,
   signStaffSession,
+  staffCookieSecure,
   staffSessionCookieOptions,
   clientIp,
   staffSessionMatches,
@@ -102,7 +103,7 @@ export async function proxy(request: NextRequest) {
   response.cookies.set(
     STAFF_SESSION_COOKIE,
     signStaffSession(touchStaffSession(cookie, Date.now()), secret),
-    staffSessionCookieOptions(),
+    staffSessionCookieOptions(staffCookieSecure(request.headers.get("host"))),
   );
   return response;
 }

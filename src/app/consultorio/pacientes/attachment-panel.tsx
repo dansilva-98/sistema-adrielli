@@ -183,7 +183,7 @@ function AttachmentCard({
       setMessage(result.message);
       return;
     }
-    window.open(result.url, "_blank", "noopener");
+    window.location.assign(result.url);
   }
 
   return (

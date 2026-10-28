@@ -94,6 +94,9 @@ function failure(error: unknown): ClinicActionState {
         message: "O arquivo precisa ter entre 1 byte e 10 MB.",
       };
     }
+    if (error.code === "already-confirmed") {
+      return { ok: false, code: "", message: "Este envio já foi registrado." };
+    }
     return { ok: false, code: "", message: "Paciente não encontrado." };
   }
   if (error instanceof ZodError) {

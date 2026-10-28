@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 
@@ -66,5 +68,17 @@ describe("anexos", () => {
     expect(readUploadReceipt(SECRET, token, now)?.mime).toBe("image/jpeg");
     expect(readUploadReceipt(SECRET, token, now + 11 * 60 * 1000)).toBeNull();
     expect(readUploadReceipt(SECRET, `${token}x`, now)).toBeNull();
+
+    const forged = Buffer.from(
+      JSON.stringify({
+        patientId: "11111111-1111-4111-8111-111111111111",
+        path: "patients/11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg",
+        mime: "image/jpeg",
+        actorId: "22222222-2222-4222-8222-222222222222",
+        expiresAt: now + 60_000,
+      }),
+    ).toString("base64url");
+    const rawMac = createHmac("sha256", SECRET).update(forged).digest("base64url");
+    expect(readUploadReceipt(SECRET, `${forged}.${rawMac}`, now)).toBeNull();
   });
 });

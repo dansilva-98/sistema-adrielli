@@ -101,9 +101,17 @@ export async function confirmAttachmentUpload(
   try {
     await insertAttachment(db, actor, receipt, originalName, input.category, prepared);
   } catch (error) {
+    if (isUniqueViolation(error)) throw new ClinicRuleError("already-confirmed");
     await store.remove(receipt.path);
     throw error;
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  if ("code" in error && error.code === "23505") return true;
+  if ("cause" in error) return isUniqueViolation(error.cause);
+  return false;
 }
 
 async function insertAttachment(

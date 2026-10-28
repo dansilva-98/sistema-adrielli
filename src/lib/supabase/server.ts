@@ -1,11 +1,12 @@
 import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { parseClientEnv } from "@/lib/env";
 import {
   STAFF_SESSION_COOKIE,
+  staffCookieSecure,
   staffSessionCookieOptions,
 } from "@/modules/identity/staff-session";
 
@@ -36,7 +37,12 @@ export async function createSupabaseServerClient() {
 
 export async function writeStaffSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(STAFF_SESSION_COOKIE, token, staffSessionCookieOptions());
+  const host = (await headers()).get("host");
+  cookieStore.set(
+    STAFF_SESSION_COOKIE,
+    token,
+    staffSessionCookieOptions(staffCookieSecure(host)),
+  );
 }
 
 export async function clearStaffSessionCookie(): Promise<void> {

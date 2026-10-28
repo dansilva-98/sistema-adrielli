@@ -16,9 +16,13 @@ export function newAttachmentPath(patientId: string, mime: StoredMime): string {
   return `patients/${patientId}/${randomUUID()}.${extensionFor(mime)}`;
 }
 
+function receiptKey(secret: string): Buffer {
+  return createHmac("sha256", secret).update("clinic-attachment-receipt").digest();
+}
+
 export function signUploadReceipt(secret: string, receipt: UploadReceipt): string {
   const body = Buffer.from(JSON.stringify(receipt)).toString("base64url");
-  const mac = createHmac("sha256", secret).update(body).digest("base64url");
+  const mac = createHmac("sha256", receiptKey(secret)).update(body).digest("base64url");
   return `${body}.${mac}`;
 }
 
@@ -39,7 +43,9 @@ export function readUploadReceipt(
   if (separator <= 0) return null;
   const body = token.slice(0, separator);
   const mac = token.slice(separator + 1);
-  const expected = createHmac("sha256", secret).update(body).digest("base64url");
+  const expected = createHmac("sha256", receiptKey(secret))
+    .update(body)
+    .digest("base64url");
   const left = Buffer.from(mac);
   const right = Buffer.from(expected);
   if (left.length !== right.length || !timingSafeEqual(left, right)) return null;

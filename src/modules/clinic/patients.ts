@@ -3,7 +3,7 @@ import type postgres from "postgres";
 import { recordAudit } from "@/modules/audit/record";
 
 import type { AttachmentCategory, GuardianRelationship } from "./format";
-import { searchText } from "./format";
+import { searchText, searchWords } from "./format";
 import type { CreatePatientInput, GuardianInput, PatientInput } from "./schema";
 
 type Database = postgres.Sql | postgres.TransactionSql;
@@ -23,7 +23,8 @@ export class ClinicRuleError extends Error {
     | "already-linked"
     | "not-found"
     | "type"
-    | "size";
+    | "size"
+    | "already-confirmed";
 
   constructor(code: ClinicRuleError["code"]) {
     super(code);
@@ -151,12 +152,38 @@ async function audit(
   );
 }
 
+function patientWordClause(db: Database, word: string) {
+  const digits = word.replace(/\D/g, "");
+  return db`(
+    p.full_name_search like '%' || clinic.fold_search(${word}) || '%'
+    or exists (
+      select 1
+      from clinic.patient_guardians other_link
+      join clinic.guardians other_guardian
+        on other_guardian.id = other_link.guardian_id
+      where other_link.patient_id = p.id
+        and (
+          other_guardian.full_name_search like '%' || clinic.fold_search(${word}) || '%'
+          or (${digits} <> '' and other_guardian.phone like '%' || ${digits} || '%')
+        )
+    )
+  )`;
+}
+
 export async function listPatients(
   db: Database,
   filter: { query: string; archived: boolean },
 ): Promise<PatientListItem[]> {
-  const query = searchText(filter.query);
-  const digits = query.replace(/\D/g, "");
+  const words = searchWords(filter.query);
+  const textMatch =
+    words.length === 0
+      ? db`true`
+      : words
+          .slice(1)
+          .reduce(
+            (clause, word) => db`${clause} and ${patientWordClause(db, word)}`,
+            patientWordClause(db, words[0]!),
+          );
   const rows = await db<
     {
       id: string;
@@ -182,21 +209,7 @@ export async function listPatients(
       ${filter.archived}::boolean = true and p.archived_at is not null
       or ${filter.archived}::boolean = false and p.archived_at is null
     )
-      and (
-        ${query} = ''
-        or p.full_name_search like '%' || clinic.fold_search(${query}) || '%'
-        or exists (
-          select 1
-          from clinic.patient_guardians other_link
-          join clinic.guardians other_guardian
-            on other_guardian.id = other_link.guardian_id
-          where other_link.patient_id = p.id
-            and (
-              other_guardian.full_name_search like '%' || clinic.fold_search(${query}) || '%'
-              or (${digits} <> '' and other_guardian.phone like '%' || ${digits} || '%')
-            )
-        )
-      )
+      and ${textMatch}
     order by p.full_name_search asc, p.id asc
   `;
   return rows.map((row) => ({
