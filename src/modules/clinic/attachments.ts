@@ -80,6 +80,13 @@ export async function confirmAttachmentUpload(
   const receipt = readUploadReceipt(secret, input.receipt, input.now);
   if (!receipt || receipt.actorId !== actor.userId)
     throw new ClinicRuleError("not-found");
+  const existing = await db<{ id: string }[]>`
+    select id
+    from clinic.patient_attachments
+    where storage_path = ${receipt.path}
+    limit 1
+  `;
+  if (existing[0]) throw new ClinicRuleError("already-confirmed");
   const originalName = cleanName(input.originalName);
   const stored = await store.read(receipt.path);
   if (!stored) throw new ClinicRuleError("not-found");

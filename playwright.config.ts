@@ -15,6 +15,7 @@ function environment(): Record<string, string> {
   return {
     ...Object.fromEntries(entries),
     APP_ENV: "staging",
+    E2E_INSECURE_COOKIE: "1",
   };
 }
 

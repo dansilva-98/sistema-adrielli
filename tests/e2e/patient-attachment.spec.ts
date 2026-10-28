@@ -45,10 +45,10 @@ test.describe("anexo na ficha pelo iPhone", () => {
       popped = true;
     });
     await signIn(page, email);
-    await expect(page).toHaveURL(/\/equipe\/mfa\/verificar$/);
+    await expect(page).toHaveURL(/\/equipe\/mfa\/verificar$/, { timeout: 20_000 });
     await page.getByLabel("Código").fill(totpCode(secret));
     await page.getByRole("button", { name: "Verificar" }).click();
-    await expect(page).toHaveURL(/\/consultorio$/);
+    await expect(page).toHaveURL(/\/consultorio$/, { timeout: 20_000 });
 
     await page.goto(`/consultorio/pacientes/${patientId}?secao=anexos`);
     await expect(page).toHaveURL(

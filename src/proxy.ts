@@ -103,7 +103,7 @@ export async function proxy(request: NextRequest) {
   response.cookies.set(
     STAFF_SESSION_COOKIE,
     signStaffSession(touchStaffSession(cookie, Date.now()), secret),
-    staffSessionCookieOptions(staffCookieSecure(request.headers.get("host"))),
+    staffSessionCookieOptions(staffCookieSecure()),
   );
   return response;
 }

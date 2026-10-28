@@ -11,7 +11,7 @@ import {
   openAttachment,
   prepareAttachmentUpload,
 } from "../../src/modules/clinic/attachments";
-import { ATTACHMENT_MAX_BYTES } from "../../src/modules/clinic/file-bytes";
+import { ATTACHMENT_MAX_BYTES, sha256Hex } from "../../src/modules/clinic/file-bytes";
 import {
   ClinicRuleError,
   createPatient,
@@ -135,6 +135,22 @@ describe("anexos no storage local", () => {
     expect(stored).not.toBeNull();
     expect(Buffer.from(stored ?? []).includes(Buffer.from(MARKER))).toBe(false);
     expect((await sharp(stored ?? new Uint8Array()).metadata()).exif).toBeUndefined();
+    const jpegRow = await runtime<{ sha256: string }[]>`
+      select sha256 from clinic.patient_attachments where storage_path = ${jpegPath}
+    `;
+    const jpegSha = sha256Hex(stored ?? new Uint8Array());
+    expect(jpegRow[0]?.sha256).toBe(jpegSha);
+
+    await expect(
+      confirmAttachmentUpload(runtime, ACTOR, store, secret, {
+        receipt: jpegReceipt,
+        originalName: "foto.jpg",
+        category: "CLINICAL_REPORT",
+        now: Date.now(),
+      }),
+    ).rejects.toMatchObject({ code: "already-confirmed" });
+    const jpegAfter = await store.read(jpegPath);
+    expect(sha256Hex(jpegAfter ?? new Uint8Array())).toBe(jpegSha);
 
     await expect(
       confirmAttachmentUpload(runtime, ACTOR, store, secret, {

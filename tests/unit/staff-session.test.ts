@@ -24,11 +24,14 @@ const staff = {
 };
 
 describe("sessão da equipe", () => {
-  it("só marca o cookie como seguro fora do computador local", () => {
-    expect(staffCookieSecure("localhost:3000")).toBe(false);
-    expect(staffCookieSecure("127.0.0.1:3000")).toBe(false);
-    expect(staffCookieSecure("adrielli.example")).toBe(true);
-    expect(staffCookieSecure(null)).toBe(true);
+  it("só tira o Secure quando o teste pede", () => {
+    const previous = process.env.E2E_INSECURE_COOKIE;
+    delete process.env.E2E_INSECURE_COOKIE;
+    expect(staffCookieSecure()).toBe(true);
+    process.env.E2E_INSECURE_COOKIE = "1";
+    expect(staffCookieSecure()).toBe(false);
+    if (previous === undefined) delete process.env.E2E_INSECURE_COOKIE;
+    else process.env.E2E_INSECURE_COOKIE = previous;
   });
 
   it("expira aos 30 minutos sem atividade e às 12 horas desde o login", () => {
