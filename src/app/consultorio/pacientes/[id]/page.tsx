@@ -11,6 +11,7 @@ import { ArchiveControl } from "../archive-control";
 import { AttachmentPanel } from "../attachment-panel";
 import { GuardianPanel } from "../guardian-panel";
 import { PatientEditForm } from "../patient-edit-form";
+import { SectionNav } from "../section-nav";
 
 export const instant = false;
 
@@ -42,12 +43,6 @@ export default async function PatientPage({
   if (query.busca !== undefined) redirect(sectionHref(id, section));
   const patient = await readPatient(id);
   if (!patient) notFound();
-  const tabs: { id: Section; label: string }[] = [
-    { id: "dados", label: "Dados" },
-    { id: "responsaveis", label: "Responsáveis" },
-    { id: "anexos", label: "Anexos" },
-  ];
-
   return (
     <section className="flex flex-col gap-4">
       <Link
@@ -62,25 +57,7 @@ export default async function PatientPage({
         </h2>
         {patient.archivedAt ? <p className="text-sm text-muted">Arquivado</p> : null}
       </div>
-      <nav aria-label="Ficha" className="grid grid-cols-3 gap-1">
-        {tabs.map((tab) => {
-          const current = tab.id === section;
-          return (
-            <Link
-              key={tab.id}
-              href={sectionHref(patient.id, tab.id)}
-              aria-current={current ? "page" : undefined}
-              className={
-                current
-                  ? "inline-flex h-11 items-center justify-center rounded-md bg-support px-1 text-center text-sm font-medium text-support-foreground"
-                  : "inline-flex h-11 items-center justify-center rounded-md border border-border px-1 text-center text-sm"
-              }
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <SectionNav patientId={patient.id} section={section} />
       {section === "dados" ? (
         <div className="flex flex-col gap-6">
           <PatientEditForm
