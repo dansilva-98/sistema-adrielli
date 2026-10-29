@@ -41,6 +41,8 @@ import {
   safeObjectPath,
   scrubSecrets,
   ATTACHMENT_PATH_QUERY,
+  ATTACHMENT_TABLE_QUERY,
+  attachmentTableMissing,
   parseAttachmentPathRows,
   planOrphanPatientDeletions,
   selectDeletions,
@@ -394,7 +396,7 @@ export async function deletePrivateObject({
   }
 }
 
-export async function readAttachmentStoragePaths({ env, spawnImpl }) {
+function runAttachmentQuery({ env, sql, spawnImpl }) {
   const databaseUrl = env.BACKUP_DATABASE_URL;
   if (typeof databaseUrl !== "string" || databaseUrl.length === 0) {
     throw new Error("Consulta de anexos recusada: banco ausente. Nada foi apagado.");
@@ -402,7 +404,7 @@ export async function readAttachmentStoragePaths({ env, spawnImpl }) {
   const run = spawnImpl ?? spawnSync;
   const result = run(
     "psql",
-    [databaseUrl, "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", ATTACHMENT_PATH_QUERY],
+    [databaseUrl, "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", sql],
     { encoding: "utf8", timeout: 60_000, windowsHide: true },
   );
   if (result.error || result.status !== 0) {
@@ -412,7 +414,42 @@ export async function readAttachmentStoragePaths({ env, spawnImpl }) {
     if (detail.trim()) console.error(detail.trim());
     throw new Error("Consulta de anexos falhou. Nada foi apagado.");
   }
-  return parseAttachmentPathRows(result.stdout);
+  return String(result.stdout ?? "");
+}
+
+export async function readAttachmentStoragePaths({ env, spawnImpl }) {
+  return parseAttachmentPathRows(
+    runAttachmentQuery({ env, sql: ATTACHMENT_PATH_QUERY, spawnImpl }),
+  );
+}
+
+export async function cleanUnconfirmedPatientUploads({
+  env,
+  spawnImpl,
+  fetchImpl = fetch,
+  now = Date.now(),
+}) {
+  const table = runAttachmentQuery({ env, sql: ATTACHMENT_TABLE_QUERY, spawnImpl });
+  if (attachmentTableMissing(table)) {
+    const listed = await listPrivateObjects({
+      env,
+      fetchImpl,
+      rootPrefix: "patients/",
+      withCreatedAt: true,
+    });
+    const files = (listed.objects ?? []).filter(
+      (object) => typeof object?.name === "string" && object.name.startsWith("patients/"),
+    );
+    if (files.length === 0) {
+      console.log("tabela de anexos ainda não existe; limpeza pulada");
+      return null;
+    }
+    throw new Error(
+      "A tabela de anexos ainda não existe, mas há arquivos em patients/. Nada foi apagado.",
+    );
+  }
+  const registeredPaths = await readAttachmentStoragePaths({ env, spawnImpl });
+  return removeOrphanPatientUploads({ env, registeredPaths, fetchImpl, now });
 }
 
 export async function removeOrphanPatientUploads({
@@ -576,7 +613,9 @@ export async function runProductionBackup(env, deps) {
     );
     if (typeof deps.removeOrphanUploads === "function") {
       const orphans = await deps.removeOrphanUploads({ env, workdir });
-      console.log(`Backup de produção: ${orphans} anexos não confirmados apagados.`);
+      if (typeof orphans === "number") {
+        console.log(`Backup de produção: ${orphans} anexos não confirmados apagados.`);
+      }
     }
   } finally {
     if (workdir) await deps.removeWorkdir(workdir);
@@ -686,10 +725,7 @@ function createDeps() {
         stat: statSync,
       });
     },
-    removeOrphanUploads: async ({ env }) => {
-      const registeredPaths = await readAttachmentStoragePaths({ env });
-      return removeOrphanPatientUploads({ env, registeredPaths });
-    },
+    removeOrphanUploads: async ({ env }) => cleanUnconfirmedPatientUploads({ env }),
     prune: async ({ env, folderId, protectId }) => {
       const accessToken = await refreshDriveAccess({ env });
       return pruneDriveBackups({
