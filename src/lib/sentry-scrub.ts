@@ -1,4 +1,4 @@
-const SENSITIVE_KEYS = new Set([
+const SENSITIVE_WORDS = new Set([
   "email",
   "phone",
   "token",
@@ -7,6 +7,9 @@ const SENSITIVE_KEYS = new Set([
   "code",
   "senha",
   "telefone",
+]);
+
+const SENSITIVE_KEYS = new Set([
   "fullname",
   "preferredname",
   "originalname",
@@ -27,7 +30,14 @@ const DROPPED_HEADERS = new Set([
 ]);
 
 export function isSensitiveKey(key: string): boolean {
-  return SENSITIVE_KEYS.has(key.toLowerCase().replace(/[^a-z0-9]/g, ""));
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (SENSITIVE_KEYS.has(normalized)) return true;
+  const words = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  return words.some((word) => SENSITIVE_WORDS.has(word));
 }
 
 function stripUrl(url: string): string {

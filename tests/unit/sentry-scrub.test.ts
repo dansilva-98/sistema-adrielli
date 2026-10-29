@@ -136,24 +136,52 @@ describe("scrubSentryEvent", () => {
     expect(serialized).not.toContain("2018-02-02");
   });
 
-  it("mantém o nome do SDK e do contexto e remove o nome do paciente", () => {
+  it("mantém o nome do SDK e remove chaves compostas e o nome do paciente", () => {
     const scrubbed = scrubSentryEvent({
       sdk: { name: "sentry.javascript.node" },
       contexts: {
         os: { name: "Windows" },
         browser: { name: "Chrome" },
       },
+      request: {
+        headers: {
+          "x-supabase-token": "TOKEN-CABECALHO",
+          "Content-Type": "application/json",
+        },
+      },
       extra: {
         fullName: "NOME-COMPLETO-PRIVADO",
         full_name: "NOME-COMPLETO-PRIVADO",
+        access_token: "TOKEN-ACESSO",
+        refreshToken: "TOKEN-RENOVACAO",
+        userEmail: "EMAIL-USUARIO-PRIVADO",
+        guardianPhone: "TELEFONE-RESPONSAVEL",
+        otpCode: "CODIGO-OTP",
+        newPassword: "SENHA-NOVA",
       },
     });
+    const serialized = JSON.stringify(scrubbed);
 
     expect(scrubbed.sdk.name).toBe("sentry.javascript.node");
     expect(scrubbed.contexts.os.name).toBe("Windows");
     expect(scrubbed.contexts.browser.name).toBe("Chrome");
+    expect(scrubbed.request.headers["Content-Type"]).toBe("application/json");
+    expect(scrubbed.request.headers["x-supabase-token"]).toBeUndefined();
     expect(scrubbed.extra.fullName).toBeUndefined();
     expect(scrubbed.extra.full_name).toBeUndefined();
-    expect(JSON.stringify(scrubbed)).not.toContain("NOME-COMPLETO-PRIVADO");
+    expect(scrubbed.extra.access_token).toBeUndefined();
+    expect(scrubbed.extra.refreshToken).toBeUndefined();
+    expect(scrubbed.extra.userEmail).toBeUndefined();
+    expect(scrubbed.extra.guardianPhone).toBeUndefined();
+    expect(scrubbed.extra.otpCode).toBeUndefined();
+    expect(scrubbed.extra.newPassword).toBeUndefined();
+    expect(serialized).not.toContain("NOME-COMPLETO-PRIVADO");
+    expect(serialized).not.toContain("TOKEN-CABECALHO");
+    expect(serialized).not.toContain("TOKEN-ACESSO");
+    expect(serialized).not.toContain("TOKEN-RENOVACAO");
+    expect(serialized).not.toContain("EMAIL-USUARIO-PRIVADO");
+    expect(serialized).not.toContain("TELEFONE-RESPONSAVEL");
+    expect(serialized).not.toContain("CODIGO-OTP");
+    expect(serialized).not.toContain("SENHA-NOVA");
   });
 });
