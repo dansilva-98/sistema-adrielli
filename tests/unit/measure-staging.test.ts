@@ -3,31 +3,53 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
-  chooseDraft,
   CLINIC_MEDIAN_LIMIT_MS,
+  deploySummary,
   evidenceText,
+  latestDeployReady,
   medianOverLimit,
   summarize,
 } from "../../scripts/measure-staging-math.mjs";
+import { STAGING_PUBLIC_URL } from "../../scripts/netlify-site-policy.mjs";
 
 describe("medição de staging", () => {
-  it("prefere o rascunho deploy-preview", () => {
+  it("mede o alias fixo e só exige que o deploy mais recente esteja ready", () => {
+    const summary = deploySummary([
+      {
+        state: "ready",
+        context: "branch-deploy",
+        published: true,
+        branch: "main",
+        id: "segredo-do-deploy",
+        ssl_url: "https://staging--adrielli-flores.netlify.app/?token=tokensecreto",
+      },
+      {
+        state: "building",
+        context: "deploy-preview",
+        published: false,
+        branch: "e7/medir",
+        deploy_ssl_url: "https://draft.example/secret",
+      },
+    ]);
+    expect(latestDeployReady([{ state: "ready" }]).ok).toBe(true);
     expect(
-      chooseDraft([
-        {
-          state: "ready",
-          context: "production",
-          published: true,
-          deploy_ssl_url: "https://prod.example",
-        },
-        {
-          state: "ready",
-          context: "deploy-preview",
-          published: false,
-          deploy_ssl_url: "https://draft.example",
-        },
-      ]),
-    ).toEqual({ url: "https://draft.example", context: "deploy-preview" });
+      latestDeployReady([
+        { state: "building", context: "deploy-preview" },
+        { state: "ready", context: "deploy-preview" },
+      ]).ok,
+    ).toBe(false);
+    expect(latestDeployReady([]).ok).toBe(false);
+    expect(latestDeployReady({ state: "ready" }).ok).toBe(false);
+    expect(summary).toContain("state=ready");
+    expect(summary).toContain("context=branch-deploy");
+    expect(summary).toContain("published=true");
+    expect(summary).toContain("branch=main");
+    expect(summary).toContain("state=building");
+    expect(summary).toContain("published=false");
+    expect(summary).not.toContain("https://");
+    expect(summary).not.toContain("tokensecreto");
+    expect(summary).not.toContain("segredo-do-deploy");
+    expect(STAGING_PUBLIC_URL).toBe("https://staging--adrielli-flores.netlify.app");
   });
 
   it("calcula mediana e pior caso", () => {
@@ -83,6 +105,9 @@ describe("medição de staging", () => {
     expect(measure).toContain("environment: staging");
     expect(measure).toContain("github.ref == 'refs/heads/main'");
     expect(measure).toContain("Medir /admin e /consultorio autenticados");
+    expect(script).toContain("STAGING_PUBLIC_URL");
+    expect(script).toContain("latestDeployReady");
+    expect(script).not.toContain("chooseDraft");
     expect(script).toContain('provision("CLINIC_ADMIN")');
     expect(script).toContain('"/consultorio/pacientes"');
     expect(script).not.toMatch(/insert into clinic/i);

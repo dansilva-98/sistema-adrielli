@@ -1,15 +1,35 @@
-export function chooseDraft(deploys) {
-  if (!Array.isArray(deploys)) throw new Error("Lista de deploys inválida.");
-  const ready = deploys.filter(
-    (item) => item && item.state === "ready" && (item.deploy_ssl_url || item.ssl_url),
-  );
-  const preview = ready.find((item) => item.context === "deploy-preview");
-  const draft = preview ?? ready.find((item) => item.published === false);
-  if (!draft) throw new Error("Nenhum rascunho pronto.");
-  return {
-    url: draft.deploy_ssl_url || draft.ssl_url,
-    context: typeof draft.context === "string" ? draft.context : "desconhecido",
-  };
+export function deployField(value) {
+  if (typeof value !== "string") return "ausente";
+  const cleaned = value.trim().replace(/[^A-Za-z0-9_./-]/g, "");
+  if (cleaned.length === 0) return "ausente";
+  return cleaned.slice(0, 80);
+}
+
+export function publishedField(value) {
+  if (value === true) return "true";
+  if (value === false) return "false";
+  return "ausente";
+}
+
+export function deploySummary(deploys) {
+  if (!Array.isArray(deploys)) return "Deploys encontrados: resposta inválida.";
+  if (deploys.length === 0) return "Deploys encontrados: nenhum.";
+  const lines = deploys.slice(0, 20).map((item, index) => {
+    return [
+      `${index + 1}.`,
+      `state=${deployField(item?.state)}`,
+      `context=${deployField(item?.context)}`,
+      `published=${publishedField(item?.published)}`,
+      `branch=${deployField(item?.branch)}`,
+    ].join(" ");
+  });
+  return ["Deploys encontrados:", ...lines].join("\n");
+}
+
+export function latestDeployReady(deploys) {
+  const summary = deploySummary(deploys);
+  const latest = Array.isArray(deploys) ? deploys[0] : null;
+  return { ok: latest?.state === "ready", summary };
 }
 
 export const SAMPLE_COUNT = 20;
