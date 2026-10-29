@@ -26,7 +26,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Instalar navegador do Playwright
         run: pnpm exec playwright install --with-deps chromium
-      - name: Medir /admin autenticado
+      - name: Medir /admin e /consultorio autenticados
         run: node scripts/measure-staging.mjs
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
