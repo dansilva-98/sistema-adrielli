@@ -9,6 +9,19 @@ const SENSITIVE_WORDS = new Set([
   "telefone",
 ]);
 
+const SENSITIVE_KEYS = new Set([
+  "fullname",
+  "preferredname",
+  "originalname",
+  "birthdate",
+  "addresstext",
+  "school",
+  "schoolgrade",
+  "notes",
+  "guardian",
+  "guardians",
+]);
+
 const DROPPED_HEADERS = new Set([
   "authorization",
   "cookie",
@@ -17,6 +30,8 @@ const DROPPED_HEADERS = new Set([
 ]);
 
 export function isSensitiveKey(key: string): boolean {
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (SENSITIVE_KEYS.has(normalized)) return true;
   const words = key
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .toLowerCase()
@@ -33,12 +48,34 @@ function stripUrl(url: string): string {
   return url.slice(0, Math.min(...cuts));
 }
 
+function dropSensitiveQuery(value: string): string {
+  return value.replace(/[^\s"'<>]+/g, (chunk) => {
+    const queryAt = chunk.indexOf("?");
+    if (queryAt < 0) return chunk;
+    const hashAt = chunk.indexOf("#");
+    const end = hashAt > queryAt ? hashAt : chunk.length;
+    const query = chunk.slice(queryAt + 1, end);
+    if (!/(^|&)(?:token|secao)=/i.test(query)) return chunk;
+    const params = new URLSearchParams(query);
+    for (const key of [...params.keys()]) {
+      if (/^(?:token|secao)$/i.test(key)) params.delete(key);
+    }
+    const rest = params.toString();
+    const hash = hashAt > queryAt ? chunk.slice(hashAt) : "";
+    return rest
+      ? `${chunk.slice(0, queryAt)}?${rest}${hash}`
+      : `${chunk.slice(0, queryAt)}${hash}`;
+  });
+}
+
 function scrubString(value: string): string {
   const withoutSecrets = value
     .replace(/postgres(?:ql)?:\/\/[^\s'"]+/gi, "[redacted]")
     .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted]");
-  return withoutSecrets.replace(/https?:\/\/[^\s'"]+/gi, (url) => stripUrl(url));
+  return dropSensitiveQuery(
+    withoutSecrets.replace(/https?:\/\/[^\s'"]+/gi, (url) => stripUrl(url)),
+  );
 }
 
 function scrubValue(value: unknown): unknown {

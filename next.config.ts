@@ -48,6 +48,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/consultorio",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+      {
+        source: "/consultorio/:path*",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+      {
         source: "/:path*",
         headers: buildSecurityHeaders({
           appEnv: serverEnv.APP_ENV,

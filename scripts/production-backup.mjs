@@ -40,6 +40,9 @@ import {
   parseAgeRecipient,
   safeObjectPath,
   scrubSecrets,
+  ATTACHMENT_PATH_QUERY,
+  parseAttachmentPathRows,
+  planOrphanPatientDeletions,
   selectDeletions,
   supabaseDumpArgs,
 } from "./production-backup-lib.mjs";
@@ -252,10 +255,12 @@ export async function listPrivateObjects({
   env,
   bucket = PRIVATE_BUCKET,
   fetchImpl = fetch,
+  rootPrefix = "",
+  withCreatedAt = false,
 }) {
   const base = env.BACKUP_SUPABASE_URL.replace(/\/$/, "");
   const objects = [];
-  const pending = [""];
+  const pending = [rootPrefix];
   const seen = new Set();
   while (pending.length > 0) {
     const prefix = pending.shift() ?? "";
@@ -280,8 +285,8 @@ export async function listPrivateObjects({
       const text = await response.text();
       const kind = classifyBucketResponse(response.status, text);
       if (kind === "absent") {
-        if (prefix === "" && objects.length === 0) {
-          return { status: "absent", objects: [] };
+        if (objects.length === 0 && prefix === rootPrefix) {
+          return { status: rootPrefix === "" ? "absent" : "empty", objects: [] };
         }
         throw new Error(`Leitura do bucket ${bucket} falhou (${response.status}).`);
       }
@@ -302,8 +307,16 @@ export async function listPrivateObjects({
         const relative =
           prefix && item.name.startsWith(prefix) ? item.name : `${prefix}${item.name}`;
         safeObjectPath(relative);
-        if (item.id) objects.push(relative);
-        else pending.push(relative.endsWith("/") ? relative : `${relative}/`);
+        if (item.id) {
+          objects.push(
+            withCreatedAt
+              ? {
+                  name: relative,
+                  createdAt: typeof item.created_at === "string" ? item.created_at : "",
+                }
+              : relative,
+          );
+        } else pending.push(relative.endsWith("/") ? relative : `${relative}/`);
       }
       if (objects.length > 100_000) {
         throw new Error(`Bucket ${bucket} grande demais para este job.`);
@@ -354,6 +367,76 @@ export async function downloadPrivateObjects({
     objectBytes += statSync(destination).size;
   }
   return objectBytes;
+}
+
+export async function deletePrivateObject({
+  env,
+  bucket = PRIVATE_BUCKET,
+  objectName,
+  fetchImpl = fetch,
+}) {
+  const parts = safeObjectPath(objectName);
+  if (parts[0] !== "patients") {
+    throw new Error("Só objetos de patients/ podem ser apagados por esta rotina.");
+  }
+  const encoded = parts.map((part) => encodeURIComponent(part)).join("/");
+  const base = env.BACKUP_SUPABASE_URL.replace(/\/$/, "");
+  const response = await fetchImpl(`${base}/storage/v1/object/${bucket}/${encoded}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${env.BACKUP_SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: env.BACKUP_SUPABASE_SERVICE_ROLE_KEY,
+    },
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Falha ao apagar anexo não confirmado (${response.status}).`);
+  }
+}
+
+export async function readAttachmentStoragePaths({ env, spawnImpl }) {
+  const databaseUrl = env.BACKUP_DATABASE_URL;
+  if (typeof databaseUrl !== "string" || databaseUrl.length === 0) {
+    throw new Error("Consulta de anexos recusada: banco ausente. Nada foi apagado.");
+  }
+  const run = spawnImpl ?? spawnSync;
+  const result = run(
+    "psql",
+    [databaseUrl, "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", ATTACHMENT_PATH_QUERY],
+    { encoding: "utf8", timeout: 60_000, windowsHide: true },
+  );
+  if (result.error || result.status !== 0) {
+    const detail = scrubSecrets(`${result.stderr ?? ""}\n${result.stdout ?? ""}`, [
+      databaseUrl,
+    ]);
+    if (detail.trim()) console.error(detail.trim());
+    throw new Error("Consulta de anexos falhou. Nada foi apagado.");
+  }
+  return parseAttachmentPathRows(result.stdout);
+}
+
+export async function removeOrphanPatientUploads({
+  env,
+  registeredPaths,
+  now = Date.now(),
+  fetchImpl = fetch,
+  bucket = PRIVATE_BUCKET,
+}) {
+  if (!registeredPaths) {
+    throw new Error("Consulta de anexos ausente. Nada foi apagado.");
+  }
+  const listed = await listPrivateObjects({
+    env,
+    bucket,
+    fetchImpl,
+    rootPrefix: "patients/",
+    withCreatedAt: true,
+  });
+  const doomed = planOrphanPatientDeletions(listed.objects, registeredPaths, now);
+  for (const name of doomed) {
+    await deletePrivateObject({ env, bucket, objectName: name, fetchImpl });
+  }
+  return doomed.length;
 }
 
 async function takeBucket({ env, workdir, bucket, required, fetchImpl }) {
@@ -491,6 +574,10 @@ export async function runProductionBackup(env, deps) {
     console.log(
       `Backup de produção: retenção manteve ${RETENTION_COUNT} cópias. Removidas: ${removed}.`,
     );
+    if (typeof deps.removeOrphanUploads === "function") {
+      const orphans = await deps.removeOrphanUploads({ env, workdir });
+      console.log(`Backup de produção: ${orphans} anexos não confirmados apagados.`);
+    }
   } finally {
     if (workdir) await deps.removeWorkdir(workdir);
   }
@@ -598,6 +685,10 @@ function createDeps() {
         readHeader: readAgeHeader,
         stat: statSync,
       });
+    },
+    removeOrphanUploads: async ({ env }) => {
+      const registeredPaths = await readAttachmentStoragePaths({ env });
+      return removeOrphanPatientUploads({ env, registeredPaths });
     },
     prune: async ({ env, folderId, protectId }) => {
       const accessToken = await refreshDriveAccess({ env });

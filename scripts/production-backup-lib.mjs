@@ -436,3 +436,62 @@ export function manifestDocument(storage, date) {
     public_object_bytes: storage.publicObjectBytes,
   };
 }
+
+export const ORPHAN_PATIENT_OBJECT_MS = 24 * 60 * 60 * 1000;
+
+export const ATTACHMENT_PATH_QUERY =
+  "select storage_path from clinic.patient_attachments";
+
+export function parseAttachmentPathRows(text) {
+  const paths = new Set();
+  for (const line of String(text ?? "").split(/\r?\n/)) {
+    const path = line.trim();
+    if (path.startsWith("patients/")) paths.add(path);
+  }
+  return paths;
+}
+
+export function orphanDeletionLimit(objectCount) {
+  return Math.max(5, objectCount * 0.1);
+}
+
+export function planOrphanPatientDeletions(objects, registeredPaths, nowMs) {
+  const files = (objects ?? []).filter(
+    (object) => typeof object?.name === "string" && object.name.startsWith("patients/"),
+  );
+  const registered = new Set(
+    [...(registeredPaths ?? [])].map((path) => String(path).toLowerCase()),
+  );
+  if (registered.size === 0 && files.length > 0) {
+    throw new Error(
+      "A consulta de anexos não trouxe registros, mas há arquivos em patients/. Nada foi apagado.",
+    );
+  }
+  const doomed = selectOrphanPatientObjects(files, registered, nowMs);
+  const limit = orphanDeletionLimit(files.length);
+  if (doomed.length > limit) {
+    throw new Error(
+      `A limpeza apagaria ${doomed.length} anexos, acima do limite de ${limit} (o maior entre 5 e 10% de ${files.length}). Nada foi apagado.`,
+    );
+  }
+  return doomed;
+}
+
+export function selectOrphanPatientObjects(objects, registeredPaths, nowMs) {
+  const registered = new Set(
+    [...(registeredPaths ?? [])].map((path) => String(path).toLowerCase()),
+  );
+  const now = Number(nowMs);
+  if (!Number.isFinite(now)) throw new Error("Relógio do backup inválido.");
+  const selected = [];
+  for (const object of objects ?? []) {
+    const name = object?.name;
+    if (typeof name !== "string" || !name.startsWith("patients/")) continue;
+    if (registered.has(name.toLowerCase())) continue;
+    const created = Date.parse(object.createdAt);
+    if (!Number.isFinite(created)) continue;
+    if (now - created <= ORPHAN_PATIENT_OBJECT_MS) continue;
+    selected.push(name);
+  }
+  return selected;
+}

@@ -41,6 +41,8 @@ jobs:
           sudo install -m 0755 "age/age" /usr/local/bin/age
           rm -f "$file"
           age --version
+      - name: Instalar cliente do Postgres
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
       - name: Gerar e enviar o backup criptografado
         run: node scripts/production-backup.mjs
         env:

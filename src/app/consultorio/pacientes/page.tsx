@@ -10,6 +10,8 @@ import { PatientSearch } from "./patient-search";
 
 export const instant = false;
 
+export const metadata = { title: { absolute: "Pacientes" } };
+
 function listHref(archived: boolean): string {
   return archived
     ? "/consultorio/pacientes?situacao=arquivados"
