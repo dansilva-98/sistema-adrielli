@@ -6,10 +6,11 @@ import { createClient } from "@supabase/supabase-js";
 import { generateSync } from "otplib";
 import postgres from "postgres";
 
+import { STAGING_PUBLIC_URL } from "./netlify-site-policy.mjs";
 import {
-  chooseDraft,
   CLINIC_MEDIAN_LIMIT_MS,
   evidenceText,
+  latestDeployReady,
   medianOverLimit,
   SAMPLE_COUNT,
   summarize,
@@ -211,7 +212,12 @@ async function main() {
   const databaseUrl = required("DATABASE_URL");
   required("MIGRATIONS_DATABASE_URL");
 
-  const draft = chooseDraft(await latestDeploys(siteId, netlifyToken));
+  const readiness = latestDeployReady(await latestDeploys(siteId, netlifyToken));
+  if (!readiness.ok) {
+    console.log(readiness.summary);
+    throw new Error("O deploy mais recente do staging não está ready.");
+  }
+  const origin = STAGING_PUBLIC_URL;
   const hidden = [];
   const hide = (text) =>
     hidden.reduce((output, value) => output.replaceAll(value, "[redigido]"), text);
@@ -236,25 +242,21 @@ async function main() {
     const admin = await provision("SUPER_ADMIN");
     const clinic = await provision("CLINIC_ADMIN");
     const adminCookies = await login(
-      draft.url,
+      origin,
       admin.email,
       admin.password,
       admin.secret,
       /\/admin\/?$/,
     );
     const clinicCookies = await login(
-      draft.url,
+      origin,
       clinic.email,
       clinic.password,
       clinic.secret,
       /\/consultorio\/?$/,
     );
-    const adminSamples = await measure(draft.url, adminCookies, "/admin");
-    const clinicSamples = await measure(
-      draft.url,
-      clinicCookies,
-      "/consultorio/pacientes",
-    );
+    const adminSamples = await measure(origin, adminCookies, "/admin");
+    const clinicSamples = await measure(origin, clinicCookies, "/consultorio/pacientes");
     const adminResult = summarize(adminSamples);
     const clinicResult = summarize(clinicSamples);
     if (adminSamples.length !== clinicSamples.length) {
@@ -269,7 +271,6 @@ async function main() {
       );
     }
     report = {
-      draft,
       count: adminSamples.length,
       adminResult,
       clinicResult,
@@ -297,8 +298,8 @@ async function main() {
   if (report) {
     publish(
       evidenceText({
-        url: report.draft.url,
-        context: report.draft.context,
+        url: origin,
+        context: "alias",
         count: report.count,
         adminStatuses: report.adminResult.statuses,
         adminMedian: report.adminResult.median,
