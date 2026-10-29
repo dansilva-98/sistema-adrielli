@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ATTACHMENT_PATH_QUERY,
   ORPHAN_PATIENT_OBJECT_MS,
+  parseAttachmentPathRows,
   selectOrphanPatientObjects,
-  storagePathsInDump,
 } from "../../scripts/production-backup-lib.mjs";
 import {
   deletePrivateObject,
+  readAttachmentStoragePaths,
   removeOrphanPatientUploads,
 } from "../../scripts/production-backup.mjs";
 
@@ -27,10 +29,11 @@ const env = {
 describe("anexos enviados e nunca confirmados", () => {
   it("escolhe só patients/ sem registro e com mais de 24 h", () => {
     const now = Date.now();
-    const registered = storagePathsInDump(
-      `copy clinic.patient_attachments (storage_path) from stdin;\n${KEPT}\n\\.`,
+    expect(ATTACHMENT_PATH_QUERY).toBe(
+      "select storage_path from clinic.patient_attachments",
     );
-    expect(registered.has(KEPT)).toBe(true);
+    expect(parseAttachmentPathRows(`${KEPT}\n${ORPHAN}\n`).has(ORPHAN)).toBe(true);
+    const registered = new Set([KEPT]);
     const selected = selectOrphanPatientObjects(
       [
         {
@@ -71,7 +74,7 @@ describe("anexos enviados e nunca confirmados", () => {
     const deleted: string[] = [];
     const removed = await removeOrphanPatientUploads({
       env,
-      databaseSql: `insert into clinic.patient_attachments (storage_path) values ('${KEPT}');`,
+      registeredPaths: [KEPT],
       now,
       fetchImpl: async (url, init) => {
         const address = String(url);
@@ -114,5 +117,91 @@ describe("anexos enviados e nunca confirmados", () => {
       encodeURIComponent("44444444-4444-4444-8444-444444444444.pdf"),
     );
     expect(deleted[0]).not.toContain(KEPT);
+  });
+
+  it("não apaga nada quando a consulta vem vazia e há arquivos", async () => {
+    const now = Date.now();
+    const deleted: string[] = [];
+    const old = new Date(now - ORPHAN_PATIENT_OBJECT_MS - 1000).toISOString();
+    await expect(
+      removeOrphanPatientUploads({
+        env,
+        registeredPaths: [],
+        now,
+        fetchImpl: async (_url, init) => {
+          if (init?.method === "DELETE") {
+            deleted.push(String(_url));
+            return new Response("", { status: 200 });
+          }
+          return new Response(
+            JSON.stringify([
+              { name: "patients/a/um.pdf", id: "1", created_at: old },
+              { name: "patients/b/dois.pdf", id: "2", created_at: old },
+              { name: "patients/c/tres.pdf", id: "3", created_at: old },
+            ]),
+            { status: 200 },
+          );
+        },
+      }),
+    ).rejects.toThrow(/Nada foi apagado/);
+    expect(deleted).toEqual([]);
+  });
+
+  it("apaga um órfão quando há cinquenta objetos", async () => {
+    const now = Date.now();
+    const old = new Date(now - ORPHAN_PATIENT_OBJECT_MS - 1000).toISOString();
+    const objects = Array.from({ length: 50 }, (_, index) => ({
+      name: `patients/grupo/arquivo-${index}.pdf`,
+      id: String(index),
+      created_at: old,
+    }));
+    const orphan = objects[0]?.name ?? "";
+    const registeredPaths = objects.slice(1).map((object) => object.name);
+    const deleted: string[] = [];
+    const removed = await removeOrphanPatientUploads({
+      env,
+      registeredPaths,
+      now,
+      fetchImpl: async (url, init) => {
+        if (init?.method === "DELETE") {
+          deleted.push(String(url));
+          return new Response("", { status: 200 });
+        }
+        return new Response(JSON.stringify(objects), { status: 200 });
+      },
+    });
+    expect(removed).toBe(1);
+    expect(deleted).toHaveLength(1);
+    expect(deleted[0]).toContain("arquivo-0.pdf");
+    expect(orphan).toBe("patients/grupo/arquivo-0.pdf");
+  });
+
+  it("consulta os caminhos no banco, inclusive os excluídos", async () => {
+    const databaseUrl = "postgres://usuario:segredo-banco@db.example/adrielli";
+    const errors: string[] = [];
+    const original = console.error;
+    console.error = (message?: unknown) => {
+      errors.push(String(message));
+    };
+    try {
+      const paths = await readAttachmentStoragePaths({
+        env: { BACKUP_DATABASE_URL: databaseUrl },
+        spawnImpl: (_binary: string, args: string[]) => {
+          expect(args).toContain(ATTACHMENT_PATH_QUERY);
+          expect(args.join(" ")).not.toMatch(/deleted_at/);
+          return { status: 0, stdout: `${KEPT}\n${ORPHAN}\n` };
+        },
+      });
+      expect([...paths].sort()).toEqual([KEPT, ORPHAN].sort());
+      await expect(
+        readAttachmentStoragePaths({
+          env: { BACKUP_DATABASE_URL: databaseUrl },
+          spawnImpl: () => ({ status: 1, stderr: databaseUrl, stdout: "" }),
+        }),
+      ).rejects.toThrow(/Nada foi apagado/);
+    } finally {
+      console.error = original;
+    }
+    expect(errors.join("\n")).not.toContain("segredo-banco");
   });
 });

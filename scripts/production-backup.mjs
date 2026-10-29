@@ -40,9 +40,10 @@ import {
   parseAgeRecipient,
   safeObjectPath,
   scrubSecrets,
+  ATTACHMENT_PATH_QUERY,
+  parseAttachmentPathRows,
+  planOrphanPatientDeletions,
   selectDeletions,
-  selectOrphanPatientObjects,
-  storagePathsInDump,
   supabaseDumpArgs,
 } from "./production-backup-lib.mjs";
 
@@ -393,14 +394,37 @@ export async function deletePrivateObject({
   }
 }
 
+export async function readAttachmentStoragePaths({ env, spawnImpl }) {
+  const databaseUrl = env.BACKUP_DATABASE_URL;
+  if (typeof databaseUrl !== "string" || databaseUrl.length === 0) {
+    throw new Error("Consulta de anexos recusada: banco ausente. Nada foi apagado.");
+  }
+  const run = spawnImpl ?? spawnSync;
+  const result = run(
+    "psql",
+    [databaseUrl, "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", ATTACHMENT_PATH_QUERY],
+    { encoding: "utf8", timeout: 60_000, windowsHide: true },
+  );
+  if (result.error || result.status !== 0) {
+    const detail = scrubSecrets(`${result.stderr ?? ""}\n${result.stdout ?? ""}`, [
+      databaseUrl,
+    ]);
+    if (detail.trim()) console.error(detail.trim());
+    throw new Error("Consulta de anexos falhou. Nada foi apagado.");
+  }
+  return parseAttachmentPathRows(result.stdout);
+}
+
 export async function removeOrphanPatientUploads({
   env,
-  databaseSql,
+  registeredPaths,
   now = Date.now(),
   fetchImpl = fetch,
   bucket = PRIVATE_BUCKET,
 }) {
-  const registered = storagePathsInDump(databaseSql);
+  if (!registeredPaths) {
+    throw new Error("Consulta de anexos ausente. Nada foi apagado.");
+  }
   const listed = await listPrivateObjects({
     env,
     bucket,
@@ -408,7 +432,7 @@ export async function removeOrphanPatientUploads({
     rootPrefix: "patients/",
     withCreatedAt: true,
   });
-  const doomed = selectOrphanPatientObjects(listed.objects, registered, now);
+  const doomed = planOrphanPatientDeletions(listed.objects, registeredPaths, now);
   for (const name of doomed) {
     await deletePrivateObject({ env, bucket, objectName: name, fetchImpl });
   }
@@ -662,9 +686,9 @@ function createDeps() {
         stat: statSync,
       });
     },
-    removeOrphanUploads: async ({ env, workdir }) => {
-      const databaseSql = readFileSync(join(workdir, "database.sql"), "utf8");
-      return removeOrphanPatientUploads({ env, databaseSql });
+    removeOrphanUploads: async ({ env }) => {
+      const registeredPaths = await readAttachmentStoragePaths({ env });
+      return removeOrphanPatientUploads({ env, registeredPaths });
     },
     prune: async ({ env, folderId, protectId }) => {
       const accessToken = await refreshDriveAccess({ env });

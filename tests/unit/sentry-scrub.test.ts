@@ -83,12 +83,18 @@ describe("scrubSentryEvent", () => {
         cpf: "52998224725",
         phone: "11988887777",
         email: "pessoa-privada@example.com",
+        preferredName: "APELIDO-CAMEL",
+        birthDate: "2018-02-02",
+        addressText: "ENDERECO-CAMEL",
+        originalName: "ARQUIVO-CAMEL.pdf",
         school: "ESCOLA-PRIVADA",
+        school_grade: "SERIE-PRIVADA",
+        schoolGrade: "SERIE-CAMEL",
         notes: "NOTA-PRIVADA",
         address_text: "ENDERECO-PRIVADO",
         original_name: "ARQUIVO-PRIVADO.pdf",
-        description: "DESCRICAO-PRIVADA",
         guardian: "RESPONSAVEL-PRIVADO",
+        guardians: "RESPONSAVEIS-PRIVADOS",
         ok: true,
       },
     });
@@ -112,15 +118,42 @@ describe("scrubSentryEvent", () => {
     expect(serialized).not.toContain("secao=");
     expect(serialized).not.toContain("NOME-COMPLETO-PRIVADO");
     expect(serialized).not.toContain("APELIDO-PRIVADO");
+    expect(serialized).not.toContain("APELIDO-CAMEL");
     expect(serialized).not.toContain("52998224725");
     expect(serialized).not.toContain("11988887777");
     expect(serialized).not.toContain("pessoa-privada@example.com");
     expect(serialized).not.toContain("ESCOLA-PRIVADA");
+    expect(serialized).not.toContain("SERIE-PRIVADA");
+    expect(serialized).not.toContain("SERIE-CAMEL");
     expect(serialized).not.toContain("NOTA-PRIVADA");
     expect(serialized).not.toContain("ENDERECO-PRIVADO");
+    expect(serialized).not.toContain("ENDERECO-CAMEL");
     expect(serialized).not.toContain("ARQUIVO-PRIVADO.pdf");
-    expect(serialized).not.toContain("DESCRICAO-PRIVADA");
+    expect(serialized).not.toContain("ARQUIVO-CAMEL.pdf");
     expect(serialized).not.toContain("RESPONSAVEL-PRIVADO");
+    expect(serialized).not.toContain("RESPONSAVEIS-PRIVADOS");
     expect(serialized).not.toContain("2018-01-02");
+    expect(serialized).not.toContain("2018-02-02");
+  });
+
+  it("mantém o nome do SDK e do contexto e remove o nome do paciente", () => {
+    const scrubbed = scrubSentryEvent({
+      sdk: { name: "sentry.javascript.node" },
+      contexts: {
+        os: { name: "Windows" },
+        browser: { name: "Chrome" },
+      },
+      extra: {
+        fullName: "NOME-COMPLETO-PRIVADO",
+        full_name: "NOME-COMPLETO-PRIVADO",
+      },
+    });
+
+    expect(scrubbed.sdk.name).toBe("sentry.javascript.node");
+    expect(scrubbed.contexts.os.name).toBe("Windows");
+    expect(scrubbed.contexts.browser.name).toBe("Chrome");
+    expect(scrubbed.extra.fullName).toBeUndefined();
+    expect(scrubbed.extra.full_name).toBeUndefined();
+    expect(JSON.stringify(scrubbed)).not.toContain("NOME-COMPLETO-PRIVADO");
   });
 });
