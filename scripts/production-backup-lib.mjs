@@ -439,8 +439,17 @@ export function manifestDocument(storage, date) {
 
 export const ORPHAN_PATIENT_OBJECT_MS = 24 * 60 * 60 * 1000;
 
+export const ATTACHMENT_TABLE_QUERY = "select to_regclass('clinic.patient_attachments')";
+
 export const ATTACHMENT_PATH_QUERY =
   "select storage_path from clinic.patient_attachments";
+
+export function attachmentTableMissing(text) {
+  const value = String(text ?? "")
+    .trim()
+    .toLowerCase();
+  return value.length === 0 || value === "null";
+}
 
 export function parseAttachmentPathRows(text) {
   const paths = new Set();

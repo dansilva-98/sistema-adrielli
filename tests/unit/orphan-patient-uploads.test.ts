@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   ATTACHMENT_PATH_QUERY,
+  ATTACHMENT_TABLE_QUERY,
   ORPHAN_PATIENT_OBJECT_MS,
   parseAttachmentPathRows,
   selectOrphanPatientObjects,
 } from "../../scripts/production-backup-lib.mjs";
 import {
+  cleanUnconfirmedPatientUploads,
   deletePrivateObject,
   readAttachmentStoragePaths,
   removeOrphanPatientUploads,
@@ -203,5 +205,85 @@ describe("anexos enviados e nunca confirmados", () => {
       console.error = original;
     }
     expect(errors.join("\n")).not.toContain("segredo-banco");
+  });
+
+  it("pula a limpeza quando a tabela não existe e patients/ está vazio", async () => {
+    const queries: string[] = [];
+    const deleted: string[] = [];
+    const logs: string[] = [];
+    const original = console.log;
+    console.log = (message?: unknown) => {
+      logs.push(String(message));
+    };
+    try {
+      const removed = await cleanUnconfirmedPatientUploads({
+        env: {
+          ...env,
+          BACKUP_DATABASE_URL: "postgres://usuario:segredo-banco@db.example/adrielli",
+        },
+        spawnImpl: (_binary: string, args: string[]) => {
+          queries.push(args[args.length - 1] ?? "");
+          return { status: 0, stdout: "" };
+        },
+        fetchImpl: async (_url, init) => {
+          if (init?.method === "DELETE") {
+            deleted.push("apagado");
+            return new Response("", { status: 200 });
+          }
+          return new Response("[]", { status: 200 });
+        },
+      });
+      expect(removed).toBeNull();
+    } finally {
+      console.log = original;
+    }
+    expect(queries).toEqual([ATTACHMENT_TABLE_QUERY]);
+    expect(deleted).toEqual([]);
+    expect(logs).toContain("tabela de anexos ainda não existe; limpeza pulada");
+  });
+
+  it("falha quando a tabela não existe e há objetos em patients/", async () => {
+    const queries: string[] = [];
+    const deleted: string[] = [];
+    const logs: string[] = [];
+    const original = console.log;
+    console.log = (message?: unknown) => {
+      logs.push(String(message));
+    };
+    try {
+      await expect(
+        cleanUnconfirmedPatientUploads({
+          env: {
+            ...env,
+            BACKUP_DATABASE_URL: "postgres://usuario:segredo-banco@db.example/adrielli",
+          },
+          spawnImpl: (_binary: string, args: string[]) => {
+            queries.push(args[args.length - 1] ?? "");
+            return { status: 0, stdout: "" };
+          },
+          fetchImpl: async (_url, init) => {
+            if (init?.method === "DELETE") {
+              deleted.push("apagado");
+              return new Response("", { status: 200 });
+            }
+            return new Response(
+              JSON.stringify([
+                {
+                  name: ORPHAN,
+                  id: "arquivo",
+                  created_at: "2020-01-01T00:00:00.000Z",
+                },
+              ]),
+              { status: 200 },
+            );
+          },
+        }),
+      ).rejects.toThrow(/Nada foi apagado/);
+    } finally {
+      console.log = original;
+    }
+    expect(queries).toEqual([ATTACHMENT_TABLE_QUERY]);
+    expect(deleted).toEqual([]);
+    expect(logs.join("\n")).not.toContain("limpeza pulada");
   });
 });
