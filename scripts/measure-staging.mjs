@@ -6,7 +6,15 @@ import { createClient } from "@supabase/supabase-js";
 import { generateSync } from "otplib";
 import postgres from "postgres";
 
-import { chooseDraft, evidenceText, summarize } from "./measure-staging-math.mjs";
+import { STAGING_PUBLIC_URL } from "./netlify-site-policy.mjs";
+import {
+  CLINIC_MEDIAN_LIMIT_MS,
+  evidenceText,
+  latestDeployReady,
+  medianOverLimit,
+  SAMPLE_COUNT,
+  summarize,
+} from "./measure-staging-math.mjs";
 
 const { chromium } = createRequire(import.meta.resolve("@playwright/test"))("playwright");
 
@@ -71,7 +79,10 @@ async function createAuthUser(url, service, email, password) {
   return body.id;
 }
 
-async function insertStaff(databaseUrl, userId, email) {
+async function insertStaff(databaseUrl, userId, email, role) {
+  if (role !== "SUPER_ADMIN" && role !== "CLINIC_ADMIN") {
+    throw new Error("Papel de medição inválido.");
+  }
   const sql = postgres(databaseUrl, { max: 1, prepare: false, connect_timeout: 10 });
   try {
     await sql`
@@ -80,7 +91,7 @@ async function insertStaff(databaseUrl, userId, email) {
     `;
     await sql`
       insert into identity.user_roles (user_id, role)
-      values (${userId}::uuid, 'SUPER_ADMIN'::identity.staff_role)
+      values (${userId}::uuid, ${role}::identity.staff_role)
     `;
   } finally {
     await sql.end({ timeout: 5 });
@@ -117,7 +128,7 @@ async function enrollTotp(url, anon, email, password) {
   return secret;
 }
 
-async function login(origin, email, password, secret) {
+async function login(origin, email, password, secret, landing) {
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext();
@@ -129,19 +140,19 @@ async function login(origin, email, password, secret) {
     await page.waitForURL(/\/equipe\/mfa\/verificar/, { timeout: 30_000 });
     await page.getByLabel("Código").fill(totpCode(secret));
     await page.getByRole("button", { name: "Verificar" }).click();
-    await page.waitForURL(/\/admin\/?$/, { timeout: 30_000 });
+    await page.waitForURL(landing, { timeout: 30_000 });
     return await context.cookies();
   } finally {
     await browser.close();
   }
 }
 
-async function measure(origin, cookies) {
+async function measure(origin, cookies, path) {
   const cookie = cookies.map((item) => `${item.name}=${item.value}`).join("; ");
   const samples = [];
-  for (let index = 0; index < 20; index += 1) {
+  for (let index = 0; index < SAMPLE_COUNT; index += 1) {
     const started = performance.now();
-    const response = await fetch(`${origin}/admin?medicao=${index}`, {
+    const response = await fetch(`${origin}${path}?medicao=${index}`, {
       headers: { cookie, "cache-control": "no-cache" },
       redirect: "manual",
     });
@@ -201,60 +212,111 @@ async function main() {
   const databaseUrl = required("DATABASE_URL");
   required("MIGRATIONS_DATABASE_URL");
 
-  const draft = chooseDraft(await latestDeploys(siteId, netlifyToken));
-  const email = `medir-${randomUUID()}@example.com`;
-  const password = newPassword();
-  const hidden = [email, password];
+  const readiness = latestDeployReady(await latestDeploys(siteId, netlifyToken));
+  if (!readiness.ok) {
+    console.log(readiness.summary);
+    throw new Error("O deploy mais recente do staging não está ready.");
+  }
+  const origin = STAGING_PUBLIC_URL;
+  const hidden = [];
   const hide = (text) =>
     hidden.reduce((output, value) => output.replaceAll(value, "[redigido]"), text);
-  let userId = null;
-  let removed = false;
+  const accounts = [];
   let report = null;
   let failed = null;
+
+  async function provision(role) {
+    const email = `medir-${randomUUID()}@example.com`;
+    const password = newPassword();
+    hidden.push(email, password);
+    const userId = await createAuthUser(supabaseUrl, service, email, password);
+    const account = { userId, email, password, secret: null };
+    accounts.push(account);
+    await insertStaff(databaseUrl, userId, email, role);
+    account.secret = await enrollTotp(supabaseUrl, anon, email, password);
+    hidden.push(account.secret);
+    return account;
+  }
+
   try {
-    userId = await createAuthUser(supabaseUrl, service, email, password);
-    await insertStaff(databaseUrl, userId, email);
-    const secret = await enrollTotp(supabaseUrl, anon, email, password);
-    hidden.push(secret);
-    const cookies = await login(draft.url, email, password, secret);
-    const samples = await measure(draft.url, cookies);
-    const result = summarize(samples);
-    if (result.statuses.some((status) => status !== 200)) {
-      throw new Error(`/admin autenticado respondeu ${result.statuses.join(", ")}`);
+    const admin = await provision("SUPER_ADMIN");
+    const clinic = await provision("CLINIC_ADMIN");
+    const adminCookies = await login(
+      origin,
+      admin.email,
+      admin.password,
+      admin.secret,
+      /\/admin\/?$/,
+    );
+    const clinicCookies = await login(
+      origin,
+      clinic.email,
+      clinic.password,
+      clinic.secret,
+      /\/consultorio\/?$/,
+    );
+    const adminSamples = await measure(origin, adminCookies, "/admin");
+    const clinicSamples = await measure(origin, clinicCookies, "/consultorio/pacientes");
+    const adminResult = summarize(adminSamples);
+    const clinicResult = summarize(clinicSamples);
+    if (adminSamples.length !== clinicSamples.length) {
+      throw new Error("As duas medições não usaram o mesmo número de amostras.");
     }
-    report = { draft, result, count: samples.length };
+    if (adminResult.statuses.some((status) => status !== 200)) {
+      throw new Error(`/admin autenticado respondeu ${adminResult.statuses.join(", ")}`);
+    }
+    if (clinicResult.statuses.some((status) => status !== 200)) {
+      throw new Error(
+        `/consultorio/pacientes autenticado respondeu ${clinicResult.statuses.join(", ")}`,
+      );
+    }
+    report = {
+      count: adminSamples.length,
+      adminResult,
+      clinicResult,
+    };
+    if (medianOverLimit(clinicResult.median)) {
+      throw new Error(
+        `Mediana de /consultorio/pacientes ${clinicResult.median.toFixed(1)} ms passou de ${CLINIC_MEDIAN_LIMIT_MS} ms. Mediana de /admin: ${adminResult.median.toFixed(1)} ms.`,
+      );
+    }
   } catch (error) {
     failed = error;
   } finally {
-    if (userId) {
+    for (const account of accounts) {
       try {
-        removed = await removeUser(userId);
+        account.removed = await removeUser(account.userId);
       } catch (error) {
-        removed = false;
+        account.removed = false;
         console.log(
           hide(redact(error instanceof Error ? error.message : "falha ao remover")),
         );
       }
     }
   }
+  const removed = accounts.length > 0 && accounts.every((account) => account.removed);
   if (report) {
     publish(
       evidenceText({
-        url: report.draft.url,
-        context: report.draft.context,
+        url: origin,
+        context: "alias",
         count: report.count,
-        statuses: report.result.statuses,
-        median: report.result.median,
-        worst: report.result.worst,
+        adminStatuses: report.adminResult.statuses,
+        adminMedian: report.adminResult.median,
+        adminWorst: report.adminResult.worst,
+        clinicStatuses: report.clinicResult.statuses,
+        clinicMedian: report.clinicResult.median,
+        clinicWorst: report.clinicResult.worst,
+        limitMs: CLINIC_MEDIAN_LIMIT_MS,
         removed,
       }),
     );
   } else {
-    publish(`Usuário de teste removido: ${removed ? "sim" : "não"}`);
+    publish(`Usuários de teste removidos: ${removed ? "sim" : "não"}`);
   }
   if (failed)
     console.log(hide(redact(failed instanceof Error ? failed.message : "falha")));
-  if (failed || (userId && !removed)) process.exit(1);
+  if (failed || accounts.some((account) => !account.removed)) process.exit(1);
 }
 
 if (process.argv[1]?.endsWith("measure-staging.mjs")) {
