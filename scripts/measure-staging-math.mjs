@@ -12,6 +12,17 @@ export function chooseDraft(deploys) {
   };
 }
 
+export const SAMPLE_COUNT = 20;
+
+export const CLINIC_MEDIAN_LIMIT_MS = 1500;
+
+export function medianOverLimit(median, limitMs = CLINIC_MEDIAN_LIMIT_MS) {
+  if (!Number.isFinite(median) || !Number.isFinite(limitMs)) {
+    throw new Error("Mediana inválida.");
+  }
+  return median > limitMs;
+}
+
 export function summarize(samples) {
   if (!Array.isArray(samples) || samples.length === 0) {
     throw new Error("Medição vazia.");
@@ -31,9 +42,13 @@ export function evidenceText(input) {
     `Rascunho: ${input.url}`,
     `Contexto: ${input.context}`,
     `Pedidos autenticados: ${input.count}`,
-    `Status: ${input.statuses.join(", ")}`,
-    `Mediana de /admin: ${input.median.toFixed(1)} ms`,
-    `Pior caso: ${input.worst.toFixed(1)} ms`,
-    `Usuário de teste removido: ${input.removed ? "sim" : "não"}`,
+    `Status /admin: ${input.adminStatuses.join(", ")}`,
+    `Mediana de /admin: ${input.adminMedian.toFixed(1)} ms`,
+    `Pior caso de /admin: ${input.adminWorst.toFixed(1)} ms`,
+    `Status /consultorio/pacientes: ${input.clinicStatuses.join(", ")}`,
+    `Mediana de /consultorio/pacientes: ${input.clinicMedian.toFixed(1)} ms`,
+    `Pior caso de /consultorio/pacientes: ${input.clinicWorst.toFixed(1)} ms`,
+    `Limite de /consultorio/pacientes: ${input.limitMs.toFixed(1)} ms`,
+    `Usuários de teste removidos: ${input.removed ? "sim" : "não"}`,
   ].join("\n");
 }
