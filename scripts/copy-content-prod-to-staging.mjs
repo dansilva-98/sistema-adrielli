@@ -72,7 +72,6 @@ export function readCopyEnv(env, options = {}) {
     stagingRef: requiredEnv(env, STAGING_REF_ENV),
     sourceStorage: {
       supabaseUrl: "",
-      serviceRoleKey: "",
     },
     destStorage: {
       supabaseUrl: "",
@@ -82,7 +81,6 @@ export function readCopyEnv(env, options = {}) {
   if (options.needStorage !== false) {
     copied.sourceStorage = {
       supabaseUrl: requiredEnv(env, "PRODUCTION_NEXT_PUBLIC_SUPABASE_URL"),
-      serviceRoleKey: requiredEnv(env, "PRODUCTION_SUPABASE_SERVICE_ROLE_KEY"),
     };
     copied.destStorage = {
       supabaseUrl: requiredEnv(env, "STAGING_NEXT_PUBLIC_SUPABASE_URL"),

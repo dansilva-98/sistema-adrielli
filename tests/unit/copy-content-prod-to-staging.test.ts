@@ -126,6 +126,22 @@ describe("cópia do conteúdo público para o staging", () => {
         { needStorage: false },
       ),
     ).toThrow(new RegExp(SOURCE_URL_ENV));
+    const withStorage = readCopyEnv({
+      [SOURCE_URL_ENV]: sourceUrl,
+      [TARGET_URL_ENV]: destUrl,
+      [PRODUCTION_REF_ENV]: "prodref",
+      [STAGING_REF_ENV]: "stageref",
+      PRODUCTION_NEXT_PUBLIC_SUPABASE_URL: "https://prodref.supabase.co",
+      PRODUCTION_SUPABASE_SERVICE_ROLE_KEY: "prod-service-role-must-not-be-read",
+      STAGING_NEXT_PUBLIC_SUPABASE_URL: "https://stageref.supabase.co",
+      STAGING_SUPABASE_SERVICE_ROLE_KEY: "staging-key",
+    });
+    expect(withStorage.sourceStorage.supabaseUrl).toBe("https://prodref.supabase.co");
+    expect(withStorage.sourceStorage).not.toHaveProperty("serviceRoleKey");
+    expect(JSON.stringify(withStorage)).not.toContain(
+      "prod-service-role-must-not-be-read",
+    );
+    expect(withStorage.destStorage.serviceRoleKey).toBe("staging-key");
   });
 
   it("recusa o mesmo projeto, refs trocados, banco local e Storage igual", () => {
@@ -346,10 +362,15 @@ describe("cópia do conteúdo público para o staging", () => {
   });
 
   it("copia a imagem no site-public e o script não escreve fora de content", async () => {
-    const calls: { url: string; method: string; upsert?: string }[] = [];
+    const calls: {
+      url: string;
+      method: string;
+      upsert?: string;
+      authorization?: string;
+    }[] = [];
     await copySiteImage(
       imagePath,
-      { supabaseUrl: "https://prodref.supabase.co", serviceRoleKey: "prod-key" },
+      { supabaseUrl: "https://prodref.supabase.co" },
       { supabaseUrl: "https://stageref.supabase.co", serviceRoleKey: "staging-key" },
       async (url: RequestInfo | URL, init?: RequestInit) => {
         const href = String(url);
@@ -358,6 +379,7 @@ describe("cópia do conteúdo público para o staging", () => {
           url: href,
           method: init?.method ?? "GET",
           upsert: headers["x-upsert"],
+          authorization: headers.Authorization,
         });
         if (href.includes("/object/public/")) {
           return {
@@ -370,9 +392,12 @@ describe("cópia do conteúdo público para o staging", () => {
       },
     );
     expect(calls[0]?.url).toContain("prodref.supabase.co");
+    expect(calls[0]?.url).toContain("/object/public/");
+    expect(calls[0]?.authorization).toBeUndefined();
     expect(calls[1]?.url).toContain(`${SITE_PUBLIC_BUCKET}/${imagePath}`);
     expect(calls[1]?.url).not.toContain("clinic-private");
     expect(calls[1]?.upsert).toBe("true");
+    expect(calls[1]?.authorization).toBe("Bearer staging-key");
 
     const source = readFileSync("scripts/copy-content-prod-to-staging.mjs", "utf8");
     expect(source).toContain("truncate content.site_settings, content.services");
@@ -385,6 +410,7 @@ describe("cópia do conteúdo público para o staging", () => {
     expect(source).toContain(STAGING_REF_ENV);
     expect(source).not.toContain("loadEnvFile");
     expect(source).not.toContain(".env.local");
+    expect(source).not.toContain("PRODUCTION_SUPABASE_SERVICE_ROLE_KEY");
     expect(source).not.toMatch(/truncate identity/i);
     expect(source).not.toMatch(/truncate clinic/i);
     expect(source).not.toMatch(/delete from identity/i);
@@ -398,5 +424,8 @@ describe("cópia do conteúdo público para o staging", () => {
     const dbReadme = readFileSync("src/db/README.md", "utf8");
     expect(dbReadme).toMatch(/sessão do terminal/i);
     expect(dbReadme).toMatch(/histórico/i);
+    expect(dbReadme).not.toContain("PRODUCTION_SUPABASE_SERVICE_ROLE_KEY");
+    expect(dbReadme).toMatch(/workflow Staging/i);
+    expect(dbReadme).toMatch(/use cache/);
   });
 });

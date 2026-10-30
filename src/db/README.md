@@ -43,17 +43,18 @@ $env:STAGING_PROJECT_REF='...'
 pnpm content:copy-prod-to-staging -- --dry-run
 ```
 
-Cópia (apaga o conteúdo atual do staging e grava o da produção, na mesma transação). Além das URLs e dos refs, exige:
+Cópia (apaga o conteúdo atual do staging e grava o da produção, na mesma transação). Além das URLs e dos refs, exige a URL pública da produção — as imagens saem por ela, sem a chave de serviço — e o Storage do staging:
 
 ```text
 $env:PRODUCTION_NEXT_PUBLIC_SUPABASE_URL='...'
-$env:PRODUCTION_SUPABASE_SERVICE_ROLE_KEY='...'
 $env:STAGING_NEXT_PUBLIC_SUPABASE_URL='...'
 $env:STAGING_SUPABASE_SERVICE_ROLE_KEY='...'
 pnpm content:copy-prod-to-staging -- --confirm=copy-content-production-to-staging
 ```
 
 As URLs de banco precisam ser `postgres.<project-ref>` (papel das migrations), não `app_runtime`. O hostname do pooler pode ser igual nos dois projetos; o script compara o `<ref>` com `PRODUCTION_PROJECT_REF` e `STAGING_PROJECT_REF`. Refs trocados são recusados.
+
+Depois da cópia, rode de novo o workflow Staging na `main` (Actions → Staging → Run workflow). O site público lê o conteúdo com `'use cache'`; uma escrita direta no banco não invalida esse cache. Sem um deploy novo, o staging continua mostrando a página antiga.
 
 ## Restaurar um backup local
 
