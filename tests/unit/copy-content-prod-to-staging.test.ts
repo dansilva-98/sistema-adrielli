@@ -351,7 +351,7 @@ describe("cópia do conteúdo público para o staging", () => {
       imagePath,
       { supabaseUrl: "https://prodref.supabase.co", serviceRoleKey: "prod-key" },
       { supabaseUrl: "https://stageref.supabase.co", serviceRoleKey: "staging-key" },
-      async (url, init) => {
+      async (url: RequestInfo | URL, init?: RequestInit) => {
         const href = String(url);
         const headers = (init?.headers ?? {}) as Record<string, string>;
         calls.push({
