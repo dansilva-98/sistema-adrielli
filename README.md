@@ -29,27 +29,28 @@ Se o Supabase local ainda não estiver no ar, copie `.env.example` para `.env.lo
 
 ## Scripts
 
-| Comando                     | Função                                                  |
-| --------------------------- | ------------------------------------------------------- |
-| `pnpm dev`                  | Servidor de desenvolvimento                             |
-| `pnpm build` / `pnpm start` | Build e servidor de produção                            |
-| `pnpm lint`                 | ESLint, inclusive as fronteiras de módulo               |
-| `pnpm typecheck`            | Tipos do Next e `tsc`                                   |
-| `pnpm test`                 | Testes de unidade                                       |
-| `pnpm test:integration`     | Schemas e papel `anon`, no banco `adrielli_flores_test` |
-| `pnpm test:e2e`             | Home, cabeçalhos e larguras 360 e 1280                  |
-| `pnpm db:generate`          | Gera migration do Drizzle                               |
-| `pnpm db:migrate`           | Aplica migrations                                       |
-| `pnpm db:seed`              | Só com `APP_ENV=development` e banco em localhost       |
-| `pnpm db:backup`            | Dump local em `backups/`, só em development             |
-| `pnpm admin:bootstrap`      | Cria o primeiro SUPER_ADMIN; recusa se já existir um    |
-| `pnpm check:bundle`         | Falha se a service role key aparecer em `.next/static`  |
+| Comando                             | Função                                                                                       |
+| ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| `pnpm dev`                          | Servidor de desenvolvimento                                                                  |
+| `pnpm build` / `pnpm start`         | Build e servidor de produção                                                                 |
+| `pnpm lint`                         | ESLint, inclusive as fronteiras de módulo                                                    |
+| `pnpm typecheck`                    | Tipos do Next e `tsc`                                                                        |
+| `pnpm test`                         | Testes de unidade                                                                            |
+| `pnpm test:integration`             | Schemas e papel `anon`, no banco `adrielli_flores_test`                                      |
+| `pnpm test:e2e`                     | Home, cabeçalhos e larguras 360 e 1280                                                       |
+| `pnpm db:generate`                  | Gera migration do Drizzle                                                                    |
+| `pnpm db:migrate`                   | Aplica migrations                                                                            |
+| `pnpm db:seed`                      | Só com `APP_ENV=development` e banco em localhost                                            |
+| `pnpm db:backup`                    | Dump local em `backups/`, só em development                                                  |
+| `pnpm content:copy-prod-to-staging` | Conteúdo público (`content`) da produção para o staging. Não toca em usuários nem pacientes. |
+| `pnpm admin:bootstrap`              | Cria o primeiro SUPER_ADMIN; recusa se já existir um                                         |
+| `pnpm check:bundle`                 | Falha se a service role key aparecer em `.next/static`                                       |
 
 ## Variáveis
 
 Estão em `.env.example`. Valor ausente ou inválido impede a subida e a mensagem cita o nome da variável, não o valor.
 
-`DATABASE_URL` é a conexão de runtime, com o papel `app_runtime`. A aplicação não lê `MIGRATIONS_DATABASE_URL`: ela vale só para o `drizzle-kit` e para o passo de migration dos workflows. `TEST_DATABASE_URL` aponta para o banco `adrielli_flores_test` com o mesmo papel de runtime.
+`DATABASE_URL` é a conexão de runtime, com o papel `app_runtime`. A aplicação não lê `MIGRATIONS_DATABASE_URL`: ela vale só para o `drizzle-kit` e para o passo de migration dos workflows. `TEST_DATABASE_URL` aponta para o banco `adrielli_flores_test` com o mesmo papel de runtime. `pnpm content:copy-prod-to-staging` não lê `.env` nem `.env.local`: as variáveis `SOURCE_PRODUCTION_DATABASE_URL`, `TARGET_STAGING_DATABASE_URL`, `PRODUCTION_PROJECT_REF` e `STAGING_PROJECT_REF` ficam só na sessão do terminal. Não grave em arquivo nem no histórico do shell; feche a janela ao terminar. O passo a passo está em `src/db/README.md`.
 
 No ambiente local, use a conexão direta do Supabase (no exemplo, porta 54322). Em staging e produção, `DATABASE_URL` usa o pooler em modo transação, porta 6543, usuário `app_runtime.<ref>`. O cliente já abre essa conexão com `prepare: false`, `max: 1`, `statement_timeout` de 10 s e `max_lifetime` de 4 min, menor que os 5 min em que o Supavisor fecha a conexão ociosa. A leitura pública desiste em 5 s, mostra o conteúdo vazio e registra a falha no Sentry. `MIGRATIONS_DATABASE_URL` usa o Session pooler, porta 5432, usuário `postgres.<ref>`, no host que o painel mostra em Connect. A conexão direta do banco hospedado é IPv6; o GitHub Actions só alcança o pooler.
 
