@@ -179,7 +179,7 @@ describe("cópia do conteúdo público no banco de teste", () => {
     expect(copied).toEqual([{ kind: "array", steps: ORIGIN_STEPS }]);
     expect(copied[0]?.steps).toEqual(ORIGIN_STEPS);
 
-    const dest = await readContent(owner);
+    const dest = (await readContent(owner)) as ContentTables;
     expect(dest.site_settings[0]?.hero_title).toBe("Origem da copia");
     expect(dest.site_settings[0]?.updated_by).toBeNull();
     expect(dest.site_settings[0]?.how_it_works).toEqual(ORIGIN_STEPS);
