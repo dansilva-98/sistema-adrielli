@@ -179,10 +179,15 @@ export function assertStorageMatchesProjects(env) {
   }
 }
 
+export function jsonArray(value) {
+  if (typeof value === "string") return JSON.parse(value);
+  return value;
+}
+
 export function forStaging(row) {
   const next = { ...row, updated_by: null };
-  if (next.how_it_works && typeof next.how_it_works !== "string") {
-    next.how_it_works = JSON.stringify(next.how_it_works);
+  if ("how_it_works" in next) {
+    next.how_it_works = jsonArray(next.how_it_works);
   }
   return next;
 }
@@ -224,11 +229,29 @@ export function protectedCountsLine(counts) {
   return `identity.users ${counts.users}, clinic.patients ${counts.patients}`;
 }
 
+export function sqlState(error) {
+  let current = error;
+  while (current && typeof current === "object") {
+    const code = "code" in current ? String(current.code) : "";
+    if (/^[0-9A-Z]{5}$/.test(code)) return code;
+    current = "cause" in current ? current.cause : null;
+  }
+  return "";
+}
+
 export function isReadOnlyError(error) {
-  const code =
-    error && typeof error === "object" && "code" in error ? String(error.code) : "";
+  const code = sqlState(error);
   const message = error instanceof Error ? error.message : String(error);
   return code === "25006" || /read-?only transaction/i.test(message);
+}
+
+function transactionReadOnly(rows) {
+  const value = rows?.[0]?.transaction_read_only;
+  return String(value ?? "").toLowerCase() === "on";
+}
+
+function beginReadOnly(sql, fn) {
+  return sql.begin("read only", fn);
 }
 
 function openSql(url, options) {
@@ -251,34 +274,53 @@ export async function readContent(sql) {
 }
 
 export async function readContentFromSource(sql) {
-  return sql.begin(async (tx) => {
+  return beginReadOnly(sql, async (tx) => {
     await tx.unsafe("set transaction read only");
     return readContent(tx);
   });
 }
 
+async function probeWrite(tx, statement) {
+  const run = async (scope) => {
+    await scope.unsafe(statement);
+    throw new Error("Recusado: a origem aceitou escrita.");
+  };
+  try {
+    if (typeof tx.savepoint === "function") {
+      await tx.savepoint(run);
+    } else {
+      await run(tx);
+    }
+    throw new Error("Recusado: a origem aceitou escrita.");
+  } catch (error) {
+    if (error instanceof Error && /aceitou escrita/.test(error.message)) {
+      throw error;
+    }
+  }
+}
+
 export async function assertSourceRejectsWrites(sql) {
-  await sql.begin(async (tx) => {
+  await beginReadOnly(sql, async (tx) => {
     await tx.unsafe("set transaction read only");
+    const mode = await tx.unsafe("show transaction_read_only");
+    if (!transactionReadOnly(mode)) {
+      throw new Error("Recusado: a origem não está em modo somente leitura.");
+    }
     for (const statement of SOURCE_WRITE_PROBES) {
-      try {
-        await tx.unsafe(statement);
-        throw new Error("Recusado: a origem aceitou escrita.");
-      } catch (error) {
-        if (error instanceof Error && /aceitou escrita/.test(error.message)) {
-          throw error;
-        }
-        if (!isReadOnlyError(error)) {
-          throw new Error("Recusado: a origem não está em modo somente leitura.");
-        }
-      }
+      await probeWrite(tx, statement);
     }
   });
 }
 
 async function insertTable(tx, table, rows) {
   if (rows.length === 0) return;
-  const payload = rows.map(forStaging);
+  const payload = rows.map((row) => {
+    const next = forStaging(row);
+    if (table === "site_settings") {
+      next.how_it_works = tx.json(next.how_it_works);
+    }
+    return next;
+  });
   if (table === "site_settings") {
     await tx`insert into content.site_settings ${tx(payload)}`;
     return;

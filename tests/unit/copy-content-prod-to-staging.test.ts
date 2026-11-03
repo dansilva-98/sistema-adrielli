@@ -59,6 +59,7 @@ function createTxMock(
   } = {},
 ) {
   const log: string[] = [];
+  const jsonValues: unknown[] = [];
   let truncated = false;
   const run = async (strings: TemplateStringsArray) => {
     const text = strings.join("");
@@ -70,6 +71,10 @@ function createTxMock(
     return [];
   };
   const tx = Object.assign(run, {
+    json: (value: unknown) => {
+      jsonValues.push(value);
+      return { json: value };
+    },
     unsafe: async (text: string) => {
       log.push(text);
       if (text.includes("identity.users")) return [{ n: options.users ?? 1 }];
@@ -94,7 +99,7 @@ function createTxMock(
       return target.apply(thisArg, args as [TemplateStringsArray]);
     },
   });
-  return { tx: proxy, log };
+  return { tx: proxy, log, jsonValues };
 }
 
 describe("cópia do conteúdo público para o staging", () => {
@@ -209,49 +214,82 @@ describe("cópia do conteúdo público para o staging", () => {
     expect(isReadOnlyError(new Error("duplicate key"))).toBe(false);
 
     const probes: string[] = [];
-    const readOnlySql = {
-      begin: async (
-        fn: (tx: { unsafe: (text: string) => Promise<unknown> }) => unknown,
-      ) =>
-        fn({
-          unsafe: async (text: string) => {
-            probes.push(text);
-            if (/^set transaction/i.test(text)) return [];
-            throw readOnlyError();
-          },
-        }),
+    const beginReadOnly = (
+      options: unknown,
+      fn?: (tx: {
+        unsafe: (text: string) => Promise<unknown>;
+        savepoint: (
+          inner: (sp: { unsafe: (text: string) => Promise<unknown> }) => unknown,
+        ) => unknown;
+      }) => unknown,
+    ) => {
+      expect(options).toBe("read only");
+      const unsafe = async (text: string) => {
+        probes.push(text);
+        if (/^set transaction/i.test(text)) return [];
+        if (/show transaction_read_only/i.test(text)) {
+          return [{ transaction_read_only: "on" }];
+        }
+        throw readOnlyError();
+      };
+      const callback = fn as (tx: {
+        unsafe: typeof unsafe;
+        savepoint: (inner: (sp: { unsafe: typeof unsafe }) => unknown) => unknown;
+      }) => unknown;
+      return callback({
+        unsafe,
+        savepoint: async (inner) => inner({ unsafe }),
+      });
     };
-    await assertSourceRejectsWrites(readOnlySql);
+    await assertSourceRejectsWrites({ begin: beginReadOnly });
     expect(probes.some((text) => /set transaction read only/i.test(text))).toBe(true);
+    expect(probes.some((text) => /show transaction_read_only/i.test(text))).toBe(true);
     expect(probes).toEqual(expect.arrayContaining(SOURCE_WRITE_PROBES));
 
     const writableSql = {
       begin: async (
-        fn: (tx: { unsafe: (text: string) => Promise<unknown> }) => unknown,
-      ) => fn({ unsafe: async () => [] }),
+        options: unknown,
+        fn?: (tx: { unsafe: (text: string) => Promise<unknown> }) => unknown,
+      ) => {
+        expect(options).toBe("read only");
+        return (fn as (tx: { unsafe: (text: string) => Promise<unknown> }) => unknown)({
+          unsafe: async (text: string) => {
+            if (/show transaction_read_only/i.test(text)) {
+              return [{ transaction_read_only: "on" }];
+            }
+            return [];
+          },
+        });
+      },
     };
     await expect(assertSourceRejectsWrites(writableSql)).rejects.toThrow(
       /aceitou escrita/,
     );
 
-    const otherErrorSql = {
+    const notReadOnlySql = {
       begin: async (
-        fn: (tx: { unsafe: (text: string) => Promise<unknown> }) => unknown,
-      ) =>
-        fn({
+        options: unknown,
+        fn?: (tx: { unsafe: (text: string) => Promise<unknown> }) => unknown,
+      ) => {
+        expect(options).toBe("read only");
+        return (fn as (tx: { unsafe: (text: string) => Promise<unknown> }) => unknown)({
           unsafe: async (text: string) => {
-            if (/^set transaction/i.test(text)) return [];
-            throw new Error("duplicate key value");
+            if (/show transaction_read_only/i.test(text)) {
+              return [{ transaction_read_only: "off" }];
+            }
+            return [];
           },
-        }),
+        });
+      },
     };
-    await expect(assertSourceRejectsWrites(otherErrorSql)).rejects.toThrow(
+    await expect(assertSourceRejectsWrites(notReadOnlySql)).rejects.toThrow(
       /somente leitura/,
     );
 
     const statements: string[] = [];
     await readContentFromSource({
-      begin: async (fn: (tx: unknown) => unknown) => {
+      begin: async (options: unknown, fn?: (tx: unknown) => unknown) => {
+        expect(options).toBe("read only");
         const tx = Object.assign(
           async (strings: TemplateStringsArray) => {
             statements.push(strings.join(""));
@@ -264,7 +302,7 @@ describe("cópia do conteúdo público para o staging", () => {
             },
           },
         );
-        return fn(tx);
+        return (fn as (tx: unknown) => unknown)(tx);
       },
     });
     expect(statements[0]).toMatch(/set transaction read only/i);
@@ -306,16 +344,33 @@ describe("cópia do conteúdo público para o staging", () => {
     const counts = await replaceContentInTransaction(ok.tx, empty);
     expect(counts).toEqual({ users: 3, patients: 8 });
     expect(ok.log.filter((text) => text.includes("identity.users")).length).toBe(2);
+
+    const howItWorks = [
+      { title: "Contato", body: "" },
+      { title: "Avaliação", body: "" },
+      { title: "Atendimento", body: "" },
+    ];
+    const withSettings = createTxMock({ users: 3, patients: 8 });
+    await replaceContentInTransaction(withSettings.tx, {
+      ...empty,
+      site_settings: [{ id: 1, how_it_works: howItWorks, updated_by: "x" }],
+    });
+    expect(withSettings.jsonValues).toEqual([howItWorks]);
   });
 
   it("zera updated_by, copia só uuid.webp referenciado e não loga segredo", () => {
+    const steps = [{ title: "Contato", body: "" }];
     const row = forStaging({
       quote: "Um relato",
       updated_by: "11111111-1111-4111-8111-111111111111",
-      how_it_works: [{ title: "Contato", body: "" }],
+      how_it_works: steps,
     });
     expect(row.updated_by).toBeNull();
-    expect(row.how_it_works).toBe('[{"title":"Contato","body":""}]');
+    expect(row.how_it_works).toEqual(steps);
+    expect(typeof row.how_it_works).toBe("object");
+    expect(forStaging({ how_it_works: JSON.stringify(steps) }).how_it_works).toEqual(
+      steps,
+    );
     expect(
       imagePathsFromRows({
         services: [{ image_path: imagePath, title: "Avaliação" }],
