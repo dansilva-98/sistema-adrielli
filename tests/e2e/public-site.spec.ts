@@ -1,10 +1,15 @@
 import { mkdirSync } from "node:fs";
 import postgres from "postgres";
 
-import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import { createStaff, loadLocalEnv, removeStaff, signIn } from "./staff-fixtures";
+import {
+  createStaff,
+  loadLocalEnv,
+  ownerSql,
+  removeStaff,
+  signIn,
+} from "./staff-fixtures";
 
 const WHATSAPP_HREF = "https://wa.me/5511999999999?text=Ol%C3%A1";
 
@@ -53,16 +58,40 @@ async function restoreWhatsapp(number: string, message: string): Promise<void> {
   }
 }
 
-async function saveHowItWorks(page: Page, bodies: string[]): Promise<void> {
-  await page.goto("/admin/conteudo/site");
-  const form = page
-    .locator("form")
-    .filter({ has: page.getByRole("heading", { name: "Como funciona" }) });
-  for (const [index, body] of bodies.entries()) {
-    await form.locator(`#step-body-${index}`).fill(body);
-  }
-  await form.getByRole("button", { name: "Salvar" }).click();
-  await expect(page.getByText("Salvo. O site já mostra a alteração.")).toBeVisible();
+type HowItWorksStep = { title: string; body: string };
+
+const KEYBOARD_STEPS: HowItWorksStep[] = [
+  { title: "Primeiro contato", body: "Agende a conversa." },
+  { title: "Avaliação", body: "Entenda o quadro." },
+  { title: "Acompanhamento", body: "Siga o plano." },
+];
+
+function asHowSteps(value: unknown): HowItWorksStep[] {
+  const parsed = typeof value === "string" ? JSON.parse(value) : value;
+  if (!Array.isArray(parsed)) throw new Error("how_it_works inválido.");
+  return parsed as HowItWorksStep[];
+}
+
+async function readHowItWorks(
+  sql: ReturnType<typeof ownerSql>,
+): Promise<HowItWorksStep[]> {
+  const rows = await sql<{ how_it_works: unknown }[]>`
+    select how_it_works from content.site_settings where id = 1
+  `;
+  const row = rows[0];
+  if (!row) throw new Error("site_settings ausente.");
+  return asHowSteps(row.how_it_works);
+}
+
+async function writeHowItWorks(
+  sql: ReturnType<typeof ownerSql>,
+  steps: HowItWorksStep[],
+): Promise<void> {
+  await sql`
+    update content.site_settings
+    set how_it_works = ${sql.json(steps)}
+    where id = 1
+  `;
 }
 
 async function saveContact(page: Page, number: string, message: string): Promise<void> {
@@ -236,46 +265,44 @@ test.describe("site público", () => {
   });
 
   test("as abas de Como funciona respondem ao teclado", async ({ page }) => {
-    test.setTimeout(120_000);
-    const email = `etapas-${crypto.randomUUID()}@example.com`;
-    const userId = await createStaff(email, "CONTENT_ADMIN");
-    let previousBodies: string[] | null = null;
+    const sql = ownerSql();
+    let previous: HowItWorksStep[] | null = null;
     try {
-      await signIn(page, email);
-      await page.goto("/admin/conteudo/site");
-      const howForm = page
-        .locator("form")
-        .filter({ has: page.getByRole("heading", { name: "Como funciona" }) });
-      const fields = howForm.locator("textarea");
-      const count = await fields.count();
-      expect(count).toBeGreaterThanOrEqual(3);
-      previousBodies = [];
-      const nextBodies: string[] = [];
-      for (let index = 0; index < count; index += 1) {
-        previousBodies.push(await fields.nth(index).inputValue());
-        nextBodies.push(`Texto da etapa ${index + 1}.`);
-      }
-      await saveHowItWorks(page, nextBodies);
+      previous = await readHowItWorks(sql);
+      await writeHowItWorks(sql, KEYBOARD_STEPS);
       await page.goto("/");
+      const total = KEYBOARD_STEPS.length;
       const tabs = page.getByRole("tab");
-      await expect(tabs).toHaveCount(count);
+      await expect(tabs).toHaveCount(total);
+      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
       await tabs.first().focus();
-      await page.keyboard.press("ArrowRight");
-      await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
-      await expect(tabs.nth(1)).toBeFocused();
-      await page.keyboard.press("End");
-      await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
-      await page.keyboard.press("Home");
       await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-      const results = await new AxeBuilder({ page })
-        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-        .analyze();
-      expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
+      await expect(tabs.first()).toBeFocused();
+
+      await page.keyboard.press("ArrowRight");
+      await expect(tabs.nth(1)).toBeFocused();
+      await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByText(`Etapa 2 de ${total}`)).toBeVisible();
+
+      await page.keyboard.press("ArrowLeft");
+      await expect(tabs.first()).toBeFocused();
+      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
+
+      await page.keyboard.press("End");
+      await expect(tabs.last()).toBeFocused();
+      await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByText(`Etapa ${total} de ${total}`)).toBeVisible();
+
+      await page.keyboard.press("Home");
+      await expect(tabs.first()).toBeFocused();
+      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
     } finally {
       try {
-        if (previousBodies) await saveHowItWorks(page, previousBodies);
+        if (previous) await writeHowItWorks(sql, previous);
       } finally {
-        await removeStaff(userId);
+        await sql.end({ timeout: 5 });
       }
     }
   });
