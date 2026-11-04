@@ -90,7 +90,10 @@ describe("variante tabs", () => {
     expect(markup).toContain("Anterior");
     expect(markup).toContain("Próxima etapa");
     expect(markup).toContain("min-h-11");
-    expect(markup).toContain("max-sm:pr-14");
+    expect(markup).toContain('class="relative max-sm:pr-14"');
+    expect(markup.match(/<div[^>]*role="tablist"[^>]*>/)?.[0] ?? "").not.toContain(
+      "max-sm:pr-14",
+    );
     expect(markup).not.toContain("Toque em cada etapa para ver os detalhes.");
   });
 

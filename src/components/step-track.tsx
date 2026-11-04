@@ -300,11 +300,11 @@ function TabsTrack({
 
   return (
     <div>
-      <div className="relative">
+      <div className="relative max-sm:pr-14">
         <TrackLine axis="horizontal" markers={markers} />
         <div
           role="tablist"
-          className="relative flex justify-between gap-2 max-sm:pr-14"
+          className="relative flex justify-between gap-2"
           {...listLabel}
         >
           {steps.map((step, index) => {
