@@ -300,7 +300,7 @@ function TabsTrack({
 
   return (
     <div>
-      <div className="relative">
+      <div className="relative max-sm:pr-14">
         <TrackLine axis="horizontal" markers={markers} />
         <div
           role="tablist"
@@ -363,7 +363,7 @@ function TabsTrack({
           <div className="mt-6 flex gap-4">
             <button
               type="button"
-              className="font-sans text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-muted disabled:no-underline"
+              className="inline-flex min-h-11 items-center font-sans text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-muted disabled:no-underline"
               disabled={active === 0}
               onClick={() => activate(active - 1)}
             >
@@ -371,7 +371,7 @@ function TabsTrack({
             </button>
             <button
               type="button"
-              className="font-sans text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-muted disabled:no-underline"
+              className="inline-flex min-h-11 items-center font-sans text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-muted disabled:no-underline"
               disabled={active === count - 1}
               onClick={() => activate(active + 1)}
             >

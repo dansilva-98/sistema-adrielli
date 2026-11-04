@@ -224,6 +224,15 @@ test.describe("site público", () => {
       await expect(heroWhatsApp).toBeVisible();
       await expect(heroWhatsApp).toHaveAttribute("href", WHATSAPP_HREF);
       await expect(heroWhatsApp).toHaveAttribute("target", "_blank");
+      const schedule = page
+        .getByRole("banner")
+        .getByRole("link", { name: "Agendar avaliação" });
+      await expect(schedule).toBeVisible();
+      await expect(schedule).toHaveAttribute("href", WHATSAPP_HREF);
+      const footerWhatsApp = page.getByRole("link", { name: "Chamar no WhatsApp" });
+      await expect(footerWhatsApp).toBeVisible();
+      await expect(footerWhatsApp).toHaveAttribute("href", WHATSAPP_HREF);
+      await expect(page.getByText("A etapa 1 começa com uma mensagem.")).toBeVisible();
 
       await page.setViewportSize({ width: 360, height: 800 });
       await page.goto("/");

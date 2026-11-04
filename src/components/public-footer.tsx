@@ -2,67 +2,53 @@ import Link from "next/link";
 
 import type { PublicSite } from "@/modules/content/queries";
 
-const LINKS = [
-  { href: "/", label: "Início" },
-  { href: "/sobre", label: "Sobre" },
-  { href: "/servicos", label: "Serviços" },
-  { href: "/materiais", label: "Materiais" },
-  { href: "/contato", label: "Contato" },
-  { href: "/privacidade", label: "Privacidade" },
-] as const;
-
 export function PublicFooter({ site }: { site: PublicSite }) {
-  const contacts = [
-    site.whatsappUrl
-      ? { href: site.whatsappUrl, label: "WhatsApp", external: true }
-      : null,
-    site.instagramUrl
-      ? { href: site.instagramUrl, label: "Instagram", external: true }
-      : null,
-    site.contactEmail
-      ? { href: `mailto:${site.contactEmail}`, label: site.contactEmail, external: false }
-      : null,
-  ].filter((item) => item !== null);
   const spacing = site.whatsappUrl
-    ? "mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pt-6 pb-[calc(5rem+env(safe-area-inset-bottom))] text-sm sm:flex-row sm:items-center sm:justify-between xl:pb-6"
-    : "mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6 text-sm sm:flex-row sm:items-center sm:justify-between";
+    ? "mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pt-8 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:flex-row sm:items-end sm:justify-between xl:pb-6"
+    : "mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:flex-row sm:items-end sm:justify-between";
   return (
     <footer className="border-t border-border bg-text text-gold-light">
       <div className={spacing}>
-        <div className="flex flex-col gap-2">
+        <div className="flex max-w-md flex-col items-start gap-4">
+          <p className="font-serif text-2xl text-gold-light sm:text-3xl">
+            A etapa 1 começa com uma mensagem.
+          </p>
+          {site.whatsappUrl ? (
+            <a
+              href={site.whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 w-fit items-center rounded-lg bg-gold-light px-4 text-sm text-text focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              Chamar no WhatsApp
+            </a>
+          ) : null}
+          {site.instagramUrl ? (
+            <a
+              href={site.instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center underline-offset-4 hover:underline"
+            >
+              Instagram
+            </a>
+          ) : null}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/logo-horizontal-claro.svg"
             alt="Adrielli Flores"
             width={227}
             height={46}
-            className="h-[38px] w-auto md:h-[46px]"
+            className="h-11 w-auto"
           />
-          {site.addressText ? <p>{site.addressText}</p> : null}
-          {contacts.length > 0 ? (
-            <ul className="flex flex-col gap-1">
-              {contacts.map((item) => (
-                <li key={item.href}>
-                  <a
-                    href={item.href}
-                    className="hover:underline"
-                    {...(item.external
-                      ? { target: "_blank", rel: "noopener noreferrer" }
-                      : {})}
-                  >
-                    {item.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          ) : null}
         </div>
         <nav aria-label="Rodapé" className="flex flex-wrap gap-x-4 gap-y-2">
-          {LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="hover:underline">
-              {link.label}
-            </Link>
-          ))}
+          <Link
+            href="/privacidade"
+            className="inline-flex min-h-11 items-center hover:underline"
+          >
+            Privacidade
+          </Link>
         </nav>
       </div>
     </footer>

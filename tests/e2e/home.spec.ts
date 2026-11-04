@@ -9,6 +9,32 @@ test("a home responde 200 e mostra a marca", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("o cabeçalho leva às páginas públicas e marca a atual", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const pages = [
+    { name: "Sobre", url: /\/sobre$/ },
+    { name: "Serviços", url: /\/servicos$/ },
+    { name: "Materiais", url: /\/materiais$/ },
+    { name: "Contato", url: /\/contato$/ },
+  ] as const;
+  for (const item of pages) {
+    await page.goto("/");
+    await page
+      .getByRole("navigation", { name: "Principal" })
+      .getByRole("link", { name: item.name })
+      .click();
+    await expect(page).toHaveURL(item.url);
+    await expect(
+      page
+        .getByRole("navigation", { name: "Principal" })
+        .getByRole("link", { name: item.name }),
+    ).toHaveAttribute("aria-current", "page");
+  }
+  await expect(page.getByRole("link", { name: "Agendar avaliação" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Chamar no WhatsApp" })).toHaveCount(0);
+  await expect(page.getByText("A etapa 1 começa com uma mensagem.")).toBeVisible();
+});
+
 test("axe não encontra violações na home", async ({ page }) => {
   await page.goto("/");
   const results = await new AxeBuilder({ page })
@@ -42,7 +68,14 @@ for (const width of [360, 1280]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/");
     if (width === 360) {
-      await page.getByRole("button", { name: "Menu" }).click();
+      const menu = page.getByRole("button", { name: "Abrir menu" });
+      const menuBox = await menu.boundingBox();
+      expect(menuBox).not.toBeNull();
+      if (menuBox) {
+        expect(menuBox.width).toBeGreaterThanOrEqual(44);
+        expect(menuBox.height).toBeGreaterThanOrEqual(44);
+      }
+      await menu.click();
       await expect(
         page
           .getByRole("navigation", { name: "Principal" })
