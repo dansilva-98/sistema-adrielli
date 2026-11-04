@@ -19,9 +19,12 @@ test("o site segue apresentável com o banco sem conteúdo", async ({ page }) =>
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex");
   await expect(page.getByRole("heading", { name: "Materiais" })).toBeVisible();
   await expect(page.getByText("Em breve", { exact: true })).toBeVisible();
+  await expect(page.getByText("A etapa 1 começa com uma mensagem.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Conversar pelo WhatsApp" })).toHaveCount(
     0,
   );
+  await expect(page.getByRole("link", { name: "Agendar avaliação" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Chamar no WhatsApp" })).toHaveCount(0);
   await page.getByRole("link", { name: "Ver materiais" }).click();
   await expect(page).toHaveURL(/\/materiais$/);
   await page.goto("/");
