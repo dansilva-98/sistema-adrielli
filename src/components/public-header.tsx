@@ -22,7 +22,7 @@ export function PublicHeader({ whatsappUrl = null }: { whatsappUrl?: string | nu
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/logo-horizontal-subtitulo.svg"
-            alt="Adrielli Flores"
+            alt="Adrielli Flores, psicopedagoga e neuropsicopedagoga"
             width={474}
             height={96}
             className="h-11 w-auto md:h-14"

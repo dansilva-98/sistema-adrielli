@@ -63,6 +63,30 @@ test("os cabeçalhos de segurança estão na home e na saúde", async ({ request
   expect(["ok", "degraded"]).toContain(body.status);
 });
 
+test("a linha dourada termina no último marcador a 375 px", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/");
+  const tablist = page.locator("#como-funciona [role='tablist']");
+  test.skip((await tablist.count()) === 0, "Como funciona sem etapas publicadas");
+  await tablist.scrollIntoViewIfNeeded();
+  const alignment = await tablist.evaluate((list) => {
+    const line = list.previousElementSibling;
+    const tabs = list.querySelectorAll('[role="tab"]');
+    const marker = tabs[tabs.length - 1]?.querySelector("span");
+    if (!(line instanceof HTMLElement) || !(marker instanceof HTMLElement)) {
+      return { ok: false, delta: Number.POSITIVE_INFINITY };
+    }
+    const lineRight = line.getBoundingClientRect().right;
+    const markerBox = marker.getBoundingClientRect();
+    return {
+      ok: true,
+      delta: Math.abs(lineRight - (markerBox.left + markerBox.width / 2)),
+    };
+  });
+  expect(alignment.ok).toBe(true);
+  expect(alignment.delta).toBeLessThanOrEqual(2);
+});
+
 for (const width of [360, 1280]) {
   test(`a home não rola na horizontal em ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });

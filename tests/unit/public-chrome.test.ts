@@ -16,6 +16,9 @@ describe("cabeçalho público", () => {
   it("mostra o logo nas alturas do L3, os links e o botão só com WhatsApp", () => {
     const withoutCta = renderToStaticMarkup(createElement(PublicHeader));
     expect(withoutCta).toContain("/brand/logo-horizontal-subtitulo.svg");
+    expect(withoutCta).toContain(
+      'alt="Adrielli Flores, psicopedagoga e neuropsicopedagoga"',
+    );
     expect(withoutCta).toContain("h-11 w-auto md:h-14");
     expect(withoutCta).toContain("Sobre");
     expect(withoutCta).toContain("Serviços");

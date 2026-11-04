@@ -300,7 +300,7 @@ function TabsTrack({
 
   return (
     <div>
-      <div className="relative max-sm:pr-14">
+      <div className="relative max-sm:mr-14">
         <TrackLine axis="horizontal" markers={markers} />
         <div
           role="tablist"
@@ -322,7 +322,7 @@ function TabsTrack({
                 aria-controls={`${baseId}-panel`}
                 aria-label={stepAriaLabel(index, step.title, numbered)}
                 tabIndex={selected ? 0 : -1}
-                className="flex min-h-11 min-w-11 flex-1 flex-col items-center rounded-sm bg-transparent p-0 text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="flex min-h-11 min-w-11 flex-col items-center rounded-sm bg-transparent p-0 text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-1"
                 onClick={() => activate(index)}
                 onKeyDown={(event) => onKeyDown(event, index)}
               >
