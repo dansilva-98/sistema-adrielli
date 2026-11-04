@@ -298,26 +298,3 @@ PRs pequenos, cada um com CI verde e capturas em 360 px e 1280 px:
 2. **PR L3.2–L3.3:** cabeçalho, rodapé e páginas públicas.
 3. **PR L3.5:** visual do consultório.
 4. **Loja (L3.4):** entra junto com o E3/E4, não antes.
-
-## Revisão do Tech Lead (29/10)
-
-Esta seção prevalece sobre o restante do documento.
-
-### L3.1 — `StepTrack`
-
-- Número de etapas: **3 a 6**, vindo do painel (`howItWorks`). Não hardcodar 4. Sem mudança de CMS, schema ou migration neste PR.
-- **Rótulo no celular:** esconder só na variante `tabs` (ficam os números; o título entra no nome acessível da aba). Em `static` e `progress`, o rótulo permanece visível. Se não couber, a **página** usa a variante vertical abaixo de 480 px — o componente não esconde o texto nessas duas variantes.
-- Não usar `aria-label` em `<li>` nem em `<p>`. Em `static` e `progress`, prefixar o rótulo visível com `<span class="sr-only">Etapa N:</span>`.
-- Variante `tabs`: WAI-ARIA Tabs; setas, Home e End com ativação automática; `tabindex` 0/−1; foco visível 2 px `--primary`.
-- Variante `progress`: `aria-current="step"` só na etapa atual; o avanço é do formulário, não do clique no marcador.
-- Variante vertical: acordeão com `aria-expanded`. Setas, Home e End **só movem o foco**; Enter e Espaço abrem.
-- `prefers-reduced-motion` desliga a transição do cartão.
-- PR L3.1: só o componente, os testes e esta spec. Sem páginas.
-
-### L3.3 — cartão da home (não é L3.1)
-
-No PR da home, o cartão da variante `tabs` traz **“Etapa N de {total}”** e os links **“Anterior”** e **“Próxima etapa”**. Não implementar nesta entrega.
-
-### Rótulos curtos da home
-
-Escuta, Avaliação, Intervenção e Evolução são texto fixo da página, separados do título completo do CMS. Sem campo novo no painel. Se o CMS mudar os títulos, o rótulo curto continua o mesmo. Limitação em `PERGUNTAS.md`.
