@@ -24,6 +24,7 @@ export type StepTrackProps = {
   markers?: StepTrackMarkers;
   lastAccent?: boolean;
   collapsible?: boolean;
+  panelNav?: boolean;
 };
 
 type MarkerTone = "active" | "inactive" | "completed" | "filled" | "filled-support";
@@ -56,7 +57,7 @@ export function stepIndexAfterKey(
 
 export function stepAriaLabel(index: number, title: string, numbered: boolean): string {
   const label = title.trim() || "Etapa";
-  return numbered ? `${index + 1}. ${label}` : label;
+  return numbered ? `Etapa ${index + 1}: ${label}` : label;
 }
 
 function clampIndex(index: number | undefined, count: number): number {
@@ -115,7 +116,7 @@ function MarkerFace({
     <span
       className={cn(
         "relative z-10 inline-flex shrink-0 items-center justify-center rounded-full font-sans",
-        numbered ? "size-9 text-sm sm:size-10" : "size-6",
+        numbered ? "size-11 text-sm sm:size-10" : "size-6",
         toneClass(tone),
       )}
       aria-hidden="true"
@@ -139,7 +140,7 @@ function TrackLine({
   const start =
     markers === "dots"
       ? "left-3 top-3"
-      : "left-[1.125rem] top-[1.125rem] sm:left-5 sm:top-5";
+      : "left-[1.375rem] top-[1.375rem] sm:left-5 sm:top-5";
   return (
     <div
       aria-hidden="true"
@@ -149,7 +150,7 @@ function TrackLine({
         axis === "horizontal"
           ? markers === "dots"
             ? "right-3 h-0.5"
-            : "right-[1.125rem] h-0.5 sm:right-5"
+            : "right-[1.375rem] h-0.5 sm:right-5"
           : "bottom-5 w-0.5",
       )}
     />
@@ -191,6 +192,7 @@ export function StepTrack({
   markers = "numbers",
   lastAccent = false,
   collapsible = variant === "vertical",
+  panelNav = false,
 }: StepTrackProps) {
   const count = steps.length;
   if (!isValidStepCount(count)) return null;
@@ -208,6 +210,7 @@ export function StepTrack({
         numbered={numbered}
         listLabel={listLabel}
         currentIndex={currentIndex}
+        panelNav={panelNav}
       />
     );
   }
@@ -266,12 +269,14 @@ function TabsTrack({
   numbered,
   listLabel,
   currentIndex,
+  panelNav,
 }: {
   steps: readonly StepTrackItem[];
   markers: StepTrackMarkers;
   numbered: boolean;
   listLabel: { "aria-labelledby": string } | { "aria-label": string };
   currentIndex?: number;
+  panelNav: boolean;
 }) {
   const count = steps.length;
   const baseId = useId();
@@ -345,11 +350,39 @@ function TabsTrack({
         aria-labelledby={`${baseId}-tab-${active}`}
         className="mt-6 rounded-lg border border-line bg-popover p-6 transition-opacity motion-reduce:transition-none sm:p-10"
       >
+        {panelNav ? (
+          <p className="font-sans text-sm text-muted">{`Etapa ${active + 1} de ${count}`}</p>
+        ) : null}
         {current.title ? (
           <p className="font-serif text-xl text-text sm:text-2xl">{current.title}</p>
         ) : null}
         {current.body ? (
           <p className="mt-2 max-w-prose font-sans text-text">{current.body}</p>
+        ) : null}
+        {panelNav ? (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="font-sans text-sm text-muted sm:hidden">
+              Toque em cada etapa para ver os detalhes.
+            </p>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                className="font-sans text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-muted disabled:no-underline"
+                disabled={active === 0}
+                onClick={() => activate(active - 1)}
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                className="font-sans text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-muted disabled:no-underline"
+                disabled={active === count - 1}
+                onClick={() => activate(active + 1)}
+              >
+                Próxima etapa
+              </button>
+            </div>
+          </div>
         ) : null}
       </div>
     </div>

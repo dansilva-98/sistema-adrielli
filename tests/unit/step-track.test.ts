@@ -84,6 +84,14 @@ describe("variante static", () => {
 });
 
 describe("variante tabs", () => {
+  it("no cartão da home, mostra Etapa N de total e os controles Anterior e Próxima", () => {
+    const markup = html({ variant: "tabs", steps: threeSteps, panelNav: true });
+    expect(markup).toContain("Etapa 1 de 3");
+    expect(markup).toContain("Anterior");
+    expect(markup).toContain("Próxima etapa");
+    expect(markup).toContain("Toque em cada etapa para ver os detalhes.");
+  });
+
   it("expõe o padrão WAI-ARIA Tabs com ativação no primeiro item", () => {
     const markup = html({ variant: "tabs", steps: threeSteps });
     expect(markup).toContain('role="tablist"');
@@ -158,7 +166,7 @@ describe("rótulo no celular", () => {
     const progress = html({ variant: "progress", steps: threeSteps, currentIndex: 0 });
     expect(tabs).toContain("hidden");
     expect(tabs).toContain("sm:block");
-    expect(tabs).toContain('aria-label="1. Primeiro contato"');
+    expect(tabs).toContain('aria-label="Etapa 1: Primeiro contato"');
     expect(staticMarkup).not.toContain("hidden font-serif");
     expect(staticMarkup).not.toContain("sm:block");
     expect(progress).not.toContain("hidden font-serif");
@@ -188,7 +196,7 @@ describe("nome acessível", () => {
     expect(staticMarkup).toContain("Etapa 1:");
     expect(staticMarkup).toContain("Etapa 2:");
     expect(progress).toContain("Etapa 1:");
-    expect(stepAriaLabel(0, "Primeiro contato", true)).toBe("1. Primeiro contato");
+    expect(stepAriaLabel(0, "Primeiro contato", true)).toBe("Etapa 1: Primeiro contato");
   });
 });
 
