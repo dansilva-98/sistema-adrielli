@@ -298,3 +298,111 @@ PRs pequenos, cada um com CI verde e capturas em 360 px e 1280 px:
 2. **PR L3.2–L3.3:** cabeçalho, rodapé e páginas públicas.
 3. **PR L3.5:** visual do consultório.
 4. **Loja (L3.4):** entra junto com o E3/E4, não antes.
+
+---
+
+## Revisão do Tech Lead (29/10/2026): ajustes ao painel e ao que já está no ar
+
+Esta seção **prevalece** sobre os itens acima quando houver conflito. A tela de design foi atualizada com estes ajustes nos quadros:
+
+- Home (modelo E) e Celular · Home;
+- Serviços e Celular · Serviços;
+- Sobre;
+- Consultório · Ficha.
+
+### O que o painel permite editar hoje
+
+| Painel (Editar site)              | Campo                                                                | Limite       |
+| --------------------------------- | -------------------------------------------------------------------- | ------------ |
+| Topo › Nome                       | `heroTitle`                                                          | 80           |
+| Topo › Especialidade              | `heroSubtitle`                                                       | 120          |
+| Topo › Frase                      | `heroTagline`                                                        | 200          |
+| Topo › Imagem + descrição         | `heroImagePath` / `heroImageAlt`                                     | —            |
+| Sobre › Título / Texto / Imagem   | `aboutTitle` / `aboutBody` / `aboutImage*`                           | 120 / 12.000 |
+| Como funciona                     | `howItWorks`: **de 3 a 6 etapas**, título e texto                    | 80 / 400     |
+| Contato                           | WhatsApp, Mensagem, E-mail, Endereço, Área de atendimento, Instagram | —            |
+| Serviços, Depoimentos e Perguntas | listas próprias                                                      | —            |
+
+O painel **não tem** foto por etapa, lista de formação, nem rótulo curto de etapa.
+
+### OBRIGATÓRIO
+
+1. **Topo da home: mapear pelo nome do campo no painel.** A especificação colocava a Especialidade como linha acima do título e o Nome no H1. O desenho aprovado mostra outra coisa, e o painel chama os campos de Nome, Especialidade e Frase. Fica assim:
+   - **H1 = Frase** (`heroTagline`). Se estiver vazia, o H1 usa o **Nome**, como já acontece hoje.
+   - **Parágrafo abaixo do H1 = Especialidade** (`heroSubtitle`).
+   - **Sem linha acima do título.** O logo do cabeçalho já mostra o nome e a profissão (`logo-horizontal-subtitulo.svg`), e a linha repetia a mesma informação.
+   - **O tamanho do H1 acompanha o comprimento da Frase**, que pode ter até 200 caracteres:
+     - até 45 caracteres: 80 px no desktop e 46 px no celular;
+     - de 46 a 90 caracteres: 64 px no desktop e 38 px no celular. É o caso da Frase atual, com 59 caracteres;
+     - acima de 90 caracteres: 52 px no desktop e 32 px no celular.
+
+     Testar com 200 caracteres em 360 px, sem rolagem horizontal.
+2. **Etapas: número e textos sempre do painel.**
+   - A trilha mostra **de 3 a 6** etapas. O texto do cartão é "Etapa N de {total}", nunca "de 4" fixo.
+   - **Sai o rótulo curto fixo** (Escuta, Avaliação…). No celular, a trilha mostra só os números (marcadores de 44 × 44 px). O nome da aba vem do título do painel (`aria-label="Etapa 2: Avaliação individualizada"`), e o cartão mostra o título completo. Com isso, nada some quando ela muda os títulos.
+   - **Sai a foto do cartão da etapa**, porque o painel não tem esse campo. O texto ocupa a largura toda.
+3. **Faixa abaixo do topo = só "Área de atendimento"** (`serviceAreaText`). O texto de especialização que aparecia no protótipo não é campo do painel. Sem área cadastrada, a faixa não aparece.
+4. **A trilha dourada fica só onde há sequência real:**
+   - Como funciona (home);
+   - Depois da sua mensagem (Contato);
+   - Como funciona a compra;
+   - checkout e cadastro de paciente (`progress`).
+
+   Onde não há ordem, a linha e os pontos sugerem uma jornada que não existe, e o elemento marcante perde força por repetição. Nesses lugares:
+   - **Serviços (desktop):** índice vertical à esquerda (títulos em Newsreader, separados por filete `--line`, o ativo em fundo branco e texto `--primary`) e o cartão do serviço à direita, no padrão WAI-ARIA Tabs com `aria-orientation="vertical"`. A imagem só aparece se houver uma cadastrada. Com mais de 6 serviços, o índice continua o mesmo.
+   - **Serviços (celular):** acordeão simples com filetes e seta, com `aria-expanded`, sem linha dourada.
+   - **Ficha do paciente:** seletor segmentado igual ao Ativos/Arquivados, com **links** e `aria-current="page"`. Ele mantém a navegação por `?secao=` do PR 52 (voltar, recarregar e "abrir em nova aba" continuam funcionando). Não usar `role="tab"` aqui.
+   - **Minha conta e Conheça o material (E3/E4):** o mesmo seletor segmentado. Revisar quando o E3/E4 for especificado.
+
+5. **Ficha › Anexos igual ao implementado:**
+   - categorias Laudo, Relatório escolar, Avaliação, Documento pessoal e Outro;
+   - ações **Abrir** (aba nova, PR 52) e **Excluir** (com confirmação);
+   - o nome do arquivo não é botão.
+6. **Sobre:**
+   - o título vem de **Sobre › Título** (`aboutTitle`), não do texto fixo "Sobre mim". O texto atual está na terceira pessoa ("Adrielli Flores é…"), e "Sobre mim" ficaria incoerente;
+   - sem linha acima do título;
+   - a primeira frase em destaque continua usando `openingText`, que já existe.
+7. **Cabeçalho da home igual ao das outras páginas:** inclui Materiais, e o botão diz "Agendar avaliação" (o protótipo tinha "Agendar conversa").
+8. **Sem número do WhatsApp cadastrado**, os botões "Agendar avaliação", "Conversar pelo WhatsApp" e "Chamar no WhatsApp" **não aparecem**. A seção do topo continua com o link "Como é o atendimento". Testar no E2E com o banco vazio.
+
+### RECOMENDADO
+
+- Na home do desktop, acrescentar o bloco "Quem conduz cada etapa" (abertura do Sobre e o link para a página) e o cartão "Materiais" (L2.2) lado a lado, como já existe no celular.
+- Confirmar com a responsável:
+  - o público. A E7 registra que ela também atende adultos, e "Como posso ajudar seu filho." / "Vamos conversar sobre seu filho?" excluem esse público. Alternativas: "Como posso ajudar." / "Vamos conversar?";
+  - a publicação do **endereço** do consultório (`addressText`). Em 24/10 ficou decidido não publicar endereço pessoal na página de privacidade; o endereço do consultório é outra decisão.
+
+### Análise do site no ar com o conteúdo preenchido (29/10, 16h20)
+
+Conferido em `adrielliflores.com.br`, a 1280 px e a 375 px, depois que a responsável preencheu o painel:
+
+- **Topo:** Nome "Adrielli Flores", Especialidade "Psicopedagoga e Neuropsicopedagoga Clínica Infantil" e Frase "Todo cérebro é capaz de aprender. Cabe a nós descobrir como.";
+- **Como funciona:** 4 etapas;
+- **Sobre:** título "Sobre mim";
+- **Serviços:** 1 (Intervenção Neuropsicopedagógica);
+- **Contato:** WhatsApp, Instagram, e-mail e endereço;
+- **Sem imagens.**
+
+**O que funciona:** nenhuma rolagem horizontal em 360 px, os links de WhatsApp funcionam e a ordem de leitura está correta.
+
+**Problemas do layout atual, que o L3 resolve:**
+
+1. **Hierarquia invertida no desktop.** O logo do cabeçalho tem 96 px (PR 45) e o H1 tem 36 px. O logo chama mais atenção que a página, e o H1 repete o nome que o logo já mostra. A Frase, que é a mensagem mais forte, aparece como texto de 16 px. → O L3 leva a Frase para o H1 e o logo para 56 px.
+2. **Nenhuma imagem.** Topo, Sobre e Serviços estão sem foto, e o site parece um rascunho. → Pendência de conteúdo, a mais importante: a foto vertical do topo.
+3. **Como funciona** está como lista numerada simples, longa no celular (4 blocos de cerca de 300 caracteres). → A trilha com abas do L3 resolve.
+4. **Sobre:** um único parágrafo de cerca de 900 caracteres em linhas de cerca de 150 caracteres no desktop, o que é cansativo de ler. Não há botão de contato. O título "Sobre mim" não combina com o texto em terceira pessoa. → No L3, limitar a largura do texto a cerca de 65 caracteres e quebrar em parágrafos pelas linhas em branco do painel; a responsável pode separar o texto em parágrafos. Acrescentar o botão "Agendar avaliação". Trocar o título no painel para "Quem é Adrielli Flores", ou reescrever o texto na primeira pessoa.
+5. **Serviços:** só 1 serviço publicado e sem botão de contato. → **Com 1 serviço, mostrar o cartão direto, sem o índice.** O índice só aparece com 2 ou mais. O botão "Agendar avaliação" fica no cartão.
+6. **Contato:** os itens aparecem como linhas de texto soltas. → Os cartões do L3.
+7. **Botão flutuante:** o ícone é um **telefone**, que dá a entender "ligar", mas ele abre o WhatsApp. → Trocar por um balão de conversa genérico, em SVG próprio, sem usar a marca do WhatsApp. O `aria-label` atual está correto.
+8. **Cabeçalho do desktop sem botão de contato.** → "Agendar avaliação" (L3.2).
+
+**Decisões respondidas pelo conteúdo:**
+
+- o **endereço do consultório** é publicado (a responsável o cadastrou);
+- o **público adulto** continua aberto: os textos fixos "seu filho" seguem como pergunta para a responsável.
+
+### Situação do site no ar (29/10, 14h)
+
+- `adrielliflores.com.br` está **sem conteúdo no painel**. A home mostra só "Adrielli Flores" e o cartão Materiais. Não há número de WhatsApp, por isso nenhum botão de contato aparece.
+- O staging também está vazio.
+- **Antes de implementar o L3**, a responsável preenche o painel da produção: Topo, Como funciona, Sobre, Contato e pelo menos 1 serviço. Só então o site pode ser avaliado com conteúdo real.
