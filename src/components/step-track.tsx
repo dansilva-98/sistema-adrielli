@@ -32,7 +32,11 @@ export function isValidStepCount(count: number): boolean {
   return count >= STEP_COUNT_MIN && count <= STEP_COUNT_MAX;
 }
 
-export function stepIndexAfterKey(current: number, count: number, key: string): number | null {
+export function stepIndexAfterKey(
+  current: number,
+  count: number,
+  key: string,
+): number | null {
   if (count <= 0) return null;
   switch (key) {
     case "ArrowRight":
@@ -87,7 +91,7 @@ function toneClass(tone: MarkerTone): string {
     case "active":
       return "bg-primary text-primary-foreground ring-[6px] ring-gold-light";
     case "inactive":
-      return "border-2 border-gold bg-surface text-text";
+      return "border-2 border-gold bg-surface text-primary";
     case "completed":
       return "bg-support text-support-foreground";
     case "filled-support":
@@ -133,7 +137,9 @@ function TrackLine({
   markers: StepTrackMarkers;
 }) {
   const start =
-    markers === "dots" ? "left-3 top-3" : "left-[1.125rem] top-[1.125rem] sm:left-5 sm:top-5";
+    markers === "dots"
+      ? "left-3 top-3"
+      : "left-[1.125rem] top-[1.125rem] sm:left-5 sm:top-5";
   return (
     <div
       aria-hidden="true"
@@ -150,15 +156,31 @@ function TrackLine({
   );
 }
 
-function StepLabel({ title }: { title: string }) {
+function StepLabel({
+  title,
+  hideOnMobile = false,
+}: {
+  title: string;
+  hideOnMobile?: boolean;
+}) {
   return (
     <span
-      aria-hidden="true"
-      className="mt-2 hidden text-center font-serif text-[1.3125rem] text-text sm:block sm:text-2xl"
+      aria-hidden={hideOnMobile || undefined}
+      className={cn(
+        "mt-2 text-center text-text",
+        hideOnMobile
+          ? "hidden font-serif text-[1.3125rem] sm:block sm:text-2xl"
+          : "font-sans text-sm sm:font-serif sm:text-[1.3125rem] sm:text-2xl",
+      )}
     >
       {title}
     </span>
   );
+}
+
+function StepIndex({ index, numbered }: { index: number; numbered: boolean }) {
+  if (!numbered) return null;
+  return <span className="sr-only">{`Etapa ${index + 1}:`}</span>;
 }
 
 export function StepTrack({
@@ -174,7 +196,9 @@ export function StepTrack({
   if (!isValidStepCount(count)) return null;
 
   const numbered = markers === "numbers";
-  const listLabel = labelledBy ? { "aria-labelledby": labelledBy } : { "aria-label": "Etapas" };
+  const listLabel = labelledBy
+    ? { "aria-labelledby": labelledBy }
+    : { "aria-label": "Etapas" };
 
   if (variant === "tabs") {
     return (
@@ -224,9 +248,9 @@ export function StepTrack({
               key={`${step.title}-${index}`}
               className="flex min-w-0 flex-1 flex-col items-center"
               aria-current={current ? "step" : undefined}
-              aria-label={stepAriaLabel(index, step.title, numbered)}
             >
               <MarkerFace index={index} tone={tone} markers={markers} />
+              <StepIndex index={index} numbered={numbered} />
               <StepLabel title={step.title} />
             </li>
           );
@@ -273,7 +297,11 @@ function TabsTrack({
     <div>
       <div className="relative">
         <TrackLine axis="horizontal" markers={markers} />
-        <div role="tablist" className="relative flex justify-between gap-2" {...listLabel}>
+        <div
+          role="tablist"
+          className="relative flex justify-between gap-2"
+          {...listLabel}
+        >
           {steps.map((step, index) => {
             const selected = index === active;
             return (
@@ -305,7 +333,7 @@ function TabsTrack({
                   })}
                   markers={markers}
                 />
-                <StepLabel title={step.title} />
+                <StepLabel hideOnMobile title={step.title} />
               </button>
             );
           })}
@@ -320,7 +348,9 @@ function TabsTrack({
         {current.title ? (
           <p className="font-serif text-xl text-text sm:text-2xl">{current.title}</p>
         ) : null}
-        {current.body ? <p className="mt-2 max-w-prose font-sans text-text">{current.body}</p> : null}
+        {current.body ? (
+          <p className="mt-2 max-w-prose font-sans text-text">{current.body}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -348,17 +378,17 @@ function VerticalTrack({
   const headersRef = useRef<Array<HTMLButtonElement | null>>([]);
   const [open, setOpen] = useState(() => clampIndex(currentIndex, count));
 
-  const activate = (index: number) => {
-    const next = clampIndex(index, count);
-    setOpen(next);
-    headersRef.current[next]?.focus();
-  };
-
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const next = stepIndexAfterKey(index, count, event.key);
-    if (next == null) return;
-    event.preventDefault();
-    activate(next);
+    if (next != null) {
+      event.preventDefault();
+      headersRef.current[next]?.focus();
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setOpen(index);
+    }
   };
 
   return (
@@ -389,18 +419,16 @@ function VerticalTrack({
                     id={`${baseId}-header-${index}`}
                     aria-expanded={expanded}
                     aria-controls={panelId}
-                    aria-label={stepAriaLabel(index, step.title, numbered)}
                     className="min-h-11 w-full rounded-sm bg-transparent p-0 text-left font-serif text-xl text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:text-2xl"
-                    onClick={() => activate(index)}
+                    onClick={() => setOpen(index)}
                     onKeyDown={(event) => onKeyDown(event, index)}
                   >
+                    <StepIndex index={index} numbered={numbered} />
                     {step.title}
                   </button>
                 ) : (
-                  <p
-                    className="font-serif text-xl text-text sm:text-2xl"
-                    aria-label={stepAriaLabel(index, step.title, numbered)}
-                  >
+                  <p className="font-serif text-xl text-text sm:text-2xl">
+                    <StepIndex index={index} numbered={numbered} />
                     {step.title}
                   </p>
                 )}

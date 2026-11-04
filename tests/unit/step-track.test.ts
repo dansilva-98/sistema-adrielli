@@ -36,6 +36,10 @@ function source(): string {
   return readFileSync(path.join("src", "components", "step-track.tsx"), "utf8");
 }
 
+function hasAriaLabelOn(markup: string, tag: "li" | "p"): boolean {
+  return new RegExp(`<${tag}\\b[^>]*\\baria-label=`, "i").test(markup);
+}
+
 describe("contagem de etapas", () => {
   it("aceita de 3 a 6 etapas, como no painel", () => {
     expect(STEP_COUNT_MIN).toBe(3);
@@ -59,10 +63,13 @@ describe("contagem de etapas", () => {
   it("renderiza 3 e 6 etapas", () => {
     const three = html({ variant: "static", steps: threeSteps });
     const six = html({ variant: "static", steps: sixSteps });
-    expect(three).toContain("1. Primeiro contato");
-    expect(three).toContain("3. Acompanhamento");
-    expect(three).not.toContain("4.");
-    expect(six).toContain("6. Encerramento");
+    expect(three).toContain("Etapa 1:");
+    expect(three).toContain("Primeiro contato");
+    expect(three).toContain("Etapa 3:");
+    expect(three).toContain("Acompanhamento");
+    expect(three).not.toContain("Etapa 4:");
+    expect(six).toContain("Etapa 6:");
+    expect(six).toContain("Encerramento");
   });
 });
 
@@ -133,19 +140,55 @@ describe("teclado", () => {
     expect(file).toContain("End");
     expect(file).toContain("event.preventDefault()");
   });
+
+  it("no acordeão, setas só movem o foco e Enter ou Espaço abrem", () => {
+    const file = source();
+    const accordionHandler = file.slice(file.indexOf("function VerticalTrack"));
+    expect(accordionHandler).toContain("headersRef.current[next]?.focus()");
+    expect(accordionHandler).toContain('event.key === "Enter" || event.key === " "');
+    expect(accordionHandler).toContain("setOpen(index)");
+    expect(accordionHandler).not.toContain("setOpen(next)");
+  });
 });
 
 describe("rótulo no celular", () => {
-  it("expõe o título no aria-label e esconde o texto visual abaixo de sm", () => {
+  it("esconde o rótulo só na variante tabs", () => {
+    const tabs = html({ variant: "tabs", steps: threeSteps });
+    const staticMarkup = html({ variant: "static", steps: threeSteps });
+    const progress = html({ variant: "progress", steps: threeSteps, currentIndex: 0 });
+    expect(tabs).toContain("hidden");
+    expect(tabs).toContain("sm:block");
+    expect(tabs).toContain('aria-label="1. Primeiro contato"');
+    expect(staticMarkup).not.toContain("hidden font-serif");
+    expect(staticMarkup).not.toContain("sm:block");
+    expect(progress).not.toContain("hidden font-serif");
+    expect(progress).not.toContain("sm:block");
+    expect(staticMarkup).toContain("font-sans text-sm");
+    expect(progress).toContain("font-sans text-sm");
+  });
+});
+
+describe("nome acessível", () => {
+  it("usa sr-only Etapa N: em static e progress, sem aria-label em li ou p", () => {
+    const variants: StepTrackProps[] = [
+      { variant: "static", steps: threeSteps },
+      { variant: "progress", steps: threeSteps, currentIndex: 1 },
+      { variant: "tabs", steps: threeSteps },
+      { variant: "vertical", steps: threeSteps },
+      { variant: "vertical", steps: threeSteps, collapsible: false },
+    ];
+    for (const props of variants) {
+      const markup = html(props);
+      expect(hasAriaLabelOn(markup, "li"), `${props.variant} li`).toBe(false);
+      expect(hasAriaLabelOn(markup, "p"), `${props.variant} p`).toBe(false);
+    }
+    const staticMarkup = html({ variant: "static", steps: threeSteps });
+    const progress = html({ variant: "progress", steps: threeSteps, currentIndex: 1 });
+    expect(staticMarkup).toContain('class="sr-only"');
+    expect(staticMarkup).toContain("Etapa 1:");
+    expect(staticMarkup).toContain("Etapa 2:");
+    expect(progress).toContain("Etapa 1:");
     expect(stepAriaLabel(0, "Primeiro contato", true)).toBe("1. Primeiro contato");
-    const markup = html({ variant: "static", steps: threeSteps });
-    expect(markup).toContain('aria-label="1. Primeiro contato"');
-    expect(markup).toContain('aria-label="2. Avaliação"');
-    expect(markup).toContain("hidden");
-    expect(markup).toContain("sm:block");
-    const file = source();
-    expect(file).toContain('hidden text-center font-serif');
-    expect(file).toContain("sm:block");
   });
 });
 

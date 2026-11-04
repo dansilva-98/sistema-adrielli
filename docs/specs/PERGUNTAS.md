@@ -67,3 +67,7 @@ Um Supabase local temporário, fora deste repositório, atende ao projeto descar
 ## E7.0 — alerta de backup parado
 
 O workflow Banco ativo consulta a API pública do GitHub, sem segredo, e falha se a última execução bem-sucedida do backup na `main` tiver 30 horas ou mais.
+
+## L3 — rótulos curtos da home
+
+Na home, os rótulos curtos da trilha (Escuta, Avaliação, Intervenção, Evolução) são texto fixo da página, separados do título completo cadastrado no CMS. Se o CMS mudar os títulos das etapas, o rótulo curto continua o mesmo. Sem campo novo no painel nesta tarefa.
