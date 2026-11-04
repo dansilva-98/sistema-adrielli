@@ -89,7 +89,7 @@ describe("variante tabs", () => {
     expect(markup).toContain("Etapa 1 de 3");
     expect(markup).toContain("Anterior");
     expect(markup).toContain("Próxima etapa");
-    expect(markup).toContain("Toque em cada etapa para ver os detalhes.");
+    expect(markup).not.toContain("Toque em cada etapa para ver os detalhes.");
   });
 
   it("expõe o padrão WAI-ARIA Tabs com ativação no primeiro item", () => {

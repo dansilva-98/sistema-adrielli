@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import postgres from "postgres";
 
+import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import { createStaff, loadLocalEnv, removeStaff, signIn } from "./staff-fixtures";
@@ -17,6 +18,10 @@ function overlaps(
     first.y < second.y + second.height &&
     first.y + first.height > second.y
   );
+}
+
+function floatingWhatsApp(page: Page): Locator {
+  return page.locator('a[aria-label="Conversar pelo WhatsApp"]');
 }
 
 async function expectClearOfButton(link: Locator, button: Locator): Promise<void> {
@@ -46,6 +51,18 @@ async function restoreWhatsapp(number: string, message: string): Promise<void> {
   } finally {
     await sql.end({ timeout: 5 });
   }
+}
+
+async function saveHowItWorks(page: Page, bodies: string[]): Promise<void> {
+  await page.goto("/admin/conteudo/site");
+  const form = page
+    .locator("form")
+    .filter({ has: page.getByRole("heading", { name: "Como funciona" }) });
+  for (const [index, body] of bodies.entries()) {
+    await form.locator(`#step-body-${index}`).fill(body);
+  }
+  await form.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Salvo. O site já mostra a alteração.")).toBeVisible();
 }
 
 async function saveContact(page: Page, number: string, message: string): Promise<void> {
@@ -164,12 +181,20 @@ test.describe("site público", () => {
       mkdirSync("test-results/l2-capturas", { recursive: true });
       for (const path of ["/", "/contato"]) {
         await page.goto(path);
-        const button = page.getByRole("link", { name: "Conversar pelo WhatsApp" });
+        const button = floatingWhatsApp(page);
         await expect(button).toBeVisible();
         await expect(button).toHaveAttribute("href", WHATSAPP_HREF);
         await expect(button).toHaveAttribute("target", "_blank");
         await expect(button).toHaveAttribute("rel", "noopener noreferrer");
       }
+
+      await page.goto("/");
+      const heroWhatsApp = page
+        .getByRole("main")
+        .getByRole("link", { name: "Conversar pelo WhatsApp" });
+      await expect(heroWhatsApp).toBeVisible();
+      await expect(heroWhatsApp).toHaveAttribute("href", WHATSAPP_HREF);
+      await expect(heroWhatsApp).toHaveAttribute("target", "_blank");
 
       await page.setViewportSize({ width: 360, height: 800 });
       await page.goto("/");
@@ -179,10 +204,7 @@ test.describe("site público", () => {
         .getByRole("navigation", { name: "Rodapé" })
         .getByRole("link", { name: "Privacidade" });
       await privacy.scrollIntoViewIfNeeded();
-      await expectClearOfButton(
-        privacy,
-        page.getByRole("link", { name: "Conversar pelo WhatsApp" }),
-      );
+      await expectClearOfButton(privacy, floatingWhatsApp(page));
       const mobilePad = await page
         .locator("footer > div")
         .evaluate((element) => getComputedStyle(element).paddingBottom);
@@ -196,10 +218,7 @@ test.describe("site público", () => {
       await page.getByRole("heading", { name: "Materiais" }).scrollIntoViewIfNeeded();
       await page.screenshot({ path: "test-results/l2-capturas/desktop-1280.png" });
       await privacy.scrollIntoViewIfNeeded();
-      await expectClearOfButton(
-        privacy,
-        page.getByRole("link", { name: "Conversar pelo WhatsApp" }),
-      );
+      await expectClearOfButton(privacy, floatingWhatsApp(page));
       const desktopPad = await page
         .locator("footer > div")
         .evaluate((element) => getComputedStyle(element).paddingBottom);
@@ -210,6 +229,51 @@ test.describe("site público", () => {
     } finally {
       try {
         if (changedContact) await restoreWhatsapp(previousNumber, previousMessage);
+      } finally {
+        await removeStaff(userId);
+      }
+    }
+  });
+
+  test("as abas de Como funciona respondem ao teclado", async ({ page }) => {
+    test.setTimeout(120_000);
+    const email = `etapas-${crypto.randomUUID()}@example.com`;
+    const userId = await createStaff(email, "CONTENT_ADMIN");
+    let previousBodies: string[] | null = null;
+    try {
+      await signIn(page, email);
+      await page.goto("/admin/conteudo/site");
+      const howForm = page
+        .locator("form")
+        .filter({ has: page.getByRole("heading", { name: "Como funciona" }) });
+      const fields = howForm.locator("textarea");
+      const count = await fields.count();
+      expect(count).toBeGreaterThanOrEqual(3);
+      previousBodies = [];
+      const nextBodies: string[] = [];
+      for (let index = 0; index < count; index += 1) {
+        previousBodies.push(await fields.nth(index).inputValue());
+        nextBodies.push(`Texto da etapa ${index + 1}.`);
+      }
+      await saveHowItWorks(page, nextBodies);
+      await page.goto("/");
+      const tabs = page.getByRole("tab");
+      await expect(tabs).toHaveCount(count);
+      await tabs.first().focus();
+      await page.keyboard.press("ArrowRight");
+      await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+      await expect(tabs.nth(1)).toBeFocused();
+      await page.keyboard.press("End");
+      await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+      await page.keyboard.press("Home");
+      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+      const results = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+        .analyze();
+      expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
+    } finally {
+      try {
+        if (previousBodies) await saveHowItWorks(page, previousBodies);
       } finally {
         await removeStaff(userId);
       }

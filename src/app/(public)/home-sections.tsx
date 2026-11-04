@@ -38,7 +38,13 @@ export function HomeContent({
 
   return (
     <div className="flex flex-col gap-12">
-      <section className="grid items-center gap-8 lg:grid-cols-2">
+      <section
+        className={
+          site.heroImagePath
+            ? "grid items-center gap-8 lg:grid-cols-2"
+            : "grid max-w-3xl gap-8"
+        }
+      >
         <div className="flex flex-col gap-4">
           <h1
             className={`font-serif leading-tight text-text ${heroHeadingClass(heading)}`}
@@ -83,9 +89,12 @@ export function HomeContent({
       ) : null}
       {hasHowItWorks(site) ? (
         <section id="como-funciona" className="flex flex-col gap-6">
-          <h2 id="como-funciona-titulo" className="font-serif text-2xl">
+          <h2 id="como-funciona-titulo" className="font-serif text-3xl sm:text-5xl">
             Como funciona
           </h2>
+          <p className="font-sans text-sm text-muted sm:hidden">
+            Toque em cada etapa para ver os detalhes.
+          </p>
           <StepTrack
             variant="tabs"
             steps={steps}

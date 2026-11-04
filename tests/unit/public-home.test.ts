@@ -111,6 +111,7 @@ describe("site público", () => {
     expect(html).toContain("Ver materiais");
     expect(html).toContain("Como é o atendimento");
     expect(html).not.toContain("Conversar pelo WhatsApp");
+    expect(html).not.toContain("lg:grid-cols-2");
   });
 
   it("monta o topo e a trilha a partir do painel", async () => {
@@ -155,7 +156,39 @@ describe("site público", () => {
     expect(html).toContain("Etapa 1 de 3");
     expect(html).toContain("Anterior");
     expect(html).toContain("Próxima etapa");
+    expect(html).toContain("Toque em cada etapa para ver os detalhes.");
+    expect(html).toContain("text-3xl sm:text-5xl");
+    expect(html).not.toContain("lg:grid-cols-2");
+    expect(html).toContain("max-w-3xl");
     expect(html).not.toContain("Conhecer os serviços");
+  });
+
+  it("usa duas colunas no topo só quando há foto", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||= "http://127.0.0.1:54321";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||= "test-anon-key";
+    process.env.NEXT_PUBLIC_SENTRY_DSN ||= "https://public@sentry.example/1";
+    process.env.NEXT_PUBLIC_SITE_URL ||= "http://127.0.0.1:3000";
+    const home = await import("@/app/(public)/home-sections");
+    const HomeContent = home.HomeContent as ComponentType<{
+      site: typeof EMPTY_PUBLIC_SITE;
+      services: [];
+      testimonials: [];
+      faq: [];
+    }>;
+    const html = renderToStaticMarkup(
+      createElement(HomeContent, {
+        site: {
+          ...EMPTY_PUBLIC_SITE,
+          heroTitle: "Adrielli Flores",
+          heroImagePath: placeholder,
+          heroImageAlt: "Sala",
+        },
+        services: [],
+        testimonials: [],
+        faq: [],
+      }),
+    );
+    expect(html).toContain("lg:grid-cols-2");
   });
 
   it("mostra só o começo do texto", () => {

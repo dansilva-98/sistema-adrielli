@@ -67,3 +67,7 @@ Um Supabase local temporário, fora deste repositório, atende ao projeto descar
 ## E7.0 — alerta de backup parado
 
 O workflow Banco ativo consulta a API pública do GitHub, sem segredo, e falha se a última execução bem-sucedida do backup na `main` tiver 30 horas ou mais.
+
+## Manutenção — E2E staff-areas e Date.now no prerender
+
+O teste `tests/e2e/staff-areas.spec.ts` (“CONTENT_ADMIN salva o topo e confirma antes de sair”) ficou instável no CI. Há avisos de `Date.now()` no prerender de `/equipe/*` (a guarda já chama `connection()`, mas o contexto ainda lê o relógio). Tratar num PR de manutenção, fora do L3.3.

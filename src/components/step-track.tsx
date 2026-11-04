@@ -360,28 +360,23 @@ function TabsTrack({
           <p className="mt-2 max-w-prose font-sans text-text">{current.body}</p>
         ) : null}
         {panelNav ? (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-            <p className="font-sans text-sm text-muted sm:hidden">
-              Toque em cada etapa para ver os detalhes.
-            </p>
-            <div className="flex gap-4">
-              <button
-                type="button"
-                className="font-sans text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-muted disabled:no-underline"
-                disabled={active === 0}
-                onClick={() => activate(active - 1)}
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                className="font-sans text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-muted disabled:no-underline"
-                disabled={active === count - 1}
-                onClick={() => activate(active + 1)}
-              >
-                Próxima etapa
-              </button>
-            </div>
+          <div className="mt-6 flex gap-4">
+            <button
+              type="button"
+              className="font-sans text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-muted disabled:no-underline"
+              disabled={active === 0}
+              onClick={() => activate(active - 1)}
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              className="font-sans text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-muted disabled:no-underline"
+              disabled={active === count - 1}
+              onClick={() => activate(active + 1)}
+            >
+              Próxima etapa
+            </button>
           </div>
         ) : null}
       </div>
