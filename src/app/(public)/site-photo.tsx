@@ -1,14 +1,17 @@
 import { clientEnv } from "@/lib/env-client";
+import { cn } from "@/lib/utils";
 import { sitePublicImageUrl } from "@/modules/content/image-path";
 
 export function SitePhoto({
   path,
   alt,
   priority = false,
+  className,
 }: {
   path: string;
   alt: string;
   priority?: boolean;
+  className?: string;
 }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -18,7 +21,7 @@ export function SitePhoto({
       fetchPriority={priority ? "high" : "auto"}
       loading={priority ? "eager" : "lazy"}
       decoding="async"
-      className="h-auto max-h-[32rem] w-full rounded-lg object-cover"
+      className={cn("h-auto max-h-[32rem] w-full rounded-lg object-cover", className)}
     />
   );
 }
