@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 test("a home responde 200 e mostra a marca", async ({ page }) => {
@@ -6,6 +7,14 @@ test("a home responde 200 e mostra a marca", async ({ page }) => {
   await expect(
     page.getByRole("banner").getByRole("link", { name: "Adrielli Flores" }),
   ).toBeVisible();
+});
+
+test("axe não encontra violações na home", async ({ page }) => {
+  await page.goto("/");
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
 });
 
 test("os cabeçalhos de segurança estão na home e na saúde", async ({ request }) => {

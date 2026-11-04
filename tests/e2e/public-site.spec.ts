@@ -3,7 +3,13 @@ import postgres from "postgres";
 
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import { createStaff, loadLocalEnv, removeStaff, signIn } from "./staff-fixtures";
+import {
+  createStaff,
+  loadLocalEnv,
+  ownerSql,
+  removeStaff,
+  signIn,
+} from "./staff-fixtures";
 
 const WHATSAPP_HREF = "https://wa.me/5511999999999?text=Ol%C3%A1";
 
@@ -17,6 +23,10 @@ function overlaps(
     first.y < second.y + second.height &&
     first.y + first.height > second.y
   );
+}
+
+function floatingWhatsApp(page: Page): Locator {
+  return page.locator('a[aria-label="Conversar pelo WhatsApp"]');
 }
 
 async function expectClearOfButton(link: Locator, button: Locator): Promise<void> {
@@ -46,6 +56,42 @@ async function restoreWhatsapp(number: string, message: string): Promise<void> {
   } finally {
     await sql.end({ timeout: 5 });
   }
+}
+
+type HowItWorksStep = { title: string; body: string };
+
+const KEYBOARD_STEPS: HowItWorksStep[] = [
+  { title: "Primeiro contato", body: "Agende a conversa." },
+  { title: "Avaliação", body: "Entenda o quadro." },
+  { title: "Acompanhamento", body: "Siga o plano." },
+];
+
+function asHowSteps(value: unknown): HowItWorksStep[] {
+  const parsed = typeof value === "string" ? JSON.parse(value) : value;
+  if (!Array.isArray(parsed)) throw new Error("how_it_works inválido.");
+  return parsed as HowItWorksStep[];
+}
+
+async function readHowItWorks(
+  sql: ReturnType<typeof ownerSql>,
+): Promise<HowItWorksStep[]> {
+  const rows = await sql<{ how_it_works: unknown }[]>`
+    select how_it_works from content.site_settings where id = 1
+  `;
+  const row = rows[0];
+  if (!row) throw new Error("site_settings ausente.");
+  return asHowSteps(row.how_it_works);
+}
+
+async function writeHowItWorks(
+  sql: ReturnType<typeof ownerSql>,
+  steps: HowItWorksStep[],
+): Promise<void> {
+  await sql`
+    update content.site_settings
+    set how_it_works = ${sql.json(steps)}
+    where id = 1
+  `;
 }
 
 async function saveContact(page: Page, number: string, message: string): Promise<void> {
@@ -164,12 +210,20 @@ test.describe("site público", () => {
       mkdirSync("test-results/l2-capturas", { recursive: true });
       for (const path of ["/", "/contato"]) {
         await page.goto(path);
-        const button = page.getByRole("link", { name: "Conversar pelo WhatsApp" });
+        const button = floatingWhatsApp(page);
         await expect(button).toBeVisible();
         await expect(button).toHaveAttribute("href", WHATSAPP_HREF);
         await expect(button).toHaveAttribute("target", "_blank");
         await expect(button).toHaveAttribute("rel", "noopener noreferrer");
       }
+
+      await page.goto("/");
+      const heroWhatsApp = page
+        .getByRole("main")
+        .getByRole("link", { name: "Conversar pelo WhatsApp" });
+      await expect(heroWhatsApp).toBeVisible();
+      await expect(heroWhatsApp).toHaveAttribute("href", WHATSAPP_HREF);
+      await expect(heroWhatsApp).toHaveAttribute("target", "_blank");
 
       await page.setViewportSize({ width: 360, height: 800 });
       await page.goto("/");
@@ -179,10 +233,7 @@ test.describe("site público", () => {
         .getByRole("navigation", { name: "Rodapé" })
         .getByRole("link", { name: "Privacidade" });
       await privacy.scrollIntoViewIfNeeded();
-      await expectClearOfButton(
-        privacy,
-        page.getByRole("link", { name: "Conversar pelo WhatsApp" }),
-      );
+      await expectClearOfButton(privacy, floatingWhatsApp(page));
       const mobilePad = await page
         .locator("footer > div")
         .evaluate((element) => getComputedStyle(element).paddingBottom);
@@ -196,10 +247,7 @@ test.describe("site público", () => {
       await page.getByRole("heading", { name: "Materiais" }).scrollIntoViewIfNeeded();
       await page.screenshot({ path: "test-results/l2-capturas/desktop-1280.png" });
       await privacy.scrollIntoViewIfNeeded();
-      await expectClearOfButton(
-        privacy,
-        page.getByRole("link", { name: "Conversar pelo WhatsApp" }),
-      );
+      await expectClearOfButton(privacy, floatingWhatsApp(page));
       const desktopPad = await page
         .locator("footer > div")
         .evaluate((element) => getComputedStyle(element).paddingBottom);
@@ -212,6 +260,49 @@ test.describe("site público", () => {
         if (changedContact) await restoreWhatsapp(previousNumber, previousMessage);
       } finally {
         await removeStaff(userId);
+      }
+    }
+  });
+
+  test("as abas de Como funciona respondem ao teclado", async ({ page }) => {
+    const sql = ownerSql();
+    let previous: HowItWorksStep[] | null = null;
+    try {
+      previous = await readHowItWorks(sql);
+      await writeHowItWorks(sql, KEYBOARD_STEPS);
+      await page.goto("/");
+      const total = KEYBOARD_STEPS.length;
+      const tabs = page.getByRole("tab");
+      await expect(tabs).toHaveCount(total);
+      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
+      await tabs.first().focus();
+      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+      await expect(tabs.first()).toBeFocused();
+
+      await page.keyboard.press("ArrowRight");
+      await expect(tabs.nth(1)).toBeFocused();
+      await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByText(`Etapa 2 de ${total}`)).toBeVisible();
+
+      await page.keyboard.press("ArrowLeft");
+      await expect(tabs.first()).toBeFocused();
+      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
+
+      await page.keyboard.press("End");
+      await expect(tabs.last()).toBeFocused();
+      await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByText(`Etapa ${total} de ${total}`)).toBeVisible();
+
+      await page.keyboard.press("Home");
+      await expect(tabs.first()).toBeFocused();
+      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
+    } finally {
+      try {
+        if (previous) await writeHowItWorks(sql, previous);
+      } finally {
+        await sql.end({ timeout: 5 });
       }
     }
   });
