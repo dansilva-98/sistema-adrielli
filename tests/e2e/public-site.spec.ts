@@ -66,6 +66,13 @@ const KEYBOARD_STEPS: HowItWorksStep[] = [
   { title: "Acompanhamento", body: "Siga o plano." },
 ];
 
+const LINE_STEPS: HowItWorksStep[] = [
+  { title: "Primeiro contato", body: "Agende a conversa." },
+  { title: "Avaliação", body: "Entenda o quadro." },
+  { title: "Intervenção", body: "Aplique o plano." },
+  { title: "Evolução", body: "Acompanhe o avanço." },
+];
+
 function asHowSteps(value: unknown): HowItWorksStep[] {
   const parsed = typeof value === "string" ? JSON.parse(value) : value;
   if (!Array.isArray(parsed)) throw new Error("how_it_works inválido.");
@@ -273,46 +280,86 @@ test.describe("site público", () => {
     }
   });
 
-  test("as abas de Como funciona respondem ao teclado", async ({ page }) => {
-    const sql = ownerSql();
-    let previous: HowItWorksStep[] | null = null;
-    try {
-      previous = await readHowItWorks(sql);
-      await writeHowItWorks(sql, KEYBOARD_STEPS);
-      await page.goto("/");
-      const total = KEYBOARD_STEPS.length;
-      const tabs = page.getByRole("tab");
-      await expect(tabs).toHaveCount(total);
-      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
-      await tabs.first().focus();
-      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-      await expect(tabs.first()).toBeFocused();
+  test.describe("Como funciona", () => {
+    test.describe.configure({ mode: "serial" });
 
-      await page.keyboard.press("ArrowRight");
-      await expect(tabs.nth(1)).toBeFocused();
-      await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByText(`Etapa 2 de ${total}`)).toBeVisible();
-
-      await page.keyboard.press("ArrowLeft");
-      await expect(tabs.first()).toBeFocused();
-      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
-
-      await page.keyboard.press("End");
-      await expect(tabs.last()).toBeFocused();
-      await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByText(`Etapa ${total} de ${total}`)).toBeVisible();
-
-      await page.keyboard.press("Home");
-      await expect(tabs.first()).toBeFocused();
-      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
-    } finally {
+    test("as abas de Como funciona respondem ao teclado", async ({ page }) => {
+      const sql = ownerSql();
+      let previous: HowItWorksStep[] | null = null;
       try {
-        if (previous) await writeHowItWorks(sql, previous);
+        previous = await readHowItWorks(sql);
+        await writeHowItWorks(sql, KEYBOARD_STEPS);
+        await page.goto("/");
+        const total = KEYBOARD_STEPS.length;
+        const tabs = page.getByRole("tab");
+        await expect(tabs).toHaveCount(total);
+        await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
+        await tabs.first().focus();
+        await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+        await expect(tabs.first()).toBeFocused();
+
+        await page.keyboard.press("ArrowRight");
+        await expect(tabs.nth(1)).toBeFocused();
+        await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+        await expect(page.getByText(`Etapa 2 de ${total}`)).toBeVisible();
+
+        await page.keyboard.press("ArrowLeft");
+        await expect(tabs.first()).toBeFocused();
+        await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+        await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
+
+        await page.keyboard.press("End");
+        await expect(tabs.last()).toBeFocused();
+        await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+        await expect(page.getByText(`Etapa ${total} de ${total}`)).toBeVisible();
+
+        await page.keyboard.press("Home");
+        await expect(tabs.first()).toBeFocused();
+        await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+        await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
       } finally {
-        await sql.end({ timeout: 5 });
+        try {
+          if (previous) await writeHowItWorks(sql, previous);
+        } finally {
+          await sql.end({ timeout: 5 });
+        }
       }
-    }
+    });
+
+    test("a linha dourada termina no último marcador a 375 px", async ({ page }) => {
+      const sql = ownerSql();
+      let previous: HowItWorksStep[] | null = null;
+      try {
+        previous = await readHowItWorks(sql);
+        await writeHowItWorks(sql, LINE_STEPS);
+        await page.setViewportSize({ width: 375, height: 800 });
+        await page.goto("/");
+        await expect(page.getByRole("tab")).toHaveCount(LINE_STEPS.length);
+        const tablist = page.locator("#como-funciona [role='tablist']");
+        await tablist.scrollIntoViewIfNeeded();
+        const alignment = await tablist.evaluate((list) => {
+          const line = list.previousElementSibling;
+          const tabs = list.querySelectorAll('[role="tab"]');
+          const marker = tabs[tabs.length - 1]?.querySelector("span");
+          if (!(line instanceof HTMLElement) || !(marker instanceof HTMLElement)) {
+            return { ok: false, delta: Number.POSITIVE_INFINITY };
+          }
+          const lineRight = line.getBoundingClientRect().right;
+          const markerBox = marker.getBoundingClientRect();
+          return {
+            ok: true,
+            delta: Math.abs(lineRight - (markerBox.left + markerBox.width / 2)),
+          };
+        });
+        expect(alignment.ok).toBe(true);
+        expect(alignment.delta).toBeLessThanOrEqual(2);
+      } finally {
+        try {
+          if (previous) await writeHowItWorks(sql, previous);
+        } finally {
+          await sql.end({ timeout: 5 });
+        }
+      }
+    });
   });
 });
