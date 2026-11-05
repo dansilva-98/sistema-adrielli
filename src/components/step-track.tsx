@@ -166,15 +166,13 @@ function StepLabel({
 }) {
   return (
     <span
-      aria-hidden={hideOnMobile || undefined}
       className={cn(
         "mt-2 text-center text-text",
         hideOnMobile
-          ? "hidden font-serif text-[1.3125rem] sm:block sm:text-2xl"
+          ? "sr-only font-serif text-[1.3125rem] sm:not-sr-only sm:text-2xl"
           : "font-sans text-sm sm:font-serif sm:text-[1.3125rem] sm:text-2xl",
       )}
     >
-      {hideOnMobile ? "\u200B" : null}
       {title}
     </span>
   );
@@ -182,7 +180,7 @@ function StepLabel({
 
 function StepIndex({ index, numbered }: { index: number; numbered: boolean }) {
   if (!numbered) return null;
-  return <span className="sr-only">{`Etapa ${index + 1}:`}</span>;
+  return <span className="sr-only">{`Etapa ${index + 1}: `}</span>;
 }
 
 export function StepTrack({
@@ -321,7 +319,6 @@ function TabsTrack({
                 id={`${baseId}-tab-${index}`}
                 aria-selected={selected}
                 aria-controls={`${baseId}-panel`}
-                aria-label={stepAriaLabel(index, step.title, numbered)}
                 tabIndex={selected ? 0 : -1}
                 className="flex min-h-11 min-w-11 flex-col items-center rounded-sm bg-transparent p-0 text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-1"
                 onClick={() => activate(index)}
@@ -339,6 +336,7 @@ function TabsTrack({
                   })}
                   markers={markers}
                 />
+                <StepIndex index={index} numbered={numbered} />
                 <StepLabel hideOnMobile title={step.title} />
               </button>
             );

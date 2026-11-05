@@ -36,7 +36,7 @@ function source(): string {
   return readFileSync(path.join("src", "components", "step-track.tsx"), "utf8");
 }
 
-function hasAriaLabelOn(markup: string, tag: "li" | "p"): boolean {
+function hasAriaLabelOn(markup: string, tag: "li" | "p" | "button"): boolean {
   return new RegExp(`<${tag}\\b[^>]*\\baria-label=`, "i").test(markup);
 }
 
@@ -171,14 +171,17 @@ describe("rótulo no celular", () => {
     const tabs = html({ variant: "tabs", steps: threeSteps });
     const staticMarkup = html({ variant: "static", steps: threeSteps });
     const progress = html({ variant: "progress", steps: threeSteps, currentIndex: 0 });
-    expect(tabs).toContain("hidden");
-    expect(tabs).toContain("sm:block");
-    expect(tabs).toContain("\u200BPrimeiro contato");
-    expect(tabs).toContain('aria-label="Etapa 1: Primeiro contato"');
+    expect(tabs).toContain("sr-only");
+    expect(tabs).toContain("sm:not-sr-only");
+    expect(tabs).toContain("Etapa 1:");
+    expect(tabs).not.toContain('aria-label="Etapa 1: Primeiro contato"');
+    expect(hasAriaLabelOn(tabs, "button")).toBe(false);
     expect(staticMarkup).not.toContain("hidden font-serif");
     expect(staticMarkup).not.toContain("sm:block");
+    expect(staticMarkup).not.toContain("sm:not-sr-only");
     expect(progress).not.toContain("hidden font-serif");
     expect(progress).not.toContain("sm:block");
+    expect(progress).not.toContain("sm:not-sr-only");
     expect(staticMarkup).toContain("font-sans text-sm");
     expect(progress).toContain("font-sans text-sm");
   });
@@ -197,6 +200,7 @@ describe("nome acessível", () => {
       const markup = html(props);
       expect(hasAriaLabelOn(markup, "li"), `${props.variant} li`).toBe(false);
       expect(hasAriaLabelOn(markup, "p"), `${props.variant} p`).toBe(false);
+      expect(hasAriaLabelOn(markup, "button"), `${props.variant} button`).toBe(false);
     }
     const staticMarkup = html({ variant: "static", steps: threeSteps });
     const progress = html({ variant: "progress", steps: threeSteps, currentIndex: 1 });
