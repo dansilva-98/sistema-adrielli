@@ -1,9 +1,9 @@
 import { mkdirSync } from "node:fs";
-import postgres from "postgres";
 
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import { createStaff, loadLocalEnv, removeStaff, signIn } from "./staff-fixtures";
+import { createStaff, removeStaff, signIn } from "./staff-fixtures";
+import { saveContact } from "./site-cms";
 
 const WHATSAPP_HREF = "https://wa.me/5511999999999?text=Ol%C3%A1";
 
@@ -32,35 +32,6 @@ async function expectClearOfButton(link: Locator, button: Locator): Promise<void
   expect(buttonBox.width).toBeGreaterThanOrEqual(48);
   expect(buttonBox.height).toBeGreaterThanOrEqual(48);
   expect(overlaps(linkBox, buttonBox)).toBe(false);
-}
-
-async function restoreWhatsapp(number: string, message: string): Promise<void> {
-  loadLocalEnv();
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("Ambiente local ausente.");
-  const digits = number.replace(/\D/g, "");
-  const sql = postgres(databaseUrl, { max: 1, prepare: false, connect_timeout: 5 });
-  try {
-    await sql`
-      update content.site_settings
-      set whatsapp_number = ${digits || null},
-          whatsapp_message = ${message}
-      where id = 1
-    `;
-  } finally {
-    await sql.end({ timeout: 5 });
-  }
-}
-
-async function saveContact(page: Page, number: string, message: string): Promise<void> {
-  await page.goto("/admin/conteudo/site");
-  const form = page
-    .locator("form")
-    .filter({ has: page.getByRole("heading", { name: "Contato" }) });
-  await form.getByLabel("WhatsApp").fill(number);
-  await form.getByLabel("Mensagem").fill(message);
-  await form.getByRole("button", { name: "Salvar" }).click();
-  await expect(page.getByText("Salvo. O site já mostra a alteração.")).toBeVisible();
 }
 
 const PAGES = [
@@ -218,13 +189,19 @@ test.describe("site público", () => {
       const desktopPad = await page
         .locator("footer > div")
         .evaluate((element) => getComputedStyle(element).paddingBottom);
-      expect(desktopPad).toBe("24px");
+      expect(desktopPad).toBe("40px");
       await page.screenshot({ path: "test-results/l2-capturas/desktop-1280-rodape.png" });
-      await restoreWhatsapp(previousNumber, previousMessage);
+      await signIn(page, email);
+      await expect(page).toHaveURL(/\/admin$/);
+      await saveContact(page, previousNumber, previousMessage);
       changedContact = false;
     } finally {
       try {
-        if (changedContact) await restoreWhatsapp(previousNumber, previousMessage);
+        if (changedContact) {
+          await signIn(page, email);
+          await expect(page).toHaveURL(/\/admin$/);
+          await saveContact(page, previousNumber, previousMessage);
+        }
       } finally {
         await removeStaff(userId);
       }

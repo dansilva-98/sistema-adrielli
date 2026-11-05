@@ -115,20 +115,14 @@ Na variante `tabs` da home, o cartão tem os links **"Anterior"** e **"Próxima 
 ## L3.2 — Cabeçalho e rodapé públicos
 
 - **`public-header.tsx`:**
-  - logo com subtítulo, altura de 56 px no desktop e 44 px no celular;
-  - links Sobre, Serviços, Materiais e Contato;
+  - logo com subtítulo, altura de 56 px a partir de `lg` e 44 px abaixo disso;
+  - links Início, Sobre, Serviços, Materiais e Contato (Início primeiro);
   - botão primário **"Agendar avaliação"**, que abre `site.whatsappUrl`;
   - página atual com `aria-current="page"` e sublinhado de 2 px em `--gold`.
 - Quando a loja estiver ativa (E3), entram "Minha conta" e "Carrinho (n)".
-- No celular, o menu abre por um botão de 44 × 44 px com `aria-label="Abrir menu"`.
-- **`public-footer.tsx`:**
-  - fundo `--text`;
-  - título "A etapa 1 começa com uma mensagem.";
-  - botão em `--gold-light` "Chamar no WhatsApp";
-  - Instagram;
-  - logo claro;
-  - link Privacidade.
-- Manter o espaçamento do L2.3 e a área do botão flutuante.
+- O menu do celular vale até `lg` (1024 px), por um botão de 44 × 44 px com `aria-label="Abrir menu"`.
+- **`public-footer.tsx`:** ver a decisão de 05/11/2026 (tarde).
+- Manter a área do botão flutuante.
 
 ## L3.3 — Páginas públicas
 
@@ -406,3 +400,40 @@ Conferido em `adrielliflores.com.br`, a 1280 px e a 375 px, depois que a respons
 - `adrielliflores.com.br` está **sem conteúdo no painel**. A home mostra só "Adrielli Flores" e o cartão Materiais. Não há número de WhatsApp, por isso nenhum botão de contato aparece.
 - O staging também está vazio.
 - **Antes de implementar o L3**, a responsável preenche o painel da produção: Topo, Como funciona, Sobre, Contato e pelo menos 1 serviço. Só então o site pode ser avaliado com conteúdo real.
+
+### Decisão de 05/11/2026 (tarde): rodapé reorganizado, "Início" de volta e menu até 1024 px
+
+Pedido da responsável depois de ver o staging com o PR 81. A largura foi corrigida, mas a composição do rodapé ficou desorganizada: itens empilhados, logo no fim, "Privacidade" sozinho à direita e espaço vazio.
+
+**Cabeçalho**
+
+- "Início" volta como primeiro link e substitui a decisão anterior de tirá-lo. Leva `aria-current="page"` na home, com o mesmo sublinhado dourado.
+- Com 5 links e "Agendar avaliação", a barra não cabe em 768 px. Por isso, o **menu do celular vale até `lg` (1024 px)**: trocar `md:` por `lg:` no botão e na `nav`.
+- Logo: `h-11`, e `lg:h-14` a partir de `lg`.
+- Links com 15 px (`text-[0.9375rem]`) e alvo de 44 px.
+- Menu aberto: lista com `border-t` e "Agendar avaliação" no fim, com `mt-2`.
+
+**Rodapé**
+
+- Grade em duas zonas:
+  - em cima, à esquerda, a frase "A etapa 1 começa com uma mensagem." (`font-serif`, 28 px no celular e 36 px a partir de `sm`, `max-w-[18ch]`, `text-balance`) e "Chamar no WhatsApp";
+  - em cima, à direita a partir de `md`, o logo claro alinhado à base (`h-10`, `md:h-12`). No celular, o logo fica abaixo do botão;
+  - embaixo, uma linha `border-t border-gold-light/20` e, abaixo dela, "Instagram" e "Privacidade" lado a lado (14 px, alvos de 44 px).
+- Margem inferior para o botão flutuante: `pb-[calc(6rem+env(safe-area-inset-bottom))]` até `lg`; a partir de `lg`, `pb-10`.
+- Nenhum conteúdo novo e nenhum campo novo: tudo que já estava no rodapé, só reorganizado.
+
+**Regra de responsividade (vale para o L3 todo)**
+
+- Larguras conferidas: 320, 375, 768, 1024 e 1280 px, sem rolagem horizontal.
+- Quando não couber: primeiro reduzir a fonte dentro dos mínimos (corpo 16 px, links 14 px), depois quebrar a linha ou mudar a ordem, e só então esconder no menu.
+- Os alvos de toque nunca ficam abaixo de 44 px.
+- Imagens podem mudar de posição ou de tamanho entre as larguras.
+
+**Testes**
+
+- Unidade: "Início" é o primeiro link e tem `aria-current` em "/"; o botão de menu tem `lg:hidden`.
+- E2E:
+  - a 768 px, o menu está fechado, abre e mostra os 6 itens;
+  - a 1280 px, a `nav` aparece sem o botão;
+  - no rodapé a 375 e 1280 px, não há rolagem horizontal, a frase fica acima do botão e "Instagram" e "Privacidade" ficam na mesma linha (mesmo `top`);
+  - o axe em `/` continua passando.

@@ -9,8 +9,25 @@ test("a home responde 200 e mostra a marca", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("o HTML inicial já traz a nav Principal e o Início", async ({ request }) => {
+  const response = await request.get("/");
+  expect(response.ok()).toBe(true);
+  const html = await response.text();
+  expect(html).toContain('aria-label="Principal"');
+  expect(html).toContain("Início");
+});
+
 test("o cabeçalho leva às páginas públicas e marca a atual", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await expect(page.locator("header")).toHaveCount(1);
+  const nav = page.getByRole("navigation", { name: "Principal" });
+  await expect(page.getByRole("button", { name: "Abrir menu" })).toBeHidden();
+  await expect(nav.getByRole("link", { name: "Início" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Início" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   const pages = [
     { name: "Sobre", url: /\/sobre$/ },
     { name: "Serviços", url: /\/servicos$/ },
@@ -19,16 +36,12 @@ test("o cabeçalho leva às páginas públicas e marca a atual", async ({ page }
   ] as const;
   for (const item of pages) {
     await page.goto("/");
-    await page
-      .getByRole("navigation", { name: "Principal" })
-      .getByRole("link", { name: item.name })
-      .click();
+    await nav.getByRole("link", { name: item.name }).click();
     await expect(page).toHaveURL(item.url);
-    await expect(
-      page
-        .getByRole("navigation", { name: "Principal" })
-        .getByRole("link", { name: item.name }),
-    ).toHaveAttribute("aria-current", "page");
+    await expect(nav.getByRole("link", { name: item.name })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   }
   await expect(page.getByRole("link", { name: "Agendar avaliação" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Chamar no WhatsApp" })).toHaveCount(0);
@@ -68,6 +81,7 @@ for (const width of [360, 1280]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/");
     if (width === 360) {
+      await expect(page.locator("header")).toHaveCount(1);
       const menu = page.getByRole("button", { name: "Abrir menu" });
       const menuBox = await menu.boundingBox();
       expect(menuBox).not.toBeNull();
