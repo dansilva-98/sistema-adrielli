@@ -218,7 +218,7 @@ test.describe("site público", () => {
       const desktopPad = await page
         .locator("footer > div")
         .evaluate((element) => getComputedStyle(element).paddingBottom);
-      expect(desktopPad).toBe("24px");
+      expect(desktopPad).toBe("40px");
       await page.screenshot({ path: "test-results/l2-capturas/desktop-1280-rodape.png" });
       await restoreWhatsapp(previousNumber, previousMessage);
       changedContact = false;

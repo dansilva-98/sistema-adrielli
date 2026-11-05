@@ -11,6 +11,14 @@ test("a home responde 200 e mostra a marca", async ({ page }) => {
 
 test("o cabeçalho leva às páginas públicas e marca a atual", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Principal" });
+  await expect(page.getByRole("button", { name: "Abrir menu" })).toBeHidden();
+  await expect(nav.getByRole("link", { name: "Início" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Início" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   const pages = [
     { name: "Sobre", url: /\/sobre$/ },
     { name: "Serviços", url: /\/servicos$/ },
@@ -19,16 +27,12 @@ test("o cabeçalho leva às páginas públicas e marca a atual", async ({ page }
   ] as const;
   for (const item of pages) {
     await page.goto("/");
-    await page
-      .getByRole("navigation", { name: "Principal" })
-      .getByRole("link", { name: item.name })
-      .click();
+    await nav.getByRole("link", { name: item.name }).click();
     await expect(page).toHaveURL(item.url);
-    await expect(
-      page
-        .getByRole("navigation", { name: "Principal" })
-        .getByRole("link", { name: item.name }),
-    ).toHaveAttribute("aria-current", "page");
+    await expect(nav.getByRole("link", { name: item.name })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   }
   await expect(page.getByRole("link", { name: "Agendar avaliação" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Chamar no WhatsApp" })).toHaveCount(0);

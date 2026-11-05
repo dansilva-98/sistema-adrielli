@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 const LINKS = [
+  { href: "/", label: "Início" },
   { href: "/sobre", label: "Sobre" },
   { href: "/servicos", label: "Serviços" },
   { href: "/materiais", label: "Materiais" },
@@ -25,12 +26,12 @@ export function PublicHeader({ whatsappUrl = null }: { whatsappUrl?: string | nu
             alt="Adrielli Flores, psicopedagoga e neuropsicopedagoga"
             width={474}
             height={96}
-            className="h-11 w-auto md:h-14"
+            className="h-11 w-auto lg:h-14"
           />
         </Link>
         <button
           type="button"
-          className="inline-flex size-11 items-center justify-center rounded-md border border-border text-sm md:hidden"
+          className="inline-flex size-11 items-center justify-center rounded-md border border-border text-sm lg:hidden"
           aria-label={open ? "Fechar menu" : "Abrir menu"}
           aria-expanded={open}
           aria-controls="public-nav"
@@ -41,11 +42,7 @@ export function PublicHeader({ whatsappUrl = null }: { whatsappUrl?: string | nu
         <nav
           id="public-nav"
           aria-label="Principal"
-          className={
-            open
-              ? "flex w-full flex-col items-start gap-3 md:w-auto md:flex-row md:items-center md:gap-6"
-              : "hidden w-full flex-col items-start gap-3 md:flex md:w-auto md:flex-row md:items-center md:gap-6"
-          }
+          className={`${open ? "flex" : "hidden lg:flex"} w-full flex-col items-start gap-3 border-t pt-2 lg:w-auto lg:flex-row lg:items-center lg:gap-6 lg:border-0 lg:pt-0`}
         >
           {LINKS.map((link) => {
             const current = pathname === link.href;
@@ -56,8 +53,8 @@ export function PublicHeader({ whatsappUrl = null }: { whatsappUrl?: string | nu
                 aria-current={current ? "page" : undefined}
                 className={
                   current
-                    ? "inline-flex min-h-11 items-center text-sm text-text underline decoration-gold decoration-2 underline-offset-4"
-                    : "inline-flex min-h-11 items-center text-sm text-text underline-offset-4 hover:underline"
+                    ? "inline-flex min-h-11 items-center text-[0.9375rem] text-text underline decoration-gold decoration-2 underline-offset-4"
+                    : "inline-flex min-h-11 items-center text-[0.9375rem] text-text underline-offset-4 hover:underline"
                 }
                 onClick={() => setOpen(false)}
               >
@@ -70,7 +67,7 @@ export function PublicHeader({ whatsappUrl = null }: { whatsappUrl?: string | nu
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 w-fit items-center rounded-lg bg-primary px-4 text-sm text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="mt-2 inline-flex min-h-11 w-fit items-center rounded-lg bg-primary px-4 text-[0.9375rem] text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 lg:mt-0"
             >
               Agendar avaliação
             </a>
