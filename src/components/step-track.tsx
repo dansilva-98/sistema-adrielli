@@ -174,6 +174,7 @@ function StepLabel({
           : "font-sans text-sm sm:font-serif sm:text-[1.3125rem] sm:text-2xl",
       )}
     >
+      {hideOnMobile ? "\u200B" : null}
       {title}
     </span>
   );

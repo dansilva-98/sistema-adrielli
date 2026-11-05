@@ -173,6 +173,7 @@ describe("rótulo no celular", () => {
     const progress = html({ variant: "progress", steps: threeSteps, currentIndex: 0 });
     expect(tabs).toContain("hidden");
     expect(tabs).toContain("sm:block");
+    expect(tabs).toContain("\u200BPrimeiro contato");
     expect(tabs).toContain('aria-label="Etapa 1: Primeiro contato"');
     expect(staticMarkup).not.toContain("hidden font-serif");
     expect(staticMarkup).not.toContain("sm:block");
