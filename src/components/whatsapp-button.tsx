@@ -16,7 +16,7 @@ export function WhatsAppButton({ url }: { url: string | null }) {
         fill="currentColor"
         aria-hidden="true"
       >
-        <path d="M6 4.5A2.5 2.5 0 0 1 8.5 2h7A2.5 2.5 0 0 1 18 4.5v8A2.5 2.5 0 0 1 15.5 15H10l-4 3.5V15h-.5A2.5 2.5 0 0 1 3 12.5v-8A2.5 2.5 0 0 1 6 4.5Z" />
+        <path d="M5.5 3h13A2.5 2.5 0 0 1 21 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4h-1A2.5 2.5 0 0 1 3 13.5v-8A2.5 2.5 0 0 1 5.5 3Z" />
       </svg>
     </a>
   );

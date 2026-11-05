@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
+import postgres from "postgres";
 
 import { parseServerEnv } from "../lib/env.ts";
 
@@ -79,16 +80,59 @@ export function assertTestDatabaseUrl(
   }
 }
 
+export type HowItWorksSeedStep = { title: string; body: string };
+
+export const EMPTY_HOW_IT_WORKS: HowItWorksSeedStep[] = [
+  { title: "Contato", body: "" },
+  { title: "Avaliação", body: "" },
+  { title: "Atendimento", body: "" },
+  { title: "Acompanhamento", body: "" },
+];
+
+export const EXAMPLE_HOW_IT_WORKS: HowItWorksSeedStep[] = [
+  { title: "Contato", body: "Exemplo: o primeiro contato." },
+  { title: "Avaliação", body: "Exemplo: a avaliação do quadro." },
+  { title: "Atendimento", body: "Exemplo: o plano de atendimento." },
+  { title: "Acompanhamento", body: "Exemplo: o acompanhamento da evolução." },
+];
+
+export function howItWorksForSeed(emptySite: boolean): HowItWorksSeedStep[] {
+  return emptySite ? EMPTY_HOW_IT_WORKS : EXAMPLE_HOW_IT_WORKS;
+}
+
 function loadLocalEnv(): void {
   if (existsSync(".env.local")) loadEnvFile(".env.local");
   else if (existsSync(".env")) loadEnvFile(".env");
+}
+
+async function seedHowItWorks(databaseUrl: string, emptySite: boolean): Promise<void> {
+  const steps = howItWorksForSeed(emptySite);
+  const sql = postgres(databaseUrl, { max: 1, prepare: false, connect_timeout: 8 });
+  try {
+    const updated = await sql`
+      update content.site_settings
+      set how_it_works = ${sql.json(steps)}
+      where id = 1
+    `;
+    if (updated.count !== 1) {
+      throw new Error("Recusado: site_settings ausente.");
+    }
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
 }
 
 async function main(): Promise<void> {
   loadLocalEnv();
   const env = parseServerEnv(process.env);
   assertSeedAllowed(env.APP_ENV, env.DATABASE_URL);
-  console.log("Seed concluído. Não há tabelas de negócio para popular neste épico.");
+  const emptySite = process.env.EMPTY_SITE === "1";
+  await seedHowItWorks(env.DATABASE_URL, emptySite);
+  console.log(
+    emptySite
+      ? "Seed concluído. Como funciona ficou sem texto."
+      : "Seed concluído. Como funciona de exemplo gravado.",
+  );
 }
 
 const entry = process.argv[1]?.replaceAll("\\", "/");

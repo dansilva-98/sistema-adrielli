@@ -3,13 +3,7 @@ import postgres from "postgres";
 
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import {
-  createStaff,
-  loadLocalEnv,
-  ownerSql,
-  removeStaff,
-  signIn,
-} from "./staff-fixtures";
+import { createStaff, loadLocalEnv, removeStaff, signIn } from "./staff-fixtures";
 
 const WHATSAPP_HREF = "https://wa.me/5511999999999?text=Ol%C3%A1";
 
@@ -56,42 +50,6 @@ async function restoreWhatsapp(number: string, message: string): Promise<void> {
   } finally {
     await sql.end({ timeout: 5 });
   }
-}
-
-type HowItWorksStep = { title: string; body: string };
-
-const KEYBOARD_STEPS: HowItWorksStep[] = [
-  { title: "Primeiro contato", body: "Agende a conversa." },
-  { title: "Avaliação", body: "Entenda o quadro." },
-  { title: "Acompanhamento", body: "Siga o plano." },
-];
-
-function asHowSteps(value: unknown): HowItWorksStep[] {
-  const parsed = typeof value === "string" ? JSON.parse(value) : value;
-  if (!Array.isArray(parsed)) throw new Error("how_it_works inválido.");
-  return parsed as HowItWorksStep[];
-}
-
-async function readHowItWorks(
-  sql: ReturnType<typeof ownerSql>,
-): Promise<HowItWorksStep[]> {
-  const rows = await sql<{ how_it_works: unknown }[]>`
-    select how_it_works from content.site_settings where id = 1
-  `;
-  const row = rows[0];
-  if (!row) throw new Error("site_settings ausente.");
-  return asHowSteps(row.how_it_works);
-}
-
-async function writeHowItWorks(
-  sql: ReturnType<typeof ownerSql>,
-  steps: HowItWorksStep[],
-): Promise<void> {
-  await sql`
-    update content.site_settings
-    set how_it_works = ${sql.json(steps)}
-    where id = 1
-  `;
 }
 
 async function saveContact(page: Page, number: string, message: string): Promise<void> {
@@ -274,45 +232,56 @@ test.describe("site público", () => {
   });
 
   test("as abas de Como funciona respondem ao teclado", async ({ page }) => {
-    const sql = ownerSql();
-    let previous: HowItWorksStep[] | null = null;
-    try {
-      previous = await readHowItWorks(sql);
-      await writeHowItWorks(sql, KEYBOARD_STEPS);
-      await page.goto("/");
-      const total = KEYBOARD_STEPS.length;
-      const tabs = page.getByRole("tab");
-      await expect(tabs).toHaveCount(total);
-      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
-      await tabs.first().focus();
-      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-      await expect(tabs.first()).toBeFocused();
+    await page.goto("/");
+    const tabs = page.getByRole("tab");
+    await expect(tabs).toHaveCount(4);
+    await expect(page.getByText("Etapa 1 de 4")).toBeVisible();
+    await tabs.first().focus();
+    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.first()).toBeFocused();
 
-      await page.keyboard.press("ArrowRight");
-      await expect(tabs.nth(1)).toBeFocused();
-      await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByText(`Etapa 2 de ${total}`)).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs.nth(1)).toBeFocused();
+    await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Etapa 2 de 4")).toBeVisible();
 
-      await page.keyboard.press("ArrowLeft");
-      await expect(tabs.first()).toBeFocused();
-      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
+    await page.keyboard.press("ArrowLeft");
+    await expect(tabs.first()).toBeFocused();
+    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Etapa 1 de 4")).toBeVisible();
 
-      await page.keyboard.press("End");
-      await expect(tabs.last()).toBeFocused();
-      await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByText(`Etapa ${total} de ${total}`)).toBeVisible();
+    await page.keyboard.press("End");
+    await expect(tabs.last()).toBeFocused();
+    await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Etapa 4 de 4")).toBeVisible();
 
-      await page.keyboard.press("Home");
-      await expect(tabs.first()).toBeFocused();
-      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
-    } finally {
-      try {
-        if (previous) await writeHowItWorks(sql, previous);
-      } finally {
-        await sql.end({ timeout: 5 });
+    await page.keyboard.press("Home");
+    await expect(tabs.first()).toBeFocused();
+    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Etapa 1 de 4")).toBeVisible();
+  });
+
+  test("a linha dourada termina no último marcador a 375 px", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/");
+    await expect(page.getByRole("tab")).toHaveCount(4);
+    const tablist = page.locator("#como-funciona [role='tablist']");
+    await tablist.scrollIntoViewIfNeeded();
+    const alignment = await tablist.evaluate((list) => {
+      const line = list.previousElementSibling;
+      const tabs = list.querySelectorAll('[role="tab"]');
+      const marker = tabs[tabs.length - 1]?.querySelector("span");
+      if (!(line instanceof HTMLElement) || !(marker instanceof HTMLElement)) {
+        return { ok: false, delta: Number.POSITIVE_INFINITY };
       }
-    }
+      const lineRight = line.getBoundingClientRect().right;
+      const markerBox = marker.getBoundingClientRect();
+      return {
+        ok: true,
+        delta: Math.abs(lineRight - (markerBox.left + markerBox.width / 2)),
+      };
+    });
+    expect(alignment.ok).toBe(true);
+    expect(alignment.delta).toBeLessThanOrEqual(2);
   });
 });
