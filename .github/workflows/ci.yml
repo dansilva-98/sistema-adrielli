@@ -39,6 +39,8 @@ jobs:
         run: node --experimental-strip-types src/db/sync-app-runtime-password.ts
       - name: Carregar seed
         run: pnpm db:seed
+        env:
+          EMPTY_SITE: "1"
       - name: Carregar cabeçalhos estáticos
         run: |
           node --experimental-strip-types scripts/netlify-headers.ts
@@ -101,6 +103,8 @@ jobs:
         run: pnpm exec playwright test tests/e2e/empty-site.spec.ts
         env:
           EMPTY_SITE: "1"
+      - name: Carregar seed do fumaça
+        run: pnpm db:seed
       - name: Teste de fumaça
         run: pnpm test:e2e
       - name: Build sem banco

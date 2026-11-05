@@ -5,6 +5,7 @@ import {
   assertRuntimeDatabaseUrl,
   assertSeedAllowed,
   assertTestDatabaseUrl,
+  howItWorksForSeed,
 } from "../../src/db/seed";
 
 const localDatabaseUrl = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
@@ -60,5 +61,25 @@ describe("guarda do banco local", () => {
     );
     expect(() => assertRuntimeDatabaseUrl("staging", runtimeUrl)).toThrow(/development/);
     expect(() => assertRuntimeDatabaseUrl("development", runtimeUrl)).not.toThrow();
+  });
+});
+
+describe("seed de Como funciona", () => {
+  it("grava quatro etapas de exemplo com texto e deixa vazio com EMPTY_SITE", () => {
+    const example = howItWorksForSeed(false);
+    const empty = howItWorksForSeed(true);
+    expect(example).toHaveLength(4);
+    expect(empty).toHaveLength(4);
+    expect(example.map((step) => step.title)).toEqual([
+      "Contato",
+      "Avaliação",
+      "Atendimento",
+      "Acompanhamento",
+    ]);
+    expect(empty.map((step) => step.title)).toEqual(example.map((step) => step.title));
+    expect(
+      example.every((step) => step.body.startsWith("Exemplo:") && step.body.trim()),
+    ).toBe(true);
+    expect(empty.every((step) => step.body === "")).toBe(true);
   });
 });

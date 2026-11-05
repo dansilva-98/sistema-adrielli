@@ -27,7 +27,7 @@ O papel dono da migration continua com acesso. No E1, o runtime passa a usar `ap
 
 - `pnpm db:generate` gera a migration a partir de `src/db/schema`.
 - `pnpm db:migrate` aplica as migrations usando `MIGRATIONS_DATABASE_URL`. Em `development`, o comando seguinte alinha a senha local de `app_runtime` com `DATABASE_URL`. Fora de development a senha não é alterada.
-- `pnpm db:seed` só executa quando `APP_ENV=development` e o host de `DATABASE_URL` é `127.0.0.1` ou `localhost`. Neste épico não há tabela de negócio para popular.
+- `pnpm db:seed` só executa quando `APP_ENV=development` e o host de `DATABASE_URL` é `127.0.0.1` ou `localhost`. Grava quatro etapas de exemplo em Como funciona. Com `EMPTY_SITE=1`, deixa as etapas sem texto.
 - `pnpm db:backup` grava um dump local em `backups/` e só roda com `APP_ENV=development`. O arquivo sai nesta ordem: schema `auth`, dados de `auth.users`, `auth.identities` e `auth.mfa_factors`, schema da aplicação, dados da aplicação.
 - `pnpm content:copy-prod-to-staging` copia só o schema `content` (site, serviços, depoimentos e perguntas) e as imagens `uuid.webp` referenciadas no bucket `site-public` da produção para o staging. Não lê `.env`, `.env.local` nem arquivo nenhum. Não toca em `identity` nem `clinic`. Zera `updated_by` porque o UUID da produção não existe no staging. A origem abre com `default_transaction_read_only=on` e lê dentro de `SET TRANSACTION READ ONLY`. O destino precisa ser o `STAGING_PROJECT_REF`; a origem, o `PRODUCTION_PROJECT_REF`. Sem `--dry-run` o script esvazia as quatro tabelas de conteúdo do staging numa única transação; isso só roda com `--confirm=copy-content-production-to-staging` e autorização explícita no chat.
 

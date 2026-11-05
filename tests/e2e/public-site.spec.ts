@@ -3,13 +3,7 @@ import postgres from "postgres";
 
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import {
-  createStaff,
-  loadLocalEnv,
-  ownerSql,
-  removeStaff,
-  signIn,
-} from "./staff-fixtures";
+import { createStaff, loadLocalEnv, removeStaff, signIn } from "./staff-fixtures";
 
 const WHATSAPP_HREF = "https://wa.me/5511999999999?text=Ol%C3%A1";
 
@@ -56,58 +50,6 @@ async function restoreWhatsapp(number: string, message: string): Promise<void> {
   } finally {
     await sql.end({ timeout: 5 });
   }
-}
-
-type HowItWorksStep = { title: string; body: string };
-
-const KEYBOARD_STEPS: HowItWorksStep[] = [
-  { title: "Primeiro contato", body: "Agende a conversa." },
-  { title: "Avaliação", body: "Entenda o quadro." },
-  { title: "Acompanhamento", body: "Siga o plano." },
-];
-
-const LINE_STEPS: HowItWorksStep[] = [
-  { title: "Primeiro contato", body: "Agende a conversa." },
-  { title: "Avaliação", body: "Entenda o quadro." },
-  { title: "Intervenção", body: "Aplique o plano." },
-  { title: "Evolução", body: "Acompanhe o avanço." },
-];
-
-function asHowSteps(value: unknown): HowItWorksStep[] {
-  const parsed = typeof value === "string" ? JSON.parse(value) : value;
-  if (!Array.isArray(parsed)) throw new Error("how_it_works inválido.");
-  return parsed as HowItWorksStep[];
-}
-
-async function readHowItWorks(
-  sql: ReturnType<typeof ownerSql>,
-): Promise<HowItWorksStep[]> {
-  const rows = await sql<{ how_it_works: unknown }[]>`
-    select how_it_works from content.site_settings where id = 1
-  `;
-  const row = rows[0];
-  if (!row) throw new Error("site_settings ausente.");
-  return asHowSteps(row.how_it_works);
-}
-
-async function writeHowItWorks(
-  sql: ReturnType<typeof ownerSql>,
-  steps: HowItWorksStep[],
-): Promise<void> {
-  await sql`
-    update content.site_settings
-    set how_it_works = ${sql.json(steps)}
-    where id = 1
-  `;
-}
-
-async function publishHowItWorks(page: Page): Promise<void> {
-  await page.goto("/admin/conteudo/site");
-  const form = page
-    .locator("form")
-    .filter({ has: page.getByRole("heading", { name: "Como funciona" }) });
-  await form.getByRole("button", { name: "Salvar" }).click();
-  await expect(page.getByText("Salvo. O site já mostra a alteração.")).toBeVisible();
 }
 
 async function saveContact(page: Page, number: string, message: string): Promise<void> {
@@ -289,96 +231,57 @@ test.describe("site público", () => {
     }
   });
 
-  test.describe("Como funciona", () => {
-    test.describe.configure({ mode: "serial" });
+  test("as abas de Como funciona respondem ao teclado", async ({ page }) => {
+    await page.goto("/");
+    const tabs = page.getByRole("tab");
+    await expect(tabs).toHaveCount(4);
+    await expect(page.getByText("Etapa 1 de 4")).toBeVisible();
+    await tabs.first().focus();
+    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.first()).toBeFocused();
 
-    test("as abas de Como funciona respondem ao teclado", async ({ page }) => {
-      const sql = ownerSql();
-      let previous: HowItWorksStep[] | null = null;
-      try {
-        previous = await readHowItWorks(sql);
-        await writeHowItWorks(sql, KEYBOARD_STEPS);
-        await page.goto("/");
-        const total = KEYBOARD_STEPS.length;
-        const tabs = page.getByRole("tab");
-        await expect(tabs).toHaveCount(total);
-        await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
-        await tabs.first().focus();
-        await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-        await expect(tabs.first()).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs.nth(1)).toBeFocused();
+    await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Etapa 2 de 4")).toBeVisible();
 
-        await page.keyboard.press("ArrowRight");
-        await expect(tabs.nth(1)).toBeFocused();
-        await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
-        await expect(page.getByText(`Etapa 2 de ${total}`)).toBeVisible();
+    await page.keyboard.press("ArrowLeft");
+    await expect(tabs.first()).toBeFocused();
+    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Etapa 1 de 4")).toBeVisible();
 
-        await page.keyboard.press("ArrowLeft");
-        await expect(tabs.first()).toBeFocused();
-        await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-        await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
+    await page.keyboard.press("End");
+    await expect(tabs.last()).toBeFocused();
+    await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Etapa 4 de 4")).toBeVisible();
 
-        await page.keyboard.press("End");
-        await expect(tabs.last()).toBeFocused();
-        await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
-        await expect(page.getByText(`Etapa ${total} de ${total}`)).toBeVisible();
+    await page.keyboard.press("Home");
+    await expect(tabs.first()).toBeFocused();
+    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Etapa 1 de 4")).toBeVisible();
+  });
 
-        await page.keyboard.press("Home");
-        await expect(tabs.first()).toBeFocused();
-        await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-        await expect(page.getByText(`Etapa 1 de ${total}`)).toBeVisible();
-      } finally {
-        try {
-          if (previous) await writeHowItWorks(sql, previous);
-        } finally {
-          await sql.end({ timeout: 5 });
-        }
+  test("a linha dourada termina no último marcador a 375 px", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/");
+    await expect(page.getByRole("tab")).toHaveCount(4);
+    const tablist = page.locator("#como-funciona [role='tablist']");
+    await tablist.scrollIntoViewIfNeeded();
+    const alignment = await tablist.evaluate((list) => {
+      const line = list.previousElementSibling;
+      const tabs = list.querySelectorAll('[role="tab"]');
+      const marker = tabs[tabs.length - 1]?.querySelector("span");
+      if (!(line instanceof HTMLElement) || !(marker instanceof HTMLElement)) {
+        return { ok: false, delta: Number.POSITIVE_INFINITY };
       }
+      const lineRight = line.getBoundingClientRect().right;
+      const markerBox = marker.getBoundingClientRect();
+      return {
+        ok: true,
+        delta: Math.abs(lineRight - (markerBox.left + markerBox.width / 2)),
+      };
     });
-
-    test("a linha dourada termina no último marcador a 375 px", async ({ page }) => {
-      test.setTimeout(120_000);
-      const email = `linha-${crypto.randomUUID()}@example.com`;
-      const userId = await createStaff(email, "CONTENT_ADMIN");
-      const sql = ownerSql();
-      let previous: HowItWorksStep[] | null = null;
-      try {
-        previous = await readHowItWorks(sql);
-        await writeHowItWorks(sql, LINE_STEPS);
-        await signIn(page, email);
-        await expect(page).toHaveURL(/\/admin$/);
-        await publishHowItWorks(page);
-        await page.setViewportSize({ width: 375, height: 800 });
-        await page.goto("/");
-        await expect(page.getByRole("tab")).toHaveCount(LINE_STEPS.length);
-        const tablist = page.locator("#como-funciona [role='tablist']");
-        await tablist.scrollIntoViewIfNeeded();
-        const alignment = await tablist.evaluate((list) => {
-          const line = list.previousElementSibling;
-          const tabs = list.querySelectorAll('[role="tab"]');
-          const marker = tabs[tabs.length - 1]?.querySelector("span");
-          if (!(line instanceof HTMLElement) || !(marker instanceof HTMLElement)) {
-            return { ok: false, delta: Number.POSITIVE_INFINITY };
-          }
-          const lineRight = line.getBoundingClientRect().right;
-          const markerBox = marker.getBoundingClientRect();
-          return {
-            ok: true,
-            delta: Math.abs(lineRight - (markerBox.left + markerBox.width / 2)),
-          };
-        });
-        expect(alignment.ok).toBe(true);
-        expect(alignment.delta).toBeLessThanOrEqual(2);
-      } finally {
-        try {
-          if (previous) {
-            await writeHowItWorks(sql, previous);
-            await publishHowItWorks(page);
-          }
-        } finally {
-          await sql.end({ timeout: 5 });
-          await removeStaff(userId);
-        }
-      }
-    });
+    expect(alignment.ok).toBe(true);
+    expect(alignment.delta).toBeLessThanOrEqual(2);
   });
 });
