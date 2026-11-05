@@ -101,6 +101,15 @@ async function writeHowItWorks(
   `;
 }
 
+async function publishHowItWorks(page: Page): Promise<void> {
+  await page.goto("/admin/conteudo/site");
+  const form = page
+    .locator("form")
+    .filter({ has: page.getByRole("heading", { name: "Como funciona" }) });
+  await form.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Salvo. O site já mostra a alteração.")).toBeVisible();
+}
+
 async function saveContact(page: Page, number: string, message: string): Promise<void> {
   await page.goto("/admin/conteudo/site");
   const form = page
@@ -327,11 +336,17 @@ test.describe("site público", () => {
     });
 
     test("a linha dourada termina no último marcador a 375 px", async ({ page }) => {
+      test.setTimeout(120_000);
+      const email = `linha-${crypto.randomUUID()}@example.com`;
+      const userId = await createStaff(email, "CONTENT_ADMIN");
       const sql = ownerSql();
       let previous: HowItWorksStep[] | null = null;
       try {
         previous = await readHowItWorks(sql);
         await writeHowItWorks(sql, LINE_STEPS);
+        await signIn(page, email);
+        await expect(page).toHaveURL(/\/admin$/);
+        await publishHowItWorks(page);
         await page.setViewportSize({ width: 375, height: 800 });
         await page.goto("/");
         await expect(page.getByRole("tab")).toHaveCount(LINE_STEPS.length);
@@ -355,9 +370,13 @@ test.describe("site público", () => {
         expect(alignment.delta).toBeLessThanOrEqual(2);
       } finally {
         try {
-          if (previous) await writeHowItWorks(sql, previous);
+          if (previous) {
+            await writeHowItWorks(sql, previous);
+            await publishHowItWorks(page);
+          }
         } finally {
           await sql.end({ timeout: 5 });
+          await removeStaff(userId);
         }
       }
     });
