@@ -66,8 +66,8 @@ describe("rodapé público", () => {
     expect(empty).toContain("A etapa 1 começa com uma mensagem.");
     expect(empty).toContain("max-w-[18ch]");
     expect(empty).toContain("pt-12");
-    expect(empty).toContain("pb-[calc(6rem+env(safe-area-inset-bottom))]");
-    expect(empty).toContain("lg:pb-10");
+    expect(empty).toContain("pb-10");
+    expect(empty).not.toContain("pb-[calc(6rem+env(safe-area-inset-bottom))]");
     expect(empty).toContain("md:grid-cols-[minmax(0,1fr)_auto]");
     expect(empty).toContain("/brand/logo-horizontal-claro.svg");
     expect(empty).toContain("h-10 w-auto md:h-12");
@@ -91,6 +91,8 @@ describe("rodapé público", () => {
       }),
     );
     expect(filled).toContain("Chamar no WhatsApp");
+    expect(filled).toContain("pb-[calc(6rem+env(safe-area-inset-bottom))]");
+    expect(filled).toContain("lg:pb-10");
     expect(filled).toContain("px-5");
     expect(filled).toContain("font-medium");
     expect(filled).toContain("bg-gold-light");

@@ -1,8 +1,7 @@
-import postgres from "postgres";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import { expect, type Page, test } from "@playwright/test";
-
-import { createStaff, loadLocalEnv, removeStaff, signIn } from "./staff-fixtures";
+import { createStaff, removeStaff, signIn } from "./staff-fixtures";
+import { saveContact, saveInstagram } from "./site-cms";
 
 const NAV_ITEMS = [
   "Início",
@@ -19,28 +18,10 @@ async function overflowX(page: Page): Promise<number> {
   );
 }
 
-async function restoreContact(
-  number: string,
-  message: string,
-  instagram: string,
-): Promise<void> {
-  loadLocalEnv();
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("Ambiente local ausente.");
-  const digits = number.replace(/\D/g, "");
-  const handle = instagram.trim() || null;
-  const sql = postgres(databaseUrl, { max: 1, prepare: false, connect_timeout: 5 });
-  try {
-    await sql`
-      update content.site_settings
-      set whatsapp_number = ${digits || null},
-          whatsapp_message = ${message},
-          instagram_handle = ${handle}
-      where id = 1
-    `;
-  } finally {
-    await sql.end({ timeout: 5 });
-  }
+async function resolvedHeader(page: Page): Promise<Locator> {
+  const header = page.locator("header").filter({ hasText: "Agendar avaliação" });
+  await expect(header).toHaveCount(1);
+  return header;
 }
 
 test("o menu até 1024 px e o rodapé reorganizado", async ({ page, browser }) => {
@@ -62,38 +43,33 @@ test("o menu até 1024 px e o rodapé reorganizado", async ({ page, browser }) =
       .filter({ has: page.getByRole("heading", { name: "Contato" }) });
     previousNumber = await contact.getByLabel("WhatsApp").inputValue();
     previousMessage = await contact.getByLabel("Mensagem").inputValue();
-    await contact.getByLabel("WhatsApp").fill("5511999999999");
-    await contact.getByLabel("Mensagem").fill("Olá");
-    await contact.getByRole("button", { name: "Salvar" }).click();
-    await expect(page.getByText("Salvo. O site já mostra a alteração.")).toBeVisible();
-
     const search = page
       .locator("form")
       .filter({ has: page.getByRole("heading", { name: "Busca e redes" }) });
     previousInstagram = await search.getByLabel("Instagram").inputValue();
-    await search.getByLabel("Instagram").fill("adrielliflores");
-    await search.getByRole("button", { name: "Salvar" }).click();
-    await expect(page.getByText("Salvo. O site já mostra a alteração.")).toBeVisible();
+    await saveContact(page, "5511999999999", "Olá");
+    await saveInstagram(page, "adrielliflores");
     changed = true;
 
     await visitor.setViewportSize({ width: 768, height: 800 });
     await visitor.goto("/");
-    await expect(visitor.getByText("Agendar avaliação")).toBeAttached();
-    const menu = visitor.getByRole("button", { name: "Abrir menu" });
+    const header = await resolvedHeader(visitor);
+    const menu = header.getByRole("button", { name: "Abrir menu" });
     await expect(menu).toBeVisible();
-    const nav = visitor.getByRole("navigation", { name: "Principal" });
+    const nav = header.getByRole("navigation", { name: "Principal" });
     await expect(nav).toBeHidden();
     await menu.click();
-    await expect(visitor.getByRole("button", { name: "Fechar menu" })).toBeVisible();
+    await expect(header.getByRole("button", { name: "Fechar menu" })).toBeVisible();
     for (const name of NAV_ITEMS) {
       await expect(nav.getByRole("link", { name })).toBeVisible();
     }
 
     await visitor.setViewportSize({ width: 1280, height: 800 });
     await visitor.goto("/");
-    await expect(visitor.getByRole("button", { name: "Abrir menu" })).toBeHidden();
-    await expect(nav.getByRole("link", { name: "Início" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Início" })).toHaveAttribute(
+    const desktop = await resolvedHeader(visitor);
+    await expect(desktop.getByRole("button", { name: "Abrir menu" })).toBeHidden();
+    await expect(desktop.getByRole("link", { name: "Início" })).toBeVisible();
+    await expect(desktop.getByRole("link", { name: "Início" })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -127,8 +103,10 @@ test("o menu até 1024 px e o rodapé reorganizado", async ({ page, browser }) =
   } finally {
     await visitor.close();
     try {
-      if (changed)
-        await restoreContact(previousNumber, previousMessage, previousInstagram);
+      if (changed) {
+        await saveContact(page, previousNumber, previousMessage);
+        await saveInstagram(page, previousInstagram);
+      }
     } finally {
       await removeStaff(userId);
     }

@@ -3,9 +3,12 @@ import Link from "next/link";
 import type { PublicSite } from "@/modules/content/queries";
 
 export function PublicFooter({ site }: { site: PublicSite }) {
+  const padding = site.whatsappUrl
+    ? "pt-12 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10"
+    : "pt-12 pb-10";
   return (
     <footer className="border-t border-border bg-text text-gold-light">
-      <div className="mx-auto w-full max-w-5xl px-4 pt-12 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10">
+      <div className={`mx-auto w-full max-w-5xl px-4 ${padding}`}>
         <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:gap-16">
           <div className="flex flex-col items-start gap-4">
             <p className="max-w-[18ch] font-serif text-[1.75rem] leading-tight text-balance text-gold-light sm:text-4xl">
