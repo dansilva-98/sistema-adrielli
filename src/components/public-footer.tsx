@@ -9,7 +9,7 @@ export function PublicFooter({ site }: { site: PublicSite }) {
   return (
     <footer className="border-t border-border bg-text text-gold-light">
       <div className={spacing}>
-        <div className="flex max-w-md flex-col items-start gap-4">
+        <div className="flex max-w-112 flex-col items-start gap-4">
           <p className="font-serif text-2xl text-gold-light sm:text-3xl">
             A etapa 1 começa com uma mensagem.
           </p>

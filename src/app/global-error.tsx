@@ -19,7 +19,7 @@ export default function GlobalError({
   return (
     <html lang="pt-BR">
       <body className="bg-surface font-sans text-text">
-        <main className="mx-auto flex min-h-full max-w-lg flex-col gap-4 px-4 py-16">
+        <main className="mx-auto flex min-h-full max-w-128 flex-col gap-4 px-4 py-16">
           <h1 className="font-serif text-3xl">Algo deu errado</h1>
           <p>Não foi possível concluir esta ação. Tente novamente.</p>
           <button
