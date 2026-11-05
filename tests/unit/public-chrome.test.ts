@@ -44,6 +44,7 @@ describe("rodapé público", () => {
       createElement(PublicFooter, { site: EMPTY_PUBLIC_SITE }),
     );
     expect(empty).toContain("A etapa 1 começa com uma mensagem.");
+    expect(empty).toContain("max-w-112");
     expect(empty).toContain("/brand/logo-horizontal-claro.svg");
     expect(empty).toContain("Privacidade");
     expect(empty).toContain('aria-label="Rodapé"');

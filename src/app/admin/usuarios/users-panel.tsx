@@ -74,7 +74,7 @@ function FormStatus({ state }: { state: StaffFormState }) {
 function InviteForm() {
   const [state, action] = useActionState(inviteStaffAction, emptyState);
   return (
-    <form action={action} className="flex max-w-md flex-col gap-3">
+    <form action={action} className="flex max-w-112 flex-col gap-3">
       <h2 className="text-lg">Convidar</h2>
       <Label htmlFor="invite-name">Nome</Label>
       <Input id="invite-name" name="name" autoComplete="name" required />
