@@ -99,7 +99,7 @@ export const staffTotpFactors = identity.table(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("staff_totp_factors_user_id_idx").on(table.userId)],
 );

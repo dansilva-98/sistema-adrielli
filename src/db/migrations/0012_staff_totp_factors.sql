@@ -1,7 +1,7 @@
 CREATE TABLE "identity"."staff_totp_factors" (
 	"factor_id" uuid PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"enrolled_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "identity"."staff_totp_factors" ADD CONSTRAINT "staff_totp_factors_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "identity"."users"("id") ON DELETE cascade ON UPDATE no action;
@@ -23,7 +23,7 @@ CREATE POLICY "app_runtime_delete" ON "identity"."staff_totp_factors" FOR DELETE
 DO $backfill$
 BEGIN
   IF to_regclass('auth.mfa_factors') IS NOT NULL THEN
-    INSERT INTO "identity"."staff_totp_factors" ("factor_id", "user_id", "created_at")
+    INSERT INTO "identity"."staff_totp_factors" ("factor_id", "user_id", "enrolled_at")
     SELECT "id", "user_id", "created_at"
     FROM "auth"."mfa_factors"
     WHERE "factor_type"::text = 'totp' AND "status"::text = 'verified'

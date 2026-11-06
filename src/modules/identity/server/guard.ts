@@ -26,9 +26,11 @@ import {
   sessionIdFromAccessToken,
 } from "@/modules/identity/supabase-sign-in";
 
+import { totpFactorsAreTrusted } from "@/modules/identity/totp-factors";
+
 import { loadStaffProfile, writeStaffAudit } from "./directory";
 import { hasConsumedEmailMfa } from "./email-mfa";
-import { verifiedTotpFactorsAreKnown } from "./totp-factors";
+import { knownStaffTotpFactorIds } from "./totp-factors";
 
 export class StaffAccessError extends Error {
   readonly reason: StaffAccessReason;
@@ -78,17 +80,17 @@ const loadAccessContext = cache(async function loadAccessContext() {
       .map((factor) => factor.id);
     hasVerifiedTotp = identity.aal === "aal2" || verifiedIds.length > 0;
     if (identity.aal === "aal2") {
-      totpFactorsTrusted = await verifiedTotpFactorsAreKnown(
-        identity.userId,
-        verifiedIds,
-      );
+      const knownIds = await knownStaffTotpFactorIds(identity.userId);
+      totpFactorsTrusted = totpFactorsAreTrusted(verifiedIds, knownIds);
       if (!totpFactorsTrusted) {
+        const known = new Set(knownIds);
+        const unknownFactorId = verifiedIds.find((id) => !known.has(id));
         await writeStaffAudit({
           action: "auth.mfa.unknown_factor",
           actorUserId: identity.userId,
           entityType: "user",
           entityId: identity.userId,
-          metadata: {},
+          metadata: unknownFactorId ? { factor_id: unknownFactorId } : {},
         });
       }
     }
