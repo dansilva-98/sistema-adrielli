@@ -26,6 +26,7 @@ export async function decideLogin(input: {
   signIn: (email: string, password: string) => Promise<SignedInAuth | null>;
   loadProfile: (userId: string) => Promise<StaffProfile | null>;
   findActorByEmail: (email: string) => Promise<string | null>;
+  hasEmailVerification?: boolean;
 }): Promise<LoginDecision> {
   const email = input.email.trim().toLowerCase();
   const signedIn = await input.signIn(email, input.password);
@@ -54,23 +55,17 @@ export async function decideLogin(input: {
     startedAt: input.now,
     lastActivity: input.now,
   };
-  if (staffRequiresMfa(profile.roles)) {
-    if (!signedIn.hasVerifiedTotp) {
-      return {
-        ok: true,
-        userId: profile.id,
-        redirectTo: "/equipe/mfa/configurar",
-        session,
-      };
-    }
-    if (signedIn.aal !== "aal2") {
-      return {
-        ok: true,
-        userId: profile.id,
-        redirectTo: "/equipe/mfa/verificar",
-        session,
-      };
-    }
+  if (
+    staffRequiresMfa(profile.roles) &&
+    signedIn.aal !== "aal2" &&
+    !input.hasEmailVerification
+  ) {
+    return {
+      ok: true,
+      userId: profile.id,
+      redirectTo: "/equipe/mfa/verificar",
+      session,
+    };
   }
 
   return { ok: true, userId: profile.id, redirectTo: staffHome(profile.roles), session };

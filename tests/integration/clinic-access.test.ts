@@ -282,7 +282,7 @@ describe("acesso ao consultório sem papel ou sem MFA", () => {
       },
       secret,
     );
-    await exercise("mfa-setup");
+    await exercise("mfa-verify");
     expect(await auditCount(clinicId, "access.denied")).toBe(0);
     expect(await auditCount(clinicId, "clinic.patient.created")).toBe(0);
     const successes = await owner<{ total: number }[]>`

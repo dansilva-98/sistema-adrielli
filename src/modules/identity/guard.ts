@@ -32,6 +32,7 @@ export function decideStaffAccess(input: {
   profile: StaffProfile | null;
   aal: "aal1" | "aal2" | null;
   hasVerifiedTotp: boolean;
+  hasEmailVerification?: boolean;
   roles: readonly StaffRole[];
   now: number;
 }): StaffAccessDecision {
@@ -63,23 +64,18 @@ export function decideStaffAccess(input: {
       session: input.cookie,
     };
   }
-  if (staffRequiresMfa(input.profile.roles)) {
-    if (!input.hasVerifiedTotp) {
-      return {
-        ok: false,
-        reason: "mfa-setup",
-        userId: input.userId,
-        session: touchStaffSession(input.cookie, input.now),
-      };
-    }
-    if (input.aal !== "aal2") {
-      return {
-        ok: false,
-        reason: "mfa-verify",
-        userId: input.userId,
-        session: touchStaffSession(input.cookie, input.now),
-      };
-    }
+  void input.hasVerifiedTotp;
+  if (
+    staffRequiresMfa(input.profile.roles) &&
+    input.aal !== "aal2" &&
+    !input.hasEmailVerification
+  ) {
+    return {
+      ok: false,
+      reason: "mfa-verify",
+      userId: input.userId,
+      session: touchStaffSession(input.cookie, input.now),
+    };
   }
   const allowed = input.profile.roles.some((role) => input.roles.includes(role));
   if (!allowed) {

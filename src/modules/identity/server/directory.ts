@@ -17,6 +17,11 @@ const nonBlocking = new Set<AuditAction>([
   "auth.logout",
   "auth.session.expired",
   "access.denied",
+  "mfa.email.sent",
+  "mfa.email.verified",
+  "mfa.email.failed",
+  "mfa.email.locked",
+  "mfa.email.rate_limited",
 ]);
 
 export async function writeStaffAudit(input: AuditEvent): Promise<void> {

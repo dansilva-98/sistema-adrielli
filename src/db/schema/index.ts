@@ -2,6 +2,7 @@ export {
   identity,
   loginAttemptKind,
   loginAttempts,
+  staffEmailMfaChallenges,
   staffRole,
   userKind,
   userRoles,

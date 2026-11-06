@@ -86,6 +86,23 @@ describe("env", () => {
     expect(parsed).not.toHaveProperty("SUPABASE_SERVICE_ROLE_KEY");
   });
 
+  it("recusa o transporte memory em produção", () => {
+    expect(() =>
+      parseServerEnv({
+        ...validServer,
+        APP_ENV: "production",
+        MFA_EMAIL_TRANSPORT: "memory",
+      }),
+    ).toThrow(/MFA_EMAIL_TRANSPORT/);
+    expect(
+      parseServerEnv({
+        ...validServer,
+        APP_ENV: "staging",
+        MFA_EMAIL_TRANSPORT: "memory",
+      }).MFA_EMAIL_TRANSPORT,
+    ).toBe("memory");
+  });
+
   it("formata só os nomes das variáveis", () => {
     const error = new z.ZodError([
       {

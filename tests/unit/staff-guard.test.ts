@@ -159,7 +159,33 @@ describe("decideStaffAccess", () => {
         roles: ADMIN_ROLES,
         now,
       }),
-    ).toMatchObject({ ok: false, reason: "mfa-setup" });
+    ).toMatchObject({ ok: false, reason: "mfa-verify" });
+    expect(
+      decideStaffAccess({
+        userId,
+        sessionId,
+        cookie: session(),
+        profile: profile(["SUPER_ADMIN"]),
+        aal: "aal1",
+        hasVerifiedTotp: false,
+        hasEmailVerification: true,
+        roles: ADMIN_ROLES,
+        now,
+      }).ok,
+    ).toBe(true);
+    expect(
+      decideStaffAccess({
+        userId,
+        sessionId,
+        cookie: session(),
+        profile: profile(["SUPER_ADMIN"], new Date(now)),
+        aal: "aal1",
+        hasVerifiedTotp: false,
+        hasEmailVerification: true,
+        roles: ADMIN_ROLES,
+        now,
+      }),
+    ).toMatchObject({ ok: false, reason: "rejected" });
     expect(
       decideStaffAccess({
         userId,

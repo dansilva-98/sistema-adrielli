@@ -27,6 +27,10 @@ test.describe("MFA da equipe no Supabase local", () => {
     created.push(userId);
 
     await signIn(page, email);
+    await expect(page).toHaveURL(/\/equipe\/mfa\/verificar$/);
+    await page
+      .getByRole("link", { name: "Prefiro usar um aplicativo autenticador" })
+      .click();
     await expect(page).toHaveURL(/\/equipe\/mfa\/configurar$/);
     await page.reload();
     await page.reload();

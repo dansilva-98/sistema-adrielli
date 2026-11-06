@@ -14,11 +14,21 @@ export function StaffCredentialForm({
   submitLabel,
   fields,
   hidden,
+  submitClassName,
 }: {
   action: StaffFormAction;
   submitLabel: string;
-  fields: Array<{ name: string; label: string; type: string; autoComplete: string }>;
+  fields: Array<{
+    name: string;
+    label: string;
+    type: string;
+    autoComplete: string;
+    inputMode?: "numeric" | "text";
+    maxLength?: number;
+    autoFocus?: boolean;
+  }>;
   hidden?: Array<{ name: string; value: string }>;
+  submitClassName?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, { message: "" });
 
@@ -35,6 +45,9 @@ export function StaffCredentialForm({
             name={field.name}
             type={field.type}
             autoComplete={field.autoComplete}
+            inputMode={field.inputMode}
+            maxLength={field.maxLength}
+            autoFocus={field.autoFocus}
             required
           />
         </div>
@@ -44,7 +57,7 @@ export function StaffCredentialForm({
           {state.message}
         </p>
       ) : null}
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending} className={submitClassName}>
         {pending ? "Aguarde…" : submitLabel}
       </Button>
     </form>
