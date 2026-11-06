@@ -3,6 +3,11 @@ import { ADMIN_ROLES } from "@/modules/identity/access";
 import { requireStaff } from "@/modules/identity/server/guard";
 import { loadStaffTestimonials } from "@/modules/content/queries";
 import {
+  addContentLabel,
+  contentListPreview,
+  createdNoticeFromSearch,
+} from "@/modules/content/list-copy";
+import {
   deleteTestimonialAction,
   moveTestimonialAction,
   setTestimonialPublishedAction,
@@ -13,21 +18,27 @@ import { loadOrNull } from "../load";
 
 export const instant = false;
 
-export default async function TestimonialsPage() {
+export default async function TestimonialsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ criado?: string }>;
+}) {
   await requireStaff({ roles: ADMIN_ROLES });
   const items = await loadOrNull(loadStaffTestimonials(sql));
   if (!items) return <p role="alert">Não foi possível carregar o conteúdo.</p>;
+  const { criado } = await searchParams;
   return (
     <ContentList
       title="Depoimentos"
       empty="Nenhum depoimento ainda."
       createHref="/admin/conteudo/depoimentos/novo"
-      createLabel="Criar o primeiro depoimento"
+      createLabel={addContentLabel("testimonial")}
       editBase="/admin/conteudo/depoimentos"
       kind="o depoimento"
+      notice={createdNoticeFromSearch("testimonial", criado)}
       items={items.map((item) => ({
         id: item.id,
-        label: item.quote.length > 80 ? `${item.quote.slice(0, 77)}…` : item.quote,
+        label: contentListPreview(item.quote),
         published: item.published,
         sortOrder: item.sortOrder,
         version: item.version,

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { CONTENT_LIMITS } from "@/db/content-limits";
+import { contentCreatedPath, contentEditTitle } from "@/modules/content/list-copy";
 import type { StaffFaq } from "@/modules/content/queries";
 import { createFaqAction, updateFaqAction } from "@/modules/content/server/actions";
 
@@ -14,16 +15,36 @@ import {
   useDirtySinceSave,
   useUnsavedLeave,
 } from "../cms-fields";
+import { ContentFormChrome, PublishOnSiteField } from "../content-form-chrome";
 
 const idle = { ok: false as const, message: "" };
+const LIST_HREF = "/admin/conteudo/perguntas";
+const CREATE_HREF = "/admin/conteudo/perguntas/novo";
 
 export function FaqForm({ item }: { item: StaffFaq | null }) {
+  const [generation, setGeneration] = useState(0);
+  return (
+    <FaqFormFields
+      key={generation}
+      item={item}
+      onCreated={() => setGeneration((current) => current + 1)}
+    />
+  );
+}
+
+function FaqFormFields({
+  item,
+  onCreated,
+}: {
+  item: StaffFaq | null;
+  onCreated: () => void;
+}) {
   const router = useRouter();
   const action = item ? updateFaqAction : createFaqAction;
   const [state, formAction] = useActionState(action, idle);
   const [question, setQuestion] = useState(item?.question ?? "");
   const [answer, setAnswer] = useState(item?.answer ?? "");
-  const [published, setPublished] = useState(item?.published ?? false);
+  const [published, setPublished] = useState(item?.published ?? true);
   const version = state.ok && state.version ? state.version : (item?.version ?? 0);
   const dirty = useDirtySinceSave(
     JSON.stringify({ question, answer, published }),
@@ -32,14 +53,22 @@ export function FaqForm({ item }: { item: StaffFaq | null }) {
   useUnsavedLeave(dirty);
 
   useEffect(() => {
-    if (state.ok && !item && state.id)
-      router.push(`/admin/conteudo/perguntas/${state.id}`);
-  }, [item, router, state]);
+    if (state.ok && !item && state.id) {
+      onCreated();
+      router.push(contentCreatedPath(LIST_HREF));
+    }
+  }, [item, onCreated, router, state]);
 
   const fields = state.ok ? {} : (state.fields ?? {});
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-4">
-      <h2 className="text-xl">{item ? "Editar pergunta" : "Nova pergunta"}</h2>
+      <ContentFormChrome
+        kind="faq"
+        listHref={LIST_HREF}
+        createHref={CREATE_HREF}
+        title={item ? contentEditTitle("faq", item.question) : "Nova pergunta"}
+        editing={Boolean(item)}
+      />
       {item ? <input type="hidden" name="id" value={item.id} /> : null}
       <input type="hidden" name="version" value={version} />
       <input type="hidden" name="published" value={published ? "true" : "false"} />
@@ -64,14 +93,7 @@ export function FaqForm({ item }: { item: StaffFaq | null }) {
         multiline
         onChange={setAnswer}
       />
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={published}
-          onChange={(event) => setPublished(event.target.checked)}
-        />
-        Publicado
-      </label>
+      <PublishOnSiteField checked={published} onChange={setPublished} />
       {dirty && state.ok ? null : <FormNotice state={state} />}
       <SaveButton />
     </form>

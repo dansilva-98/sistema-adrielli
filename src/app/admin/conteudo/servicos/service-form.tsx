@@ -16,6 +16,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { CONTENT_LIMITS } from "@/db/content-limits";
 import { sitePublicImageUrl } from "@/modules/content/image-path";
+import { contentCreatedPath, contentEditTitle } from "@/modules/content/list-copy";
 import type { StaffService } from "@/modules/content/queries";
 import {
   createServiceAction,
@@ -29,8 +30,11 @@ import {
   useDirtySinceSave,
   useUnsavedLeave,
 } from "../cms-fields";
+import { ContentFormChrome, PublishOnSiteField } from "../content-form-chrome";
 
 const idle = { ok: false as const, message: "" };
+const LIST_HREF = "/admin/conteudo/servicos";
+const CREATE_HREF = "/admin/conteudo/servicos/novo";
 
 export function ServiceForm({
   service,
@@ -38,6 +42,26 @@ export function ServiceForm({
 }: {
   service: StaffService | null;
   imageOrigin: string;
+}) {
+  const [generation, setGeneration] = useState(0);
+  return (
+    <ServiceFormFields
+      key={generation}
+      service={service}
+      imageOrigin={imageOrigin}
+      onCreated={() => setGeneration((current) => current + 1)}
+    />
+  );
+}
+
+function ServiceFormFields({
+  service,
+  imageOrigin,
+  onCreated,
+}: {
+  service: StaffService | null;
+  imageOrigin: string;
+  onCreated: () => void;
 }) {
   const router = useRouter();
   const action = service ? updateServiceAction : createServiceAction;
@@ -47,7 +71,7 @@ export function ServiceForm({
   const [summary, setSummary] = useState(service?.summary ?? "");
   const [body, setBody] = useState(service?.body ?? "");
   const [alt, setAlt] = useState(service?.imageAlt ?? "");
-  const [published, setPublished] = useState(service?.published ?? false);
+  const [published, setPublished] = useState(service?.published ?? true);
   const [file, setFile] = useState<File | null>(null);
   const [remove, setRemove] = useState(false);
   const version = state.ok && state.version ? state.version : (service?.version ?? 0);
@@ -74,14 +98,21 @@ export function ServiceForm({
 
   useEffect(() => {
     if (state.ok && !service && state.id) {
-      router.push(`/admin/conteudo/servicos/${state.id}`);
+      onCreated();
+      router.push(contentCreatedPath(LIST_HREF));
     }
-  }, [router, service, state]);
+  }, [onCreated, router, service, state]);
 
   const fields = state.ok ? {} : (state.fields ?? {});
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-4">
-      <h2 className="text-xl">{service ? "Editar serviço" : "Novo serviço"}</h2>
+      <ContentFormChrome
+        kind="service"
+        listHref={LIST_HREF}
+        createHref={CREATE_HREF}
+        title={service ? contentEditTitle("service", service.title) : "Novo serviço"}
+        editing={Boolean(service)}
+      />
       {service ? <input type="hidden" name="id" value={service.id} /> : null}
       <input type="hidden" name="version" value={version} />
       <input
@@ -199,14 +230,7 @@ export function ServiceForm({
         error={fields.imageAlt}
         onChange={setAlt}
       />
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={published}
-          onChange={(event) => setPublished(event.target.checked)}
-        />
-        Publicado
-      </label>
+      <PublishOnSiteField checked={published} onChange={setPublished} />
       {dirty && state.ok ? null : <FormNotice state={state} />}
       <SaveButton />
     </form>
