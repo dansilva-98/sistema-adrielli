@@ -85,6 +85,13 @@
       "when": 1793960000000,
       "tag": "0011_staff_email_mfa",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793972307903,
+      "tag": "0012_staff_totp_factors",
+      "breakpoints": true
     }
   ]
 }

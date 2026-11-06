@@ -6,6 +6,7 @@ import {
   type StaffSession,
 } from "./staff-session";
 import type { StaffProfile } from "./login";
+import { staffMfaConfirmed } from "./totp-factors";
 
 export type StaffAccessReason =
   | "unauthenticated"
@@ -33,6 +34,7 @@ export function decideStaffAccess(input: {
   aal: "aal1" | "aal2" | null;
   hasVerifiedTotp: boolean;
   hasEmailVerification?: boolean;
+  totpFactorsTrusted?: boolean;
   roles: readonly StaffRole[];
   now: number;
 }): StaffAccessDecision {
@@ -67,8 +69,11 @@ export function decideStaffAccess(input: {
   void input.hasVerifiedTotp;
   if (
     staffRequiresMfa(input.profile.roles) &&
-    input.aal !== "aal2" &&
-    !input.hasEmailVerification
+    !staffMfaConfirmed({
+      aal: input.aal,
+      totpFactorsTrusted: input.totpFactorsTrusted,
+      hasEmailVerification: input.hasEmailVerification,
+    })
   ) {
     return {
       ok: false,

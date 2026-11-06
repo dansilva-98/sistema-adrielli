@@ -98,6 +98,20 @@ export async function enrollVerifiedTotp(email: string): Promise<string> {
     code,
   });
   if (verified.error) throw new Error("Não foi possível confirmar o TOTP.");
+  const userId = signed.data.user?.id;
+  if (!userId) throw new Error("Não foi possível confirmar o TOTP.");
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("DATABASE_URL ausente.");
+  const sql = postgres(databaseUrl, { max: 1, prepare: false, connect_timeout: 5 });
+  try {
+    await sql`
+      insert into identity.staff_totp_factors (factor_id, user_id)
+      values (${factorId}::uuid, ${userId}::uuid)
+      on conflict (factor_id) do nothing
+    `;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
   await client.auth.signOut();
   return secret;
 }

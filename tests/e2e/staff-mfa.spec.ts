@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 import {
+  codeFromStaffEmailSubject,
+  latestMemoryStaffEmail,
+} from "../../src/modules/identity/email-transport";
+import {
   createStaff,
   enrollVerifiedTotp,
   factorCount,
@@ -31,6 +35,14 @@ test.describe("MFA da equipe no Supabase local", () => {
     await page
       .getByRole("link", { name: "Prefiro usar um aplicativo autenticador" })
       .click();
+    await expect(page).toHaveURL(/\/equipe\/mfa\/verificar$/);
+    const message = latestMemoryStaffEmail(email);
+    const emailCode = codeFromStaffEmailSubject(message?.subject ?? "");
+    expect(emailCode).toMatch(/^\d{6}$/);
+    await page.getByLabel("Código").fill(emailCode ?? "");
+    await page.getByRole("button", { name: "Confirmar" }).click();
+    await expect(page).toHaveURL(/\/admin$/);
+    await page.goto("/equipe/mfa/configurar");
     await expect(page).toHaveURL(/\/equipe\/mfa\/configurar$/);
     await page.reload();
     await page.reload();

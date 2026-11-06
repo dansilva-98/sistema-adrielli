@@ -4,6 +4,11 @@ import { decideStaffAccess } from "@/modules/identity/guard";
 import { decideLogin } from "@/modules/identity/login";
 import { ADMIN_ROLES, CONSULTORIO_ROLES } from "@/modules/identity/access";
 import {
+  staffMfaConfirmed,
+  totpEnrollmentAllowed,
+  totpFactorsAreTrusted,
+} from "@/modules/identity/totp-factors";
+import {
   EMAIL_MFA_MAX_ATTEMPTS,
   EMAIL_MFA_MAX_SENDS_PER_HOUR,
   EMAIL_MFA_MAX_SENDS_PER_IP_HOUR,
@@ -143,6 +148,68 @@ describe("código de MFA por e-mail", () => {
         roles: ADMIN_ROLES,
         now,
       }).ok,
+    ).toBe(true);
+    expect(
+      decideStaffAccess({
+        userId,
+        sessionId,
+        cookie,
+        profile: admin,
+        aal: "aal2",
+        hasVerifiedTotp: true,
+        totpFactorsTrusted: false,
+        hasEmailVerification: false,
+        roles: ADMIN_ROLES,
+        now,
+      }),
+    ).toMatchObject({ ok: false, reason: "mfa-verify" });
+    expect(
+      decideStaffAccess({
+        userId,
+        sessionId,
+        cookie,
+        profile: admin,
+        aal: "aal2",
+        hasVerifiedTotp: true,
+        totpFactorsTrusted: false,
+        hasEmailVerification: true,
+        roles: ADMIN_ROLES,
+        now,
+      }).ok,
+    ).toBe(true);
+  });
+
+  it("só confia em aal2 com fatores conhecidos e bloqueia o cadastro sem sessão confirmada", () => {
+    expect(totpFactorsAreTrusted(["f1"], ["f1"])).toBe(true);
+    expect(totpFactorsAreTrusted(["f1", "f2"], ["f1"])).toBe(false);
+    expect(totpFactorsAreTrusted([], ["f1"])).toBe(true);
+    expect(
+      staffMfaConfirmed({
+        aal: "aal2",
+        totpFactorsTrusted: false,
+        hasEmailVerification: false,
+      }),
+    ).toBe(false);
+    expect(
+      totpEnrollmentAllowed({
+        emailMfaEnabled: true,
+        aal: "aal1",
+        hasEmailVerification: false,
+      }),
+    ).toBe(false);
+    expect(
+      totpEnrollmentAllowed({
+        emailMfaEnabled: true,
+        aal: "aal1",
+        hasEmailVerification: true,
+      }),
+    ).toBe(true);
+    expect(
+      totpEnrollmentAllowed({
+        emailMfaEnabled: false,
+        aal: "aal1",
+        hasEmailVerification: false,
+      }),
     ).toBe(true);
   });
 

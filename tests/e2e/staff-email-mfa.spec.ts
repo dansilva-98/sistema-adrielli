@@ -67,6 +67,18 @@ test.describe("MFA por e-mail da equipe", () => {
     await expect(page).toHaveURL(/\/admin$/);
   });
 
+  test("sem sessão confirmada, configurar o TOTP volta para verificar", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const email = `mfa-setup-${crypto.randomUUID()}@example.com`;
+    created.push(await createStaff(email, "CLINIC_ADMIN"));
+    await signIn(page, email);
+    await expect(page).toHaveURL(/\/equipe\/mfa\/verificar$/);
+    await page.goto("/equipe/mfa/configurar");
+    await expect(page).toHaveURL(/\/equipe\/mfa\/verificar$/);
+  });
+
   test("axe na tela de verificação", async ({ page }) => {
     test.setTimeout(90_000);
     const email = `mfa-axe-${crypto.randomUUID()}@example.com`;

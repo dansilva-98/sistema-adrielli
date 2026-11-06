@@ -15,7 +15,9 @@ import {
 } from "@/lib/supabase/server";
 import { beginStaffLogin } from "@/modules/identity/login";
 import {
+  aalFromAccessToken,
   endRejectedAuthSession,
+  sessionIdFromAccessToken,
   signInWithSupabase,
 } from "@/modules/identity/supabase-sign-in";
 import {
@@ -35,14 +37,22 @@ import {
   recordLoginAttempt,
   recordMfaFailure,
 } from "@/modules/identity/server/login-attempts";
-import { sessionIdFromAccessToken } from "@/modules/identity/supabase-sign-in";
 import { EMAIL_MFA_INVALID_MESSAGE, maskStaffEmail } from "@/modules/identity/email-mfa";
 import {
   confirmStaffEmailMfaCode,
+  hasConsumedEmailMfa,
   loadStaffEmail,
   sendStaffEmailMfaCode,
   staffEmailMfaEnabled,
 } from "@/modules/identity/server/email-mfa";
+import {
+  knownStaffTotpFactorIds,
+  rememberStaffTotpFactor,
+} from "@/modules/identity/server/totp-factors";
+import {
+  totpEnrollmentAllowed,
+  totpFactorsAreTrusted,
+} from "@/modules/identity/totp-factors";
 
 export type FormMessage = { message: string };
 
@@ -181,6 +191,36 @@ export async function requireAuthSession(): Promise<void> {
   if (!userResult.data.user) redirect("/equipe/entrar");
 }
 
+export async function requireTotpEnrollmentSession(): Promise<{
+  userId: string;
+  sessionId: string;
+}> {
+  await connection();
+  const auth = await currentStaffAuth();
+  if (!auth) redirect("/equipe/entrar");
+  if (!staffEmailMfaEnabled()) return auth;
+  const supabase = await createSupabaseServerClient();
+  const sessionResult = await supabase.auth.getSession();
+  const accessToken =
+    sessionResult.data.session?.user.id === auth.userId
+      ? sessionResult.data.session.access_token
+      : "";
+  const aal = aalFromAccessToken(accessToken);
+  const listed = await supabase.auth.mfa.listFactors();
+  const verifiedIds = (listed.data?.totp ?? [])
+    .filter((factor) => factor.status === "verified")
+    .map((factor) => factor.id);
+  const known = await knownStaffTotpFactorIds(auth.userId);
+  const allowed = totpEnrollmentAllowed({
+    emailMfaEnabled: true,
+    aal,
+    totpFactorsTrusted: totpFactorsAreTrusted(verifiedIds, known),
+    hasEmailVerification: await hasConsumedEmailMfa(auth.userId, auth.sessionId),
+  });
+  if (!allowed) redirect("/equipe/mfa/verificar");
+  return auth;
+}
+
 export type TotpSetupState = {
   message: string;
   qrCode: string;
@@ -194,6 +234,7 @@ export async function generateTotpAction(
 ): Promise<TotpSetupState> {
   void _state;
   void _formData;
+  await requireTotpEnrollmentSession();
   const supabase = await createSupabaseServerClient();
   const userResult = await supabase.auth.getUser();
   if (!userResult.data.user) redirect("/equipe/entrar");
@@ -273,6 +314,7 @@ export async function confirmTotpAction(
   const factorId = String(formData.get("factorId") ?? "");
   if (!/^\d{6}$/.test(code) || !factorId)
     return { message: "Informe o código de 6 dígitos." };
+  await requireTotpEnrollmentSession();
   const supabase = await createSupabaseServerClient();
   const userResult = await supabase.auth.getUser();
   const userId = userResult.data.user?.id;
@@ -286,6 +328,7 @@ export async function confirmTotpAction(
     code,
   });
   if (verified.error) return rejectTotpCode(userId);
+  await rememberStaffTotpFactor({ userId, factorId });
   await writeStaffAudit({
     action: "auth.mfa.enrolled",
     actorUserId: userId,

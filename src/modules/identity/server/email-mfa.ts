@@ -315,12 +315,14 @@ async function openChallenge(
 
 function firstExecuteRow(
   result: unknown,
-): { id?: string; attempts?: number } | undefined {
+): { id?: string; attempts?: number; code_hmac?: string } | undefined {
   if (Array.isArray(result)) {
-    return result[0] as { id?: string; attempts?: number } | undefined;
+    return result[0] as
+      { id?: string; attempts?: number; code_hmac?: string } | undefined;
   }
   if (result && typeof result === "object" && "rows" in result) {
-    return (result as { rows: { id?: string; attempts?: number }[] }).rows[0];
+    return (result as { rows: { id?: string; attempts?: number; code_hmac?: string }[] })
+      .rows[0];
   }
   return undefined;
 }
@@ -340,34 +342,31 @@ export async function confirmStaffEmailMfaCode(input: {
   if (!code || !isUuid(input.userId) || !isUuid(input.sessionId)) {
     return { ok: false, message: EMAIL_MFA_INVALID_MESSAGE, locked: false };
   }
-  const now = input.now ?? Date.now();
+  void input.now;
   const challenge = await openChallenge(input.userId, input.sessionId);
-  if (
-    !challenge ||
-    challenge.expiresAt.getTime() <= now ||
-    challenge.attempts >= EMAIL_MFA_MAX_ATTEMPTS
-  ) {
+  if (!challenge) {
     return { ok: false, message: EMAIL_MFA_INVALID_MESSAGE, locked: false };
   }
 
+  const incremented = await db.execute(sql`
+    update identity.staff_email_mfa_challenges
+    set attempts = attempts + 1
+    where id = ${challenge.id}::uuid
+      and user_id = ${input.userId}::uuid
+      and session_id = ${input.sessionId}::uuid
+      and consumed_at is null
+      and closed_at is null
+      and attempts < ${EMAIL_MFA_MAX_ATTEMPTS}
+      and expires_at > now()
+    returning id, attempts, code_hmac
+  `);
+  const row = firstExecuteRow(incremented);
+  if (!row?.id || typeof row.code_hmac !== "string") {
+    return { ok: false, message: EMAIL_MFA_INVALID_MESSAGE, locked: false };
+  }
+  const attempts = Number(row.attempts);
   const submitted = emailMfaHmac(code, hmacSecret());
-  if (!emailMfaHmacsMatch(submitted, challenge.codeHmac)) {
-    const updated = await db.execute(sql`
-      update identity.staff_email_mfa_challenges
-      set
-        attempts = attempts + 1,
-        closed_at = case when attempts + 1 >= ${EMAIL_MFA_MAX_ATTEMPTS} then now() else closed_at end
-      where id = ${challenge.id}::uuid
-        and user_id = ${input.userId}::uuid
-        and session_id = ${input.sessionId}::uuid
-        and consumed_at is null
-        and closed_at is null
-        and attempts < ${EMAIL_MFA_MAX_ATTEMPTS}
-        and expires_at > now()
-      returning attempts
-    `);
-    const attempts = Number(firstExecuteRow(updated)?.attempts ?? challenge.attempts + 1);
-    const locked = attempts >= EMAIL_MFA_MAX_ATTEMPTS;
+  if (!emailMfaHmacsMatch(submitted, row.code_hmac)) {
     await writeStaffAudit({
       action: "mfa.email.failed",
       actorUserId: input.userId,
@@ -376,7 +375,15 @@ export async function confirmStaffEmailMfaCode(input: {
       ip: input.ip,
       metadata: { attempt: attempts },
     });
+    const locked = attempts >= EMAIL_MFA_MAX_ATTEMPTS;
     if (locked) {
+      await db.execute(sql`
+        update identity.staff_email_mfa_challenges
+        set closed_at = now()
+        where id = ${challenge.id}::uuid
+          and consumed_at is null
+          and closed_at is null
+      `);
       await writeStaffAudit({
         action: "mfa.email.locked",
         actorUserId: input.userId,
@@ -397,8 +404,6 @@ export async function confirmStaffEmailMfaCode(input: {
       and session_id = ${input.sessionId}::uuid
       and consumed_at is null
       and closed_at is null
-      and attempts < ${EMAIL_MFA_MAX_ATTEMPTS}
-      and expires_at > now()
     returning id
   `);
   if (!returnedId(consumed)) {

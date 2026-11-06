@@ -84,6 +84,7 @@ export async function sendStaffEmail(input: {
       text: input.message.text,
       html: input.message.html,
     }),
+    signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) throw new Error("Falha ao enviar e-mail de MFA");
 }

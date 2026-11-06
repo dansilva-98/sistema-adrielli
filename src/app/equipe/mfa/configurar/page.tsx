@@ -11,7 +11,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   confirmTotpAction,
   generateTotpAction,
-  requireAuthSession,
+  requireTotpEnrollmentSession,
 } from "@/modules/identity/server/actions";
 
 import { GenerateTotpPanel } from "./generate-totp-panel";
@@ -19,7 +19,7 @@ import { GenerateTotpPanel } from "./generate-totp-panel";
 export const instant = false;
 
 export default async function ConfigureMfaPage() {
-  await requireAuthSession();
+  await requireTotpEnrollmentSession();
   const supabase = await createSupabaseServerClient();
   const listed = await supabase.auth.mfa.listFactors();
   const verified = (listed.data?.totp ?? []).some(

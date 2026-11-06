@@ -28,6 +28,7 @@ import {
 
 import { loadStaffProfile, writeStaffAudit } from "./directory";
 import { hasConsumedEmailMfa } from "./email-mfa";
+import { verifiedTotpFactorsAreKnown } from "./totp-factors";
 
 export class StaffAccessError extends Error {
   readonly reason: StaffAccessReason;
@@ -64,18 +65,34 @@ const loadAccessContext = cache(async function loadAccessContext() {
   const profile = identity ? await loadStaffProfile(identity.userId) : null;
   let hasVerifiedTotp = identity?.aal === "aal2";
   let hasEmailVerification = false;
+  let totpFactorsTrusted = true;
   if (
     profile?.kind === "STAFF" &&
     !profile.disabledAt &&
     staffRequiresMfa(profile.roles) &&
-    identity !== null &&
-    identity.aal !== "aal2"
+    identity !== null
   ) {
     const factors = await supabase.auth.mfa.listFactors();
-    hasVerifiedTotp = (factors.data?.totp ?? []).some(
-      (factor) => factor.status === "verified",
-    );
-    if (identity.sessionId) {
+    const verifiedIds = (factors.data?.totp ?? [])
+      .filter((factor) => factor.status === "verified")
+      .map((factor) => factor.id);
+    hasVerifiedTotp = identity.aal === "aal2" || verifiedIds.length > 0;
+    if (identity.aal === "aal2") {
+      totpFactorsTrusted = await verifiedTotpFactorsAreKnown(
+        identity.userId,
+        verifiedIds,
+      );
+      if (!totpFactorsTrusted) {
+        await writeStaffAudit({
+          action: "auth.mfa.unknown_factor",
+          actorUserId: identity.userId,
+          entityType: "user",
+          entityId: identity.userId,
+          metadata: {},
+        });
+      }
+    }
+    if ((identity.aal !== "aal2" || !totpFactorsTrusted) && identity.sessionId) {
       hasEmailVerification = await hasConsumedEmailMfa(
         identity.userId,
         identity.sessionId,
@@ -88,6 +105,7 @@ const loadAccessContext = cache(async function loadAccessContext() {
     profile,
     hasVerifiedTotp,
     hasEmailVerification,
+    totpFactorsTrusted,
     now: Date.now(),
   };
 });
@@ -104,6 +122,7 @@ const currentDecision = cache(async function currentDecision(
     aal: context.identity?.aal ?? null,
     hasVerifiedTotp: context.hasVerifiedTotp,
     hasEmailVerification: context.hasEmailVerification,
+    totpFactorsTrusted: context.totpFactorsTrusted,
     roles,
     now: context.now,
   });

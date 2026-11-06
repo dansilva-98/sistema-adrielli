@@ -28,6 +28,8 @@ describe("desafios de MFA por e-mail", () => {
   let hasConsumedEmailMfa: typeof import("@/modules/identity/server/email-mfa").hasConsumedEmailMfa;
   let closeOpenSessionChallenges: typeof import("@/modules/identity/server/email-mfa").closeOpenSessionChallenges;
   let cleanupOldChallenges: typeof import("@/modules/identity/server/email-mfa").cleanupOldChallenges;
+  let rememberStaffTotpFactor: typeof import("@/modules/identity/server/totp-factors").rememberStaffTotpFactor;
+  let verifiedTotpFactorsAreKnown: typeof import("@/modules/identity/server/totp-factors").verifiedTotpFactorsAreKnown;
 
   beforeAll(async () => {
     if (existsSync(".env.local")) loadEnvFile(".env.local");
@@ -40,6 +42,9 @@ describe("desafios de MFA por e-mail", () => {
     hasConsumedEmailMfa = loaded.hasConsumedEmailMfa;
     closeOpenSessionChallenges = loaded.closeOpenSessionChallenges;
     cleanupOldChallenges = loaded.cleanupOldChallenges;
+    const totp = await import("@/modules/identity/server/totp-factors");
+    rememberStaffTotpFactor = totp.rememberStaffTotpFactor;
+    verifiedTotpFactorsAreKnown = totp.verifiedTotpFactorsAreKnown;
     const ownerUrl = new URL(migrationsUrl);
     ownerUrl.pathname = `/${TEST_DATABASE_NAME}`;
     owner = postgres(ownerUrl.toString(), { max: 1, prepare: false, connect_timeout: 5 });
@@ -59,6 +64,7 @@ describe("desafios de MFA por e-mail", () => {
 
   afterAll(async () => {
     await owner`delete from identity.staff_email_mfa_challenges where user_id in ${owner([userId, otherUser])}`;
+    await owner`delete from identity.staff_totp_factors where user_id in ${owner([userId, otherUser])}`;
     await owner`delete from identity.user_roles where user_id in ${owner([userId, otherUser])}`;
     await owner`delete from identity.users where id in ${owner([userId, otherUser])}`;
     await owner`delete from auth.users where id in ${owner([userId, otherUser])}`;
@@ -249,6 +255,106 @@ describe("desafios de MFA por e-mail", () => {
         now,
       }),
     ).toMatchObject({ ok: false, reason: "rejected" });
+  });
+
+  it("só uma de 20 confirmações paralelas consome o código", async () => {
+    const parallelSession = crypto.randomUUID();
+    const code = "777777";
+    await insertChallenge({ userId, sessionId: parallelSession, code });
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () =>
+        confirmStaffEmailMfaCode({
+          userId,
+          sessionId: parallelSession,
+          code,
+          ip: null,
+        }),
+      ),
+    );
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.filter((result) => !result.ok)).toHaveLength(19);
+    expect(await hasConsumedEmailMfa(userId, parallelSession)).toBe(true);
+    const attempts = await runtime<{ attempts: number }[]>`
+      select attempts from identity.staff_email_mfa_challenges
+      where user_id = ${userId}::uuid and session_id = ${parallelSession}::uuid
+      order by created_at desc
+      limit 1
+    `;
+    expect(Number(attempts[0]?.attempts)).toBeLessThanOrEqual(EMAIL_MFA_MAX_ATTEMPTS);
+  });
+
+  it("só aceita fator TOTP gravado na tabela conhecida", async () => {
+    const factorId = crypto.randomUUID();
+    expect(await verifiedTotpFactorsAreKnown(userId, [factorId])).toBe(false);
+    await rememberStaffTotpFactor({ userId, factorId });
+    expect(await verifiedTotpFactorsAreKnown(userId, [factorId])).toBe(true);
+  });
+
+  it("preenche staff_totp_factors a partir de auth.mfa_factors verificados", async () => {
+    const factorId = crypto.randomUUID();
+    await owner`
+      create table if not exists auth.mfa_factors (
+        id uuid primary key,
+        user_id uuid not null references auth.users(id),
+        friendly_name text,
+        factor_type text not null,
+        status text not null,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now(),
+        secret text
+      )
+    `;
+    await owner`
+      insert into auth.mfa_factors (
+        id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret
+      ) values (
+        ${factorId}::uuid,
+        ${userId}::uuid,
+        'Backfill',
+        'totp',
+        'verified',
+        now(),
+        now(),
+        'secret'
+      )
+    `;
+    await owner`
+      insert into identity.staff_totp_factors (factor_id, user_id, created_at)
+      select id, user_id, created_at
+      from auth.mfa_factors
+      where factor_type = 'totp' and status = 'verified'
+      on conflict (factor_id) do nothing
+    `;
+    const known = await runtime<{ factor_id: string }[]>`
+      select factor_id::text as factor_id
+      from identity.staff_totp_factors
+      where user_id = ${userId}::uuid and factor_id = ${factorId}::uuid
+    `;
+    expect(known).toHaveLength(1);
+    await owner`delete from identity.staff_totp_factors where factor_id = ${factorId}::uuid`;
+    await owner`delete from auth.mfa_factors where id = ${factorId}::uuid`;
+  });
+
+  it("nega staff_totp_factors ao anon e grava unknown_factor", async () => {
+    await expect(
+      owner.begin(async (transaction) => {
+        await transaction.unsafe("SET LOCAL ROLE anon");
+        await transaction.unsafe("SELECT 1 FROM identity.staff_totp_factors");
+      }),
+    ).rejects.toThrow(/permission denied|permissão negada/i);
+    const { writeStaffAudit } = await import("@/modules/identity/server/directory");
+    await writeStaffAudit({
+      action: "auth.mfa.unknown_factor",
+      actorUserId: userId,
+      entityType: "user",
+      entityId: userId,
+      metadata: {},
+    });
+    const rows = await owner<{ total: number }[]>`
+      select count(*)::int as total from audit.audit_log
+      where action = 'auth.mfa.unknown_factor' and actor_user_id = ${userId}::uuid
+    `;
+    expect(Number(rows[0]?.total)).toBeGreaterThan(0);
   });
 
   it("não grava o código nem o e-mail em claro no desafio", async () => {

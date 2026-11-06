@@ -17,6 +17,7 @@ const nonBlocking = new Set<AuditAction>([
   "auth.logout",
   "auth.session.expired",
   "access.denied",
+  "auth.mfa.unknown_factor",
   "mfa.email.sent",
   "mfa.email.verified",
   "mfa.email.failed",

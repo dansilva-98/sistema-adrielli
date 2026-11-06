@@ -4,6 +4,7 @@ export {
   loginAttempts,
   staffEmailMfaChallenges,
   staffRole,
+  staffTotpFactors,
   userKind,
   userRoles,
   users,

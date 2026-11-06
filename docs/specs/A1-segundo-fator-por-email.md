@@ -145,3 +145,13 @@ Registrar, com `writeStaffAudit` e sem o código:
 
 - Opção no cadastro de usuários para "exigir aplicativo" por pessoa.
 - Códigos de recuperação.
+
+## Adendo de 06/11/2026 — cadastro de TOTP só com a sessão confirmada
+
+Com o e-mail ativo, quem entra só com a senha (sessão `aal1`) não pode cadastrar o aplicativo autenticador. Sem isso, o TOTP vira atalho: a pessoa confirma o fator na sessão ainda não verificada e sobe para `aal2`, sem passar pelo segundo fator.
+
+**(a) Porta de cadastro.** Quando o MFA por e-mail está ativo (`staffEmailMfaEnabled`), `/equipe/mfa/configurar`, `generateTotpAction` e `confirmTotpAction` exigem sessão confirmada: `aal2` **confiável** (veja b) **ou** `hasConsumedEmailMfa` da sessão atual. Sem isso, redirecionam para `/equipe/mfa/verificar`. Sem a opção de e-mail, o cadastro do TOTP na sessão `aal1` continua como hoje.
+
+**(b) Fatores conhecidos.** Nova tabela `identity.staff_totp_factors`, gravada em `confirmTotpAction` depois da verificação bem-sucedida. Migration não destrutiva com backfill a partir de `auth.mfa_factors` verificados (`factor_type = 'totp'` e `status = 'verified'`). O guard só aceita `aal2` se **todos** os fatores TOTP verificados do usuário estiverem nessa tabela. Fator desconhecido: a sessão não está confirmada por `aal2` (fica `mfa-verify`, salvo se já houver e-mail consumido na sessão) e gera a auditoria `auth.mfa.unknown_factor`, sem o código e sem identificador do fator.
+
+Rollback da tabela: `drop table identity.staff_totp_factors`, sem perda de outros dados. Mesmas regras de acesso das outras tabelas de `identity`: sem `anon`/`authenticated`, RLS ligada, `app_runtime` com SELECT e INSERT.

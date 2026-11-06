@@ -6,6 +6,7 @@ export const AUDIT_ACTIONS = [
   "auth.session.expired",
   "auth.mfa.enrolled",
   "auth.mfa.failure",
+  "auth.mfa.unknown_factor",
   "mfa.email.sent",
   "mfa.email.verified",
   "mfa.email.failed",

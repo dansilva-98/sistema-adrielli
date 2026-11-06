@@ -91,3 +91,15 @@ export const staffEmailMfaChallenges = identity.table(
     ),
   ],
 );
+
+export const staffTotpFactors = identity.table(
+  "staff_totp_factors",
+  {
+    factorId: uuid("factor_id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("staff_totp_factors_user_id_idx").on(table.userId)],
+);

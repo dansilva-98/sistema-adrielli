@@ -32,13 +32,19 @@ describe("ações de auditoria", () => {
   it("inclui os eventos de conteúdo no check e cria o bucket público", () => {
     const sql = readFileSync("src/db/migrations/0006_content_tables.sql", "utf8");
     for (const action of AUDIT_ACTIONS.filter(
-      (action) => !action.startsWith("clinic.") && !action.startsWith("mfa.email."),
+      (action) =>
+        !action.startsWith("clinic.") &&
+        !action.startsWith("mfa.email.") &&
+        action !== "auth.mfa.unknown_factor",
     )) {
       expect(sql).toContain(`'${action}'`);
     }
     expect(
       AUDIT_ACTIONS.filter(
-        (action) => !action.startsWith("clinic.") && !action.startsWith("mfa.email."),
+        (action) =>
+          !action.startsWith("clinic.") &&
+          !action.startsWith("mfa.email.") &&
+          action !== "auth.mfa.unknown_factor",
       ),
     ).toHaveLength(T1_7_ACTIONS.length + 11);
     expect(sql).toContain("'site-public'");
@@ -52,7 +58,8 @@ describe("ações de auditoria", () => {
   it("inclui os eventos da clínica e cria o bucket privado", () => {
     const sql = readFileSync("src/db/migrations/0009_clinic_patients.sql", "utf8");
     for (const action of AUDIT_ACTIONS.filter(
-      (action) => !action.startsWith("mfa.email."),
+      (action) =>
+        !action.startsWith("mfa.email.") && action !== "auth.mfa.unknown_factor",
     )) {
       expect(sql).toContain(`'${action}'`);
     }
@@ -69,10 +76,23 @@ describe("ações de auditoria", () => {
 
   it("inclui os eventos de MFA por e-mail na migration nova", () => {
     const sql = readFileSync("src/db/migrations/0011_staff_email_mfa.sql", "utf8");
-    for (const action of AUDIT_ACTIONS) {
+    for (const action of AUDIT_ACTIONS.filter(
+      (action) => action !== "auth.mfa.unknown_factor",
+    )) {
       expect(sql).toContain(`'${action}'`);
     }
     expect(sql).toContain('"identity"."staff_email_mfa_challenges"');
     expect(sql).toContain("ON DELETE cascade");
+  });
+
+  it("inclui fatores TOTP conhecidos, backfill e unknown_factor", () => {
+    const sql = readFileSync("src/db/migrations/0012_staff_totp_factors.sql", "utf8");
+    for (const action of AUDIT_ACTIONS) {
+      expect(sql).toContain(`'${action}'`);
+    }
+    expect(sql).toContain('"identity"."staff_totp_factors"');
+    expect(sql).toContain("auth.mfa_factors");
+    expect(sql).toContain('ON CONFLICT ("factor_id") DO NOTHING');
+    expect(sql).toContain('REVOKE ALL ON TABLE "identity"."staff_totp_factors"');
   });
 });
