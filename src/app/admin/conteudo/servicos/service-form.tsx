@@ -79,7 +79,7 @@ function ServiceFormSession({
       serverVersion={service?.version ?? null}
       savedVersion={state.ok ? state.version : undefined}
     >
-      {({ formKey, onDirty }) => (
+      {({ formKey, onDirty, onDiscard }) => (
         <ServiceFormFields
           key={formKey}
           service={service}
@@ -91,6 +91,7 @@ function ServiceFormSession({
           }}
           onCreated={onCreated}
           onDirty={onDirty}
+          onDiscard={onDiscard}
           hideSaved={hideSaved}
         />
       )}
@@ -105,6 +106,7 @@ function ServiceFormFields({
   formAction,
   onCreated,
   onDirty,
+  onDiscard,
   hideSaved,
 }: {
   service: StaffService | null;
@@ -113,6 +115,7 @@ function ServiceFormFields({
   formAction: (formData: FormData) => void;
   onCreated: () => void;
   onDirty: (dirty: boolean) => void;
+  onDiscard: () => void;
   hideSaved: boolean;
 }) {
   const router = useRouter();
@@ -148,7 +151,7 @@ function ServiceFormFields({
     snapshot,
     state.ok ? (state.version ?? state.id ?? "ok") : false,
   );
-  useUnsavedLeave(dirty);
+  useUnsavedLeave(dirty, onDiscard);
   useEffect(() => {
     onDirty(dirty);
   }, [dirty, onDirty]);

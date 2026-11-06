@@ -328,4 +328,55 @@ test.describe("vários serviços no CMS", () => {
       await removeStaff(userId);
     }
   });
+
+  test("sair confirmando descarta o rascunho ao reabrir depois de Ocultar", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const email = `servicos-rascunho-${crypto.randomUUID()}@example.com`;
+    const userId = await createStaff(email, "CONTENT_ADMIN");
+    const title = `Serviço rascunho ${crypto.randomUUID().slice(0, 8)}`;
+    try {
+      await signIn(page, email);
+      await expect(page).toHaveURL(/\/admin$/);
+      await page.goto("/admin/conteudo/servicos");
+      await page.getByRole("link", { name: "Adicionar serviço", exact: true }).click();
+      await fillService(page, title);
+      const row = page.locator("ul > li").filter({ hasText: title });
+      await row.getByRole("link", { name: "Editar" }).click();
+      await expect(page).toHaveURL(/\/admin\/conteudo\/servicos\/.+/);
+      await expect(
+        page.getByRole("heading", { name: `Editar serviço: ${title}` }),
+      ).toBeVisible({ timeout: 15_000 });
+      await page.getByLabel("Resumo").fill("Resumo abandonado.");
+      page.once("dialog", (dialog) => dialog.accept());
+      await page.getByRole("link", { name: "Voltar para a lista" }).click();
+      await expect(page).toHaveURL(/\/admin\/conteudo\/servicos(\?|$)/);
+      await expect(page.getByText("Carregando os serviços…")).toHaveCount(0);
+      await row.getByRole("button", { name: "Ocultar" }).click();
+      await expect(row.getByText("não aparece no site")).toBeVisible({ timeout: 15_000 });
+      await row.getByRole("link", { name: "Editar" }).click();
+      await expect(page).toHaveURL(/\/admin\/conteudo\/servicos\/.+/);
+      const editor = page
+        .locator("form")
+        .filter({ has: page.getByRole("heading", { name: `Editar serviço: ${title}` }) })
+        .last();
+      await expect(
+        editor.getByRole("heading", { name: `Editar serviço: ${title}` }),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(editor.getByLabel("Resumo")).toHaveValue("Resumo curto.");
+      await expect(editor.getByLabel("Publicar no site")).not.toBeChecked();
+      await editor.getByRole("button", { name: "Salvar" }).click();
+      await expect(editor.getByText("Salvo. O site já mostra a alteração.")).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(
+        page.getByText("Este conteúdo foi alterado por outra pessoa"),
+      ).toHaveCount(0);
+      await page.goto("/servicos");
+      await expect(page.getByRole("heading", { name: title })).toHaveCount(0);
+    } finally {
+      await removeStaff(userId);
+    }
+  });
 });

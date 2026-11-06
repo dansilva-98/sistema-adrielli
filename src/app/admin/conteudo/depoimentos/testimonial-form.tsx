@@ -64,7 +64,7 @@ function TestimonialFormSession({
       serverVersion={item?.version ?? null}
       savedVersion={state.ok ? state.version : undefined}
     >
-      {({ formKey, onDirty }) => (
+      {({ formKey, onDirty, onDiscard }) => (
         <TestimonialFormFields
           key={formKey}
           item={item}
@@ -75,6 +75,7 @@ function TestimonialFormSession({
           }}
           onCreated={onCreated}
           onDirty={onDirty}
+          onDiscard={onDiscard}
           hideSaved={hideSaved}
         />
       )}
@@ -88,6 +89,7 @@ function TestimonialFormFields({
   formAction,
   onCreated,
   onDirty,
+  onDiscard,
   hideSaved,
 }: {
   item: StaffTestimonial | null;
@@ -95,6 +97,7 @@ function TestimonialFormFields({
   formAction: (formData: FormData) => void;
   onCreated: () => void;
   onDirty: (dirty: boolean) => void;
+  onDiscard: () => void;
   hideSaved: boolean;
 }) {
   const router = useRouter();
@@ -113,7 +116,7 @@ function TestimonialFormFields({
     JSON.stringify({ quote, author, consentAt, published }),
     state.ok ? (state.version ?? state.id ?? "ok") : false,
   );
-  useUnsavedLeave(dirty);
+  useUnsavedLeave(dirty, onDiscard);
   useEffect(() => {
     onDirty(dirty);
   }, [dirty, onDirty]);

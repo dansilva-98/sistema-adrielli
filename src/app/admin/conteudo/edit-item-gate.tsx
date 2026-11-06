@@ -12,7 +12,11 @@ export function EditItemGate({
 }: {
   serverVersion: number | null;
   savedVersion?: number;
-  children: (api: { formKey: number; onDirty: (dirty: boolean) => void }) => ReactNode;
+  children: (api: {
+    formKey: number;
+    onDirty: (dirty: boolean) => void;
+    onDiscard: () => void;
+  }) => ReactNode;
 }) {
   const [formKey, setFormKey] = useState(0);
   const [knownVersion, setKnownVersion] = useState(serverVersion ?? 0);
@@ -39,6 +43,11 @@ export function EditItemGate({
     setDirty(next);
   }, []);
 
+  const onDiscard = useCallback(() => {
+    setDirty(false);
+    setFormKey((current) => current + 1);
+  }, []);
+
   useEffect(() => {
     if (serverVersion == null) return;
     const refresh = () => router.refresh();
@@ -60,6 +69,7 @@ export function EditItemGate({
       {children({
         formKey,
         onDirty,
+        onDiscard,
       })}
     </>
   );

@@ -158,7 +158,7 @@ export function useDismissSavedNotice(saved: boolean): {
   };
 }
 
-export function useUnsavedLeave(dirty: boolean) {
+export function useUnsavedLeave(dirty: boolean, onDiscard?: () => void) {
   useEffect(() => {
     if (!dirty) return;
     const leave = (event: BeforeUnloadEvent) => {
@@ -172,7 +172,9 @@ export function useUnsavedLeave(dirty: boolean) {
       if (!window.confirm("Há alterações não salvas. Sair mesmo assim?")) {
         event.preventDefault();
         event.stopPropagation();
+        return;
       }
+      onDiscard?.();
     };
     window.addEventListener("beforeunload", leave);
     document.addEventListener("click", click, true);
@@ -180,5 +182,5 @@ export function useUnsavedLeave(dirty: boolean) {
       window.removeEventListener("beforeunload", leave);
       document.removeEventListener("click", click, true);
     };
-  }, [dirty]);
+  }, [dirty, onDiscard]);
 }

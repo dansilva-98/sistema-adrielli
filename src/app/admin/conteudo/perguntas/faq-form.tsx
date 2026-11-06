@@ -55,7 +55,7 @@ function FaqFormSession({
       serverVersion={item?.version ?? null}
       savedVersion={state.ok ? state.version : undefined}
     >
-      {({ formKey, onDirty }) => (
+      {({ formKey, onDirty, onDiscard }) => (
         <FaqFormFields
           key={formKey}
           item={item}
@@ -66,6 +66,7 @@ function FaqFormSession({
           }}
           onCreated={onCreated}
           onDirty={onDirty}
+          onDiscard={onDiscard}
           hideSaved={hideSaved}
         />
       )}
@@ -79,6 +80,7 @@ function FaqFormFields({
   formAction,
   onCreated,
   onDirty,
+  onDiscard,
   hideSaved,
 }: {
   item: StaffFaq | null;
@@ -86,6 +88,7 @@ function FaqFormFields({
   formAction: (formData: FormData) => void;
   onCreated: () => void;
   onDirty: (dirty: boolean) => void;
+  onDiscard: () => void;
   hideSaved: boolean;
 }) {
   const router = useRouter();
@@ -103,7 +106,7 @@ function FaqFormFields({
     JSON.stringify({ question, answer, published }),
     state.ok ? (state.version ?? state.id ?? "ok") : false,
   );
-  useUnsavedLeave(dirty);
+  useUnsavedLeave(dirty, onDiscard);
   useEffect(() => {
     onDirty(dirty);
   }, [dirty, onDirty]);
