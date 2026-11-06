@@ -2,8 +2,9 @@ import { mkdirSync } from "node:fs";
 
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import { createStaff, removeStaff, signIn } from "./staff-fixtures";
+import { expectPublishedService, expectServiceAbsent } from "./public-service-visibility";
 import { saveContact } from "./site-cms";
+import { createStaff, removeStaff, signIn } from "./staff-fixtures";
 
 const WHATSAPP_HREF = "https://wa.me/5511999999999?text=Ol%C3%A1";
 
@@ -112,16 +113,14 @@ test.describe("site público", () => {
       await expect(page.getByText("Serviço criado.")).toBeVisible({ timeout: 20_000 });
       await expect(page).toHaveURL(/\/admin\/conteudo\/servicos(\?|$)/);
       await page.goto("/servicos");
-      await expect(page.getByRole("heading", { name: title })).toHaveCount(0);
+      await expectServiceAbsent(page, title);
       await page.goto("/admin/conteudo/servicos");
       const row = page.locator("li").filter({ hasText: title });
       await expect(row.getByText("não aparece no site")).toBeVisible();
       await row.getByRole("button", { name: "Publicar" }).click();
       await expect(row.getByText("Publicado")).toBeVisible({ timeout: 15_000 });
       await page.goto("/servicos");
-      await expect(page.getByRole("heading", { name: title })).toBeVisible({
-        timeout: 15_000,
-      });
+      await expectPublishedService(page, title);
 
       await page.goto("/admin/conteudo/site");
       const form = page

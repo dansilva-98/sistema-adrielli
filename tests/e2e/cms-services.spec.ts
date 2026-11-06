@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import { expectPublishedService, expectServiceAbsent } from "./public-service-visibility";
 import { createStaff, removeStaff, signIn } from "./staff-fixtures";
 
 async function fillService(page: Page, title: string): Promise<void> {
@@ -31,7 +32,7 @@ test.describe("vários serviços no CMS", () => {
       }
       await page.goto("/servicos");
       for (const title of titles) {
-        await expect(page.getByRole("heading", { name: title })).toBeVisible();
+        await expectPublishedService(page, title);
       }
     } finally {
       await removeStaff(userId);
@@ -77,10 +78,10 @@ test.describe("vários serviços no CMS", () => {
         rows.filter({ has: page.getByText(second, { exact: true }) }),
       ).toHaveCount(0);
       await page.goto("/servicos");
-      await expect(page.getByRole("heading", { name: first })).toBeVisible();
-      await expect(page.getByRole("heading", { name: edited })).toBeVisible();
-      await expect(page.getByRole("heading", { name: third })).toBeVisible();
-      await expect(page.getByRole("heading", { name: second })).toHaveCount(0);
+      await expectPublishedService(page, first);
+      await expectPublishedService(page, edited);
+      await expectPublishedService(page, third);
+      await expectServiceAbsent(page, second);
     } finally {
       await removeStaff(userId);
     }
@@ -125,7 +126,7 @@ test.describe("vários serviços no CMS", () => {
         page.getByText("Este conteúdo foi alterado por outra pessoa"),
       ).toHaveCount(0);
       await page.goto("/servicos");
-      await expect(page.getByRole("heading", { name: title })).toHaveCount(0);
+      await expectServiceAbsent(page, title);
     } finally {
       await removeStaff(userId);
     }
@@ -282,7 +283,7 @@ test.describe("vários serviços no CMS", () => {
         page.getByText("Este conteúdo foi alterado por outra pessoa"),
       ).toHaveCount(0);
       await page.goto("/servicos");
-      await expect(page.getByRole("heading", { name: title })).toHaveCount(0);
+      await expectServiceAbsent(page, title);
     } finally {
       await removeStaff(userId);
     }
@@ -374,7 +375,7 @@ test.describe("vários serviços no CMS", () => {
         page.getByText("Este conteúdo foi alterado por outra pessoa"),
       ).toHaveCount(0);
       await page.goto("/servicos");
-      await expect(page.getByRole("heading", { name: title })).toHaveCount(0);
+      await expectServiceAbsent(page, title);
     } finally {
       await removeStaff(userId);
     }

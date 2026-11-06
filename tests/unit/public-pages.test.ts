@@ -55,6 +55,26 @@ describe("Sobre", () => {
     expect(html).not.toContain("Sobre mim");
   });
 
+  it("destaca só a primeira frase e mantém o restante do mesmo parágrafo", async () => {
+    clientEnv();
+    const { AboutContent } = await import("@/app/(public)/about-content");
+    const html = renderToStaticMarkup(
+      createElement(AboutContent, {
+        site: {
+          ...EMPTY_PUBLIC_SITE,
+          aboutTitle: "Sobre",
+          aboutBody: "Frase um. Frase dois do mesmo parágrafo.",
+        },
+      }),
+    );
+    expect(html).toContain("font-serif text-2xl");
+    expect(html).toContain("Frase um.");
+    expect(html).toContain("Frase dois do mesmo parágrafo.");
+    expect(html.indexOf("Frase um.")).toBeLessThan(
+      html.indexOf("Frase dois do mesmo parágrafo."),
+    );
+  });
+
   it("não mostra Onde atua sem área cadastrada", async () => {
     clientEnv();
     const { AboutContent } = await import("@/app/(public)/about-content");
@@ -69,10 +89,55 @@ describe("Sobre", () => {
 });
 
 describe("abertura do Sobre", () => {
+  function joinedPlain(source: string): string {
+    const featured = featuredAboutText(source);
+    const rest = remainingAboutSource(source)
+      .split(/\n{2,}/)
+      .map((block) => block.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .join(" ");
+    return [featured, rest].filter(Boolean).join(" ");
+  }
+
   it("separa o destaque do restante pelas linhas em branco", () => {
     expect(featuredAboutText("Primeiro.\n\nSegundo.")).toBe("Primeiro.");
     expect(remainingAboutSource("Primeiro.\n\nSegundo.")).toBe("Segundo.");
     expect(remainingAboutSource("Só um parágrafo.")).toBe("");
+  });
+
+  it("trata CRLF como o parser de markdown", () => {
+    expect(featuredAboutText("Primeiro.\r\n\r\nSegundo.")).toBe("Primeiro.");
+    expect(remainingAboutSource("Primeiro.\r\n\r\nSegundo.")).toBe("Segundo.");
+    expect(remainingAboutSource("Primeiro.\r\n\r\nSegundo.\r\n\r\nTerceiro.")).toBe(
+      "Segundo.\n\nTerceiro.",
+    );
+  });
+
+  it("destaca só a primeira frase do primeiro parágrafo", () => {
+    expect(featuredAboutText("Frase um. Frase dois.")).toBe("Frase um.");
+    expect(remainingAboutSource("Frase um. Frase dois.")).toBe("Frase dois.");
+    expect(featuredAboutText("A. B.\n\nC.")).toBe("A.");
+    expect(remainingAboutSource("A. B.\n\nC.")).toBe("B.\n\nC.");
+    expect(featuredAboutText("Um parágrafo só sem ponto")).toBe(
+      "Um parágrafo só sem ponto",
+    );
+    expect(remainingAboutSource("Um parágrafo só sem ponto")).toBe("");
+  });
+
+  it("não perde texto com um ou vários parágrafos", () => {
+    const cases = [
+      "Só uma frase.",
+      "Frase um. Frase dois.",
+      "Primeiro.\n\nSegundo.",
+      "Primeiro.\r\n\r\nSegundo.\r\n\r\nTerceiro.",
+      "A. B.\n\nC. D.",
+      "Um parágrafo só sem ponto",
+    ];
+    for (const source of cases) {
+      expect(joinedPlain(source)).toBe(
+        source.replaceAll("\r\n", "\n").replace(/\s+/g, " ").trim(),
+      );
+    }
   });
 });
 

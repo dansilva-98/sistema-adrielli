@@ -28,14 +28,16 @@ export function AboutContent({ site }: { site: PublicSite }) {
           />
         ) : null}
         <div className="flex flex-col gap-5">
-          <h1 className="font-serif text-4xl text-balance sm:text-5xl">
+          <h1 className="font-serif text-4xl break-words text-balance sm:text-5xl">
             {site.aboutTitle.trim() || "Sobre"}
           </h1>
           {featured ? (
-            <p className="max-w-[65ch] font-serif text-2xl text-text">{featured}</p>
+            <p className="max-w-[65ch] font-serif text-2xl break-words text-text">
+              {featured}
+            </p>
           ) : null}
           {rest ? (
-            <div className="max-w-[65ch] text-text">
+            <div className="max-w-[65ch] text-text break-words">
               <RestrictedMarkdown source={rest} />
             </div>
           ) : null}

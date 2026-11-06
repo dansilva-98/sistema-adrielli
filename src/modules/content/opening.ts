@@ -1,17 +1,35 @@
 import { parseRestrictedMarkdown, type MarkdownInline } from "@/modules/content/markdown";
 
+function normalizeAboutSource(source: string): string {
+  return source.replaceAll("\r\n", "\n").trim();
+}
+
+function firstSentence(text: string): string {
+  const compact = text.replace(/\s+/g, " ").trim();
+  const match = compact.match(/^.+?[.!?]+(?=\s|$)/);
+  return (match?.[0] ?? compact).trim();
+}
+
+function firstBlockSource(source: string): string {
+  return normalizeAboutSource(source).split(/\n{2,}/)[0] ?? "";
+}
+
 export function featuredAboutText(source: string): string {
-  return openingText(source, Number.MAX_SAFE_INTEGER);
+  return firstSentence(openingText(firstBlockSource(source), Number.MAX_SAFE_INTEGER));
 }
 
 export function remainingAboutSource(source: string): string {
-  const trimmed = source.trim();
-  if (!trimmed) return "";
-  return trimmed
-    .split(/\n{2,}/)
-    .slice(1)
-    .join("\n\n")
-    .trim();
+  const normalized = normalizeAboutSource(source);
+  if (!normalized) return "";
+  const blocks = normalized.split(/\n{2,}/);
+  const first = blocks[0] ?? "";
+  const featured = featuredAboutText(first);
+  const firstPlain = openingText(first, Number.MAX_SAFE_INTEGER);
+  const restOfFirst =
+    featured && firstPlain.startsWith(featured)
+      ? firstPlain.slice(featured.length).trim()
+      : "";
+  return [restOfFirst, ...blocks.slice(1)].filter(Boolean).join("\n\n");
 }
 
 export function openingText(source: string, max = 240): string {
