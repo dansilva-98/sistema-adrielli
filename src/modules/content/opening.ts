@@ -1,5 +1,19 @@
 import { parseRestrictedMarkdown, type MarkdownInline } from "@/modules/content/markdown";
 
+export function featuredAboutText(source: string): string {
+  return openingText(source, Number.MAX_SAFE_INTEGER);
+}
+
+export function remainingAboutSource(source: string): string {
+  const trimmed = source.trim();
+  if (!trimmed) return "";
+  return trimmed
+    .split(/\n{2,}/)
+    .slice(1)
+    .join("\n\n")
+    .trim();
+}
+
 export function openingText(source: string, max = 240): string {
   const block = parseRestrictedMarkdown(source)[0];
   if (!block) return "";

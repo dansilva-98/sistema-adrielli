@@ -66,6 +66,7 @@ test("os cabeçalhos de segurança estão na home e na saúde", async ({ request
     expect(headers["strict-transport-security"]).toContain("max-age=31536000");
     const csp = headers["content-security-policy"] ?? "";
     expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("frame-src 'none'");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'self'");
   }

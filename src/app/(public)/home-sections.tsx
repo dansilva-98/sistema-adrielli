@@ -1,10 +1,12 @@
 import Link from "next/link";
 
+import { MapsLink } from "@/components/maps-link";
 import { StepTrack } from "@/components/step-track";
 import {
   hasHowItWorks,
   heroHeadingClass,
   heroHeadingText,
+  homeAreaText,
   homeSectionKeys,
   howItWorksSteps,
 } from "@/modules/content/home-sections";
@@ -82,9 +84,12 @@ export function HomeContent({
           />
         ) : null}
       </section>
-      {keys.includes("area") && site.serviceAreaText ? (
+      {keys.includes("area") ? (
         <section className="rounded-lg bg-surface-muted px-4 py-5 sm:px-6">
-          <p className="max-w-prose text-muted">{site.serviceAreaText}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="max-w-prose text-muted">{homeAreaText(site)}</p>
+            <MapsLink address={site.addressText} />
+          </div>
         </section>
       ) : null}
       {hasHowItWorks(site) ? (
@@ -110,7 +115,7 @@ export function HomeContent({
             {aboutOpening ? <p className="max-w-prose">{aboutOpening}</p> : null}
             <Link
               href="/sobre"
-              className="w-fit text-primary underline-offset-4 hover:underline"
+              className="inline-flex min-h-11 w-fit items-center text-primary underline-offset-4 hover:underline"
             >
               Ler o texto completo
             </Link>
@@ -121,7 +126,7 @@ export function HomeContent({
           <p className="mt-2 text-sm">Em breve</p>
           <Link
             href="/materiais"
-            className="mt-3 inline-flex w-fit underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="mt-3 inline-flex min-h-11 w-fit items-center text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             Ver materiais
           </Link>

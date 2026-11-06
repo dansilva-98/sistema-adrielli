@@ -1,5 +1,15 @@
 import { expect, test } from "@playwright/test";
 
+test("sem endereço não há Ver no mapa na home nem no contato", async ({ page }) => {
+  test.skip(process.env.EMPTY_SITE !== "1", "só roda contra o banco sem conteúdo");
+  for (const path of ["/", "/contato"]) {
+    await page.goto(path);
+    await expect(page.getByRole("link", { name: "Ver no mapa" })).toHaveCount(0);
+  }
+  await page.goto("/");
+  await expect(page.getByText("Atendimento presencial")).toHaveCount(0);
+});
+
 test("o site segue apresentável com o banco sem conteúdo", async ({ page }) => {
   test.skip(process.env.EMPTY_SITE !== "1", "só roda contra o banco sem conteúdo");
   const response = await page.goto("/");

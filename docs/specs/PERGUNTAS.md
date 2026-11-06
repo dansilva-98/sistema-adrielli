@@ -68,6 +68,10 @@ Um Supabase local temporário, fora deste repositório, atende ao projeto descar
 
 O workflow Banco ativo consulta a API pública do GitHub, sem segredo, e falha se a última execução bem-sucedida do backup na `main` tiver 30 horas ou mais.
 
+## L3.3 — subtítulo de Serviços
+
+A spec pede título "Como posso ajudar seu filho." e subtítulo, mas não define o texto do subtítulo nem um campo no painel. A página ficou só com o título até essa decisão.
+
 ## Manutenção — E2E staff-areas e Date.now no prerender
 
 O teste `tests/e2e/staff-areas.spec.ts` (“CONTENT_ADMIN salva o topo e confirma antes de sair”) ficou instável no CI. Há avisos de `Date.now()` no prerender de `/equipe/*` (a guarda já chama `connection()`, mas o contexto ainda lê o relógio). Tratar num PR de manutenção, fora do L3.3.
