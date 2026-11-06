@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  addressForSeed,
   assertLocalDatabaseAllowed,
   assertRuntimeDatabaseUrl,
   assertSeedAllowed,
   assertTestDatabaseUrl,
+  EXAMPLE_ADDRESS,
   howItWorksForSeed,
 } from "../../src/db/seed";
 
@@ -81,5 +83,11 @@ describe("seed de Como funciona", () => {
       example.every((step) => step.body.startsWith("Exemplo:") && step.body.trim()),
     ).toBe(true);
     expect(empty.every((step) => step.body === "")).toBe(true);
+  });
+
+  it("grava endereço de exemplo e deixa vazio com EMPTY_SITE", () => {
+    expect(addressForSeed(false)).toBe(EXAMPLE_ADDRESS);
+    expect(EXAMPLE_ADDRESS.startsWith("Exemplo:")).toBe(true);
+    expect(addressForSeed(true)).toBeNull();
   });
 });

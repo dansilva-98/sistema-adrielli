@@ -100,6 +100,12 @@ export function howItWorksForSeed(emptySite: boolean): HowItWorksSeedStep[] {
   return emptySite ? EMPTY_HOW_IT_WORKS : EXAMPLE_HOW_IT_WORKS;
 }
 
+export const EXAMPLE_ADDRESS = "Exemplo: Rua das Flores, 100, Fernandópolis-SP";
+
+export function addressForSeed(emptySite: boolean): string | null {
+  return emptySite ? null : EXAMPLE_ADDRESS;
+}
+
 function loadLocalEnv(): void {
   if (existsSync(".env.local")) loadEnvFile(".env.local");
   else if (existsSync(".env")) loadEnvFile(".env");
@@ -107,11 +113,13 @@ function loadLocalEnv(): void {
 
 async function seedHowItWorks(databaseUrl: string, emptySite: boolean): Promise<void> {
   const steps = howItWorksForSeed(emptySite);
+  const address = addressForSeed(emptySite);
   const sql = postgres(databaseUrl, { max: 1, prepare: false, connect_timeout: 8 });
   try {
     const updated = await sql`
       update content.site_settings
-      set how_it_works = ${sql.json(steps)}
+      set how_it_works = ${sql.json(steps)},
+          address_text = ${address}
       where id = 1
     `;
     if (updated.count !== 1) {
@@ -130,8 +138,8 @@ async function main(): Promise<void> {
   await seedHowItWorks(env.DATABASE_URL, emptySite);
   console.log(
     emptySite
-      ? "Seed concluído. Como funciona ficou sem texto."
-      : "Seed concluído. Como funciona de exemplo gravado.",
+      ? "Seed concluído. Como funciona e o endereço ficaram vazios."
+      : "Seed concluído. Como funciona e o endereço de exemplo gravados.",
   );
 }
 

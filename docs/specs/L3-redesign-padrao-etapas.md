@@ -45,6 +45,10 @@ Aplicar uma linguagem visual única a todo o produto, partindo da home aprovada 
 - **Sem animações de entrada.** A única transição é a troca de conteúdo do cartão ao mudar de aba. Ela respeita `prefers-reduced-motion`.
 - **Botão flutuante do WhatsApp (L2.1)** continua igual em todas as páginas públicas.
 - **Largura mínima:** 360 px no site público (regra do E0). Os protótipos de celular foram desenhados em 390 px e precisam funcionar em 360 px.
+- **Mapa (05/11):** o link "Ver no mapa" usa só o Endereço (`addressText`). Sem campo novo, sem iframe e sem script. URL: `https://www.google.com/maps/search/?api=1&query=` + `encodeURIComponent(addressText)`, `target="_blank"` e `rel="noopener noreferrer"`. A CSP permanece com `frame-src 'none'`.
+  - **Home:** se houver Área de atendimento, a faixa mostra `serviceAreaText` e o link quando houver Endereço. Sem área e com endereço: "Atendimento presencial" + o link. Sem os dois, a faixa não aparece.
+  - **Contato:** o mesmo link ao lado do endereço.
+  - `aria-label="Ver no mapa (abre em nova aba)"` e alvo de 44 px. O nome acessível começa pelo texto visível para cumprir WCAG 2.5.3.
 
 ## L3.1 — Componente `StepTrack`
 
@@ -133,7 +137,7 @@ Todas continuam montadas a partir do CMS. Uma seção sem conteúdo não aparece
 1. **Topo, em duas colunas:**
    - à esquerda: `heroTagline` em `--primary`, `heroTitle` em H1 de 80 px no desktop e 46 px no celular, `heroSubtitle`, botão "Conversar pelo WhatsApp" e o link "Como é o atendimento", que leva à âncora das etapas;
    - à direita: `heroImage` em 4:5.
-2. **Faixa de formação** em `--surface-muted`: frase curta com a especialização e o atendimento em Fernandópolis-SP (`serviceAreaText`).
+2. **Faixa abaixo do topo** em `--surface-muted`: o texto de Área de atendimento (`serviceAreaText`) e o link "Ver no mapa" quando houver Endereço (`addressText`). Sem área e com endereço: "Atendimento presencial" e o link. Sem os dois, a faixa não aparece.
 3. **Como funciona:** `StepTrack` na variante `tabs`, com as 4 etapas de `howItWorks` e o texto completo no cartão. O cartão tem espaço para foto (opcional; se não houver foto, o texto ocupa a largura toda).
 4. **Materiais:** cartão "Em breve" (L2.2). Com o E3, vira o carrossel de 4 a 5 materiais já decidido no L2.
 5. **Depoimentos e perguntas frequentes**, se houver publicados.
@@ -161,7 +165,7 @@ Todas continuam montadas a partir do CMS. Uma seção sem conteúdo não aparece
 
 1. Título "Vamos conversar sobre seu filho?" e botão principal em `--support`: "Agendar avaliação pelo WhatsApp".
 2. Três cartões: WhatsApp, Instagram e e-mail, cada um com a ação ("Abrir conversa", "Ver perfil", "Enviar e-mail"). O cartão de uma informação não cadastrada não aparece.
-3. **Endereço** (`addressText`): link "Ver no mapa" e imagem. **Sem iframe de mapa**: a CSP não permite e o L2 proíbe terceiros. Usar uma foto da fachada enviada pelo CMS ou nenhuma imagem.
+3. **Endereço** (`addressText`): o mesmo link "Ver no mapa" ao lado do endereço. URL: `https://www.google.com/maps/search/?api=1&query=` + `encodeURIComponent(addressText)`, `target="_blank"` e `rel="noopener noreferrer"`. Sem iframe, sem script e sem campo novo. `aria-label="Ver no mapa (abre em nova aba)"` e alvo de 44 px. A CSP permanece com `frame-src 'none'`.
 4. "Depois da sua mensagem": `StepTrack` estático, com a etapa 1 marcada e o texto "Você está aqui".
 
 ## L3.4 — Loja (layouts; regras do E3/E4)
@@ -335,7 +339,7 @@ O painel **não tem** foto por etapa, lista de formação, nem rótulo curto de 
    - A trilha mostra **de 3 a 6** etapas. O texto do cartão é "Etapa N de {total}", nunca "de 4" fixo.
    - **Sai o rótulo curto fixo** (Escuta, Avaliação…). No celular, a trilha mostra só os números (marcadores de 44 × 44 px). O nome da aba vem do título do painel (`aria-label="Etapa 2: Avaliação individualizada"`), e o cartão mostra o título completo. Com isso, nada some quando ela muda os títulos.
    - **Sai a foto do cartão da etapa**, porque o painel não tem esse campo. O texto ocupa a largura toda.
-3. **Faixa abaixo do topo = só "Área de atendimento"** (`serviceAreaText`). O texto de especialização que aparecia no protótipo não é campo do painel. Sem área cadastrada, a faixa não aparece.
+3. **Faixa abaixo do topo** (atualizado em 05/11): Área de atendimento (`serviceAreaText`) e o link "Ver no mapa" a partir do Endereço (`addressText`), sem campo novo. Sem área e com endereço: "Atendimento presencial" + o link. Sem os dois, a faixa não aparece. O texto de especialização do protótipo não é campo do painel.
 4. **A trilha dourada fica só onde há sequência real:**
    - Como funciona (home);
    - Depois da sua mensagem (Contato);
@@ -400,6 +404,22 @@ Conferido em `adrielliflores.com.br`, a 1280 px e a 375 px, depois que a respons
 - `adrielliflores.com.br` está **sem conteúdo no painel**. A home mostra só "Adrielli Flores" e o cartão Materiais. Não há número de WhatsApp, por isso nenhum botão de contato aparece.
 - O staging também está vazio.
 - **Antes de implementar o L3**, a responsável preenche o painel da produção: Topo, Como funciona, Sobre, Contato e pelo menos 1 serviço. Só então o site pode ser avaliado com conteúdo real.
+
+### Decisão de 05/11/2026: link "Ver no mapa" a partir do Endereço do painel
+
+Pedido do responsável técnico, para o endereço não precisar ficar na faixa da home.
+
+- **Sem campo novo no painel.** Usa o campo **Endereço** (`addressText`), que já existe.
+- **Link:** `https://www.google.com/maps/search/?api=1&query=<endereço codificado com encodeURIComponent>`, em nova aba (`target="_blank"`, `rel="noopener noreferrer"`). No celular, ele abre o app de mapas se estiver instalado.
+  - O link é só navegação: **sem iframe, sem script e sem chamada a terceiros** ao carregar a página. A CSP fica igual.
+- **Onde aparece:**
+  1. na **faixa da home**: a frase da **Área de atendimento** (`serviceAreaText`), seguida do link **"Ver no mapa"** quando houver Endereço. Sem Área de atendimento e com Endereço, a faixa mostra só "Atendimento presencial" e o link. Sem os dois campos, a faixa não aparece;
+  2. na **página Contato**, ao lado do endereço (já previsto no L3.3).
+- **Acessibilidade:** o texto do link é "Ver no mapa". O `aria-label` é "Ver no mapa (abre em nova aba)", para o nome acessível começar pelo texto visível (WCAG 2.5.3). Alvo de 44 px.
+- **Testes:**
+  - unidade da montagem da URL (acentos, vírgulas, `&` e `#` codificados; vazio resulta em sem link);
+  - E2E: o link aparece com o Endereço preenchido e some sem ele.
+- **Conteúdo:** a responsável deixa na "Área de atendimento" só a frase curta (ex.: "Atendimento presencial em Fernandópolis-SP"). O endereço fica no campo "Endereço".
 
 ### Decisão de 05/11/2026 (tarde): rodapé reorganizado, "Início" de volta e menu até 1024 px
 
