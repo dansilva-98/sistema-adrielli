@@ -78,6 +78,20 @@
       "when": 1793194016761,
       "tag": "0010_attachment_storage_path",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793960000000,
+      "tag": "0011_staff_email_mfa",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793972307903,
+      "tag": "0012_staff_totp_factors",
+      "breakpoints": true
     }
   ]
 }

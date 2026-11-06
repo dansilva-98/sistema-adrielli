@@ -26,7 +26,11 @@ import {
   sessionIdFromAccessToken,
 } from "@/modules/identity/supabase-sign-in";
 
+import { totpFactorsAreTrusted } from "@/modules/identity/totp-factors";
+
 import { loadStaffProfile, writeStaffAudit } from "./directory";
+import { hasConsumedEmailMfa } from "./email-mfa";
+import { knownStaffTotpFactorIds } from "./totp-factors";
 
 export class StaffAccessError extends Error {
   readonly reason: StaffAccessReason;
@@ -62,18 +66,50 @@ const loadAccessContext = cache(async function loadAccessContext() {
   const cookie = token ? readStaffSession(token, serverEnv.STAFF_SESSION_SECRET) : null;
   const profile = identity ? await loadStaffProfile(identity.userId) : null;
   let hasVerifiedTotp = identity?.aal === "aal2";
+  let hasEmailVerification = false;
+  let totpFactorsTrusted = true;
   if (
     profile?.kind === "STAFF" &&
     !profile.disabledAt &&
     staffRequiresMfa(profile.roles) &&
-    identity?.aal !== "aal2"
+    identity !== null
   ) {
     const factors = await supabase.auth.mfa.listFactors();
-    hasVerifiedTotp = (factors.data?.totp ?? []).some(
-      (factor) => factor.status === "verified",
-    );
+    const verifiedIds = (factors.data?.totp ?? [])
+      .filter((factor) => factor.status === "verified")
+      .map((factor) => factor.id);
+    hasVerifiedTotp = identity.aal === "aal2" || verifiedIds.length > 0;
+    if (identity.aal === "aal2") {
+      const knownIds = await knownStaffTotpFactorIds(identity.userId);
+      totpFactorsTrusted = totpFactorsAreTrusted(verifiedIds, knownIds);
+      if (!totpFactorsTrusted) {
+        const known = new Set(knownIds);
+        const unknownFactorId = verifiedIds.find((id) => !known.has(id));
+        await writeStaffAudit({
+          action: "auth.mfa.unknown_factor",
+          actorUserId: identity.userId,
+          entityType: "user",
+          entityId: identity.userId,
+          metadata: unknownFactorId ? { factor_id: unknownFactorId } : {},
+        });
+      }
+    }
+    if ((identity.aal !== "aal2" || !totpFactorsTrusted) && identity.sessionId) {
+      hasEmailVerification = await hasConsumedEmailMfa(
+        identity.userId,
+        identity.sessionId,
+      );
+    }
   }
-  return { identity, cookie, profile, hasVerifiedTotp, now: Date.now() };
+  return {
+    identity,
+    cookie,
+    profile,
+    hasVerifiedTotp,
+    hasEmailVerification,
+    totpFactorsTrusted,
+    now: Date.now(),
+  };
 });
 
 const currentDecision = cache(async function currentDecision(
@@ -87,6 +123,8 @@ const currentDecision = cache(async function currentDecision(
     profile: context.profile,
     aal: context.identity?.aal ?? null,
     hasVerifiedTotp: context.hasVerifiedTotp,
+    hasEmailVerification: context.hasEmailVerification,
+    totpFactorsTrusted: context.totpFactorsTrusted,
     roles,
     now: context.now,
   });

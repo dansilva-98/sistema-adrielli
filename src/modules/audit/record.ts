@@ -3,7 +3,12 @@ import { z } from "zod";
 
 import type { AuditAction } from "../../db/audit-actions.ts";
 
-const metadataSchema = z.object({}).strict();
+const metadataSchema = z
+  .object({
+    attempt: z.number().int().min(1).max(5).optional(),
+    factor_id: z.string().uuid().optional(),
+  })
+  .strict();
 
 export type AuditEvent = {
   action: AuditAction;
@@ -38,7 +43,7 @@ export async function recordAudit(event: AuditEvent, tx?: AuditExecutor): Promis
 async function insertAudit(
   tx: AuditExecutor,
   event: AuditEvent,
-  metadata: Record<string, never>,
+  metadata: { attempt?: number; factor_id?: string },
 ): Promise<void> {
   await tx`
     insert into audit.audit_log (

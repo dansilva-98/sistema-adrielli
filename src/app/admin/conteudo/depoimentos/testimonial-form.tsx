@@ -6,6 +6,12 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CONTENT_LIMITS } from "@/db/content-limits";
+import { confirmContentVersion } from "@/modules/content/edit-sync";
+import {
+  contentCreatedPath,
+  contentEditTitle,
+  contentListPreview,
+} from "@/modules/content/list-copy";
 import type { StaffTestimonial } from "@/modules/content/queries";
 import {
   createTestimonialAction,
@@ -16,37 +22,126 @@ import {
   CountedField,
   FormNotice,
   SaveButton,
+  savedNoticeState,
   useDirtySinceSave,
+  useDismissSavedNotice,
   useUnsavedLeave,
 } from "../cms-fields";
+import { ContentFormChrome, PublishOnSiteField } from "../content-form-chrome";
+import { EditItemGate } from "../edit-item-gate";
 
 const idle = { ok: false as const, message: "" };
+const LIST_HREF = "/admin/conteudo/depoimentos";
+const CREATE_HREF = "/admin/conteudo/depoimentos/novo";
+
+type FormState =
+  | { ok: true; id?: string; path?: string; version?: number }
+  | { ok: false; message: string; field?: string; fields?: Record<string, string> };
 
 export function TestimonialForm({ item }: { item: StaffTestimonial | null }) {
-  const router = useRouter();
+  const [createEpoch, setCreateEpoch] = useState(0);
+  return (
+    <TestimonialFormSession
+      key={item?.id ?? `new-${createEpoch}`}
+      item={item}
+      onCreated={() => setCreateEpoch((current) => current + 1)}
+    />
+  );
+}
+
+function TestimonialFormSession({
+  item,
+  onCreated,
+}: {
+  item: StaffTestimonial | null;
+  onCreated: () => void;
+}) {
   const action = item ? updateTestimonialAction : createTestimonialAction;
   const [state, formAction] = useActionState(action, idle);
+  const { hideSaved, trackSubmit } = useDismissSavedNotice(state.ok);
+  return (
+    <EditItemGate
+      serverVersion={item?.version ?? null}
+      savedVersion={state.ok ? state.version : undefined}
+    >
+      {({ formKey, onDirty, onDiscard }) => (
+        <TestimonialFormFields
+          key={formKey}
+          item={item}
+          state={state}
+          formAction={(formData) => {
+            trackSubmit();
+            formAction(formData);
+          }}
+          onCreated={onCreated}
+          onDirty={onDirty}
+          onDiscard={onDiscard}
+          hideSaved={hideSaved}
+        />
+      )}
+    </EditItemGate>
+  );
+}
+
+function TestimonialFormFields({
+  item,
+  state,
+  formAction,
+  onCreated,
+  onDirty,
+  onDiscard,
+  hideSaved,
+}: {
+  item: StaffTestimonial | null;
+  state: FormState;
+  formAction: (formData: FormData) => void;
+  onCreated: () => void;
+  onDirty: (dirty: boolean) => void;
+  onDiscard: () => void;
+  hideSaved: boolean;
+}) {
+  const router = useRouter();
   const [quote, setQuote] = useState(item?.quote ?? "");
   const [author, setAuthor] = useState(item?.authorLabel ?? "");
   const [consentAt, setConsentAt] = useState(item?.consentAt ?? "");
-  const [published, setPublished] = useState(item?.published ?? false);
-  const version = state.ok && state.version ? state.version : (item?.version ?? 0);
+  const [published, setPublished] = useState(item?.published ?? true);
+  const [mountedVersion] = useState(item?.version ?? 0);
+  const [confirmedVersion, setConfirmedVersion] = useState(mountedVersion);
+  const version = confirmContentVersion(
+    confirmedVersion,
+    state.ok ? state.version : undefined,
+  );
+  if (version !== confirmedVersion) setConfirmedVersion(version);
   const dirty = useDirtySinceSave(
     JSON.stringify({ quote, author, consentAt, published }),
-    state.ok,
+    state.ok ? (state.version ?? state.id ?? "ok") : false,
   );
-  useUnsavedLeave(dirty);
+  useUnsavedLeave(dirty, onDiscard);
+  useEffect(() => {
+    onDirty(dirty);
+  }, [dirty, onDirty]);
 
   useEffect(() => {
     if (state.ok && !item && state.id) {
-      router.push(`/admin/conteudo/depoimentos/${state.id}`);
+      onCreated();
+      router.push(contentCreatedPath(LIST_HREF));
     }
-  }, [item, router, state]);
+  }, [item, onCreated, router, state]);
 
   const fields = state.ok ? {} : (state.fields ?? {});
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-4">
-      <h2 className="text-xl">{item ? "Editar depoimento" : "Novo depoimento"}</h2>
+      <ContentFormChrome
+        kind="testimonial"
+        listHref={LIST_HREF}
+        createHref={CREATE_HREF}
+        title={
+          item
+            ? contentEditTitle("testimonial", contentListPreview(item.quote))
+            : "Novo depoimento"
+        }
+        editing={Boolean(item)}
+      />
       <p className="text-sm">
         Publique só com autorização por escrito de quem deu o depoimento.
       </p>
@@ -92,15 +187,12 @@ export function TestimonialForm({ item }: { item: StaffTestimonial | null }) {
           <p className="text-sm text-destructive">{fields.consentAt}</p>
         ) : null}
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={published}
-          onChange={(event) => setPublished(event.target.checked)}
+      <PublishOnSiteField checked={published} onChange={setPublished} />
+      {dirty && state.ok ? null : (
+        <FormNotice
+          state={savedNoticeState(state, mountedVersion, Boolean(item), hideSaved)}
         />
-        Publicado
-      </label>
-      {dirty && state.ok ? null : <FormNotice state={state} />}
+      )}
       <SaveButton />
     </form>
   );

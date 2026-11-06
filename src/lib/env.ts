@@ -11,12 +11,20 @@ const postgresUrl = z
 const requiredText = z.string().trim().min(1);
 const httpUrl = z.url();
 
+function optionalText(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export const serverEnvSchema = z.object({
   DATABASE_URL: postgresUrl,
   SUPABASE_SERVICE_ROLE_KEY: requiredText,
   SENTRY_DSN: httpUrl,
   APP_ENV: z.enum(["development", "staging", "production"]),
   STAFF_SESSION_SECRET: requiredText.min(32),
+  RESEND_API_KEY: requiredText.optional(),
+  MFA_EMAIL_FROM: requiredText.optional(),
+  MFA_EMAIL_TRANSPORT: z.enum(["memory"]).optional(),
 });
 
 export const migrationsEnvSchema = z.object({
@@ -50,12 +58,21 @@ function fail(error: z.ZodError): never {
 }
 
 export function parseServerEnv(source: Record<string, string | undefined>): ServerEnv {
+  if (
+    optionalText(source.MFA_EMAIL_TRANSPORT) === "memory" &&
+    source.APP_ENV === "production"
+  ) {
+    throw new Error("Variável de ambiente inválida ou ausente: MFA_EMAIL_TRANSPORT");
+  }
   const parsed = serverEnvSchema.safeParse({
     DATABASE_URL: source.DATABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: source.SUPABASE_SERVICE_ROLE_KEY,
     SENTRY_DSN: source.SENTRY_DSN,
     APP_ENV: source.APP_ENV,
     STAFF_SESSION_SECRET: source.STAFF_SESSION_SECRET,
+    RESEND_API_KEY: optionalText(source.RESEND_API_KEY),
+    MFA_EMAIL_FROM: optionalText(source.MFA_EMAIL_FROM),
+    MFA_EMAIL_TRANSPORT: optionalText(source.MFA_EMAIL_TRANSPORT),
   });
   if (!parsed.success) fail(parsed.error);
   return parsed.data;

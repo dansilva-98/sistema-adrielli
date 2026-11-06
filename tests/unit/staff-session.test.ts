@@ -153,7 +153,7 @@ describe("login da equipe", () => {
     expect(missing.actorUserId).toBeNull();
   });
 
-  it("manda administrador sem TOTP para a configuração e conteúdo direto para a área", async () => {
+  it("manda administrador sem segundo fator para a verificação e conteúdo direto para a área", async () => {
     const now = 80;
     const admin = await decideLogin({
       email: "admin@example.com",
@@ -182,7 +182,22 @@ describe("login da equipe", () => {
       findActorByEmail: async () => null,
     });
 
-    expect(admin).toMatchObject({ ok: true, redirectTo: "/equipe/mfa/configurar" });
+    expect(admin).toMatchObject({ ok: true, redirectTo: "/equipe/mfa/verificar" });
+    const verifiedEmail = await decideLogin({
+      email: "admin@example.com",
+      password: "correta",
+      now,
+      signIn: async () => ({
+        userId: staff.id,
+        sessionId: "session-1",
+        aal: "aal1",
+        hasVerifiedTotp: false,
+      }),
+      loadProfile: async () => ({ ...staff, roles: ["SUPER_ADMIN"] }),
+      findActorByEmail: async () => null,
+      hasEmailVerification: true,
+    });
+    expect(verifiedEmail).toMatchObject({ ok: true, redirectTo: "/admin" });
     expect(content).toMatchObject({ ok: true, redirectTo: "/admin" });
     expect(JSON.stringify(admin)).not.toContain("admin@example.com");
   });

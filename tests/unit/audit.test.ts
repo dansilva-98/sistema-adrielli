@@ -10,5 +10,11 @@ describe("recordAudit", () => {
         metadata: { email: "pessoa@example.com" },
       }),
     ).rejects.toThrow("Metadado de auditoria recusado.");
+    await expect(
+      recordAudit({
+        action: "auth.mfa.unknown_factor",
+        metadata: { factor_id: "nao-e-uuid", email: "pessoa@example.com" },
+      }),
+    ).rejects.toThrow("Metadado de auditoria recusado.");
   });
 });

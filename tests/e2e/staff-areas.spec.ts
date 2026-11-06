@@ -87,22 +87,14 @@ test.describe("áreas da equipe", () => {
     await signIn(page, email);
     await expect(page).toHaveURL(/\/admin$/);
     await page.goto("/admin/conteudo/perguntas");
-    const empty = page.getByText("Nenhuma pergunta ainda.");
-    if ((await empty.count()) > 0) {
-      await page.getByRole("link", { name: "Criar a primeira pergunta" }).click();
-    } else {
-      await page.goto("/admin/conteudo/perguntas/novo");
-    }
+    await page.getByRole("link", { name: "Adicionar pergunta" }).click();
     await expect(page.getByRole("heading", { name: "Nova pergunta" })).toBeVisible();
     const question = `Pergunta ${crypto.randomUUID().slice(0, 8)}`;
     await page.getByLabel("Pergunta").fill(question);
     await page.getByLabel("Resposta").fill("Uma resposta curta.");
     await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page).toHaveURL(/\/admin\/conteudo\/perguntas\/[0-9a-f-]{36}$/, {
-      timeout: 20_000,
-    });
-    await expect(page.getByLabel("Pergunta")).toHaveValue(question);
-    await page.goto("/admin/conteudo/perguntas");
+    await expect(page.getByText("Pergunta criada.")).toBeVisible({ timeout: 20_000 });
+    await expect(page).toHaveURL(/\/admin\/conteudo\/perguntas(\?|$)/);
     await expect(page.getByText(question)).toBeVisible();
   });
 

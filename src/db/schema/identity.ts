@@ -1,4 +1,14 @@
-import { index, pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  check,
+  index,
+  pgSchema,
+  primaryKey,
+  smallint,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const identity = pgSchema("identity");
 
@@ -49,4 +59,47 @@ export const userRoles = identity.table(
     grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.role] })],
+);
+
+export const staffEmailMfaChallenges = identity.table(
+  "staff_email_mfa_challenges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").notNull(),
+    codeHmac: text("code_hmac").notNull(),
+    attempts: smallint("attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    ipHash: text("ip_hash"),
+  },
+  (table) => [
+    index("staff_email_mfa_challenges_user_created_at_idx").on(
+      table.userId,
+      table.createdAt.desc(),
+    ),
+    index("staff_email_mfa_challenges_session_consumed_idx")
+      .on(table.sessionId)
+      .where(sql`${table.consumedAt} is not null`),
+    check(
+      "staff_email_mfa_challenges_attempts_check",
+      sql`${table.attempts} between 0 and 5`,
+    ),
+  ],
+);
+
+export const staffTotpFactors = identity.table(
+  "staff_totp_factors",
+  {
+    factorId: uuid("factor_id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("staff_totp_factors_user_id_idx").on(table.userId)],
 );

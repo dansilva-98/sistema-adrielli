@@ -457,3 +457,36 @@ Pedido da responsável depois de ver o staging com o PR 81. A largura foi corrig
   - a 1280 px, a `nav` aparece sem o botão;
   - no rodapé a 375 e 1280 px, não há rolagem horizontal, a frase fica acima do botão e "Instagram" e "Privacidade" ficam na mesma linha (mesmo `top`);
   - o axe em `/` continua passando.
+
+### Decisão de 06/11/2026: cadastrar vários serviços sem sobrescrever
+
+Pedido depois de o painel parecer um único formulário: "Novo" e "Criar o primeiro…" não deixam claro que cada item é independente, e salvar um serviço abre a edição dele. Com `cacheComponents`, voltar a `/novo` restaura o formulário anterior e a próxima gravação sobrescreve o item.
+
+Vale para **serviços, depoimentos e perguntas** (`ContentList` e os três formulários). Sem campo novo no CMS.
+
+**Lista**
+
+- O botão é sempre **"Adicionar serviço"**, **"Adicionar depoimento"** ou **"Adicionar pergunta"**, com lista vazia ou não.
+- Status oculto: **"não aparece no site"** no lugar de "Oculto".
+
+**Depois de criar**
+
+- Voltar para a lista com o aviso **"Serviço criado."**, **"Depoimento criado."** ou **"Pergunta criada."**
+- Não abrir a edição.
+- O formulário de criação é reiniciado para o próximo item não herdar o anterior.
+
+**Edição**
+
+- Título **"Editar serviço: {título}"** (depoimento: prévia da citação, como na lista; pergunta: o texto da pergunta).
+- Links **"Voltar para a lista"** e **"Adicionar outro serviço"** / **"Adicionar outro depoimento"** / **"Adicionar outra pergunta"**.
+
+**Publicação**
+
+- A caixa chama **"Publicar no site"** e vem **marcada na criação**.
+- Depoimento publicado continua exigindo a data do consentimento (já é regra do schema e do banco).
+
+**Testes**
+
+- Unidade dos rótulos.
+- E2E criando 3 serviços seguidos pela tela, com os 3 em `/servicos`.
+- E2E de que editar um serviço não altera os outros.
