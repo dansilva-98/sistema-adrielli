@@ -71,3 +71,7 @@ O workflow Banco ativo consulta a API pública do GitHub, sem segredo, e falha s
 ## Manutenção — E2E staff-areas e Date.now no prerender
 
 O teste `tests/e2e/staff-areas.spec.ts` (“CONTENT_ADMIN salva o topo e confirma antes de sair”) ficou instável no CI. Há avisos de `Date.now()` no prerender de `/equipe/*` (a guarda já chama `connection()`, mas o contexto ainda lê o relógio). Tratar num PR de manutenção, fora do L3.3.
+
+## Manutenção — public-read-timeout instável
+
+`tests/unit/public-read-timeout.test.ts` às vezes mede 1001–1034 ms contra o limite de 1000 ms. Fora do A1. Tratar num PR de manutenção.

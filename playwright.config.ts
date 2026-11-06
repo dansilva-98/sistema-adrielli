@@ -16,6 +16,7 @@ function environment(): Record<string, string> {
     ...Object.fromEntries(entries),
     APP_ENV: "staging",
     E2E_INSECURE_COOKIE: "1",
+    MFA_EMAIL_TRANSPORT: "memory",
   };
 }
 

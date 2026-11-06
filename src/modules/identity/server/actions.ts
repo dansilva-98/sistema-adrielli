@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import * as Sentry from "@sentry/nextjs";
 
@@ -14,7 +15,9 @@ import {
 } from "@/lib/supabase/server";
 import { beginStaffLogin } from "@/modules/identity/login";
 import {
+  aalFromAccessToken,
   endRejectedAuthSession,
+  sessionIdFromAccessToken,
   signInWithSupabase,
 } from "@/modules/identity/supabase-sign-in";
 import {
@@ -34,6 +37,22 @@ import {
   recordLoginAttempt,
   recordMfaFailure,
 } from "@/modules/identity/server/login-attempts";
+import { EMAIL_MFA_INVALID_MESSAGE, maskStaffEmail } from "@/modules/identity/email-mfa";
+import {
+  confirmStaffEmailMfaCode,
+  hasConsumedEmailMfa,
+  loadStaffEmail,
+  sendStaffEmailMfaCode,
+  staffEmailMfaEnabled,
+} from "@/modules/identity/server/email-mfa";
+import {
+  knownStaffTotpFactorIds,
+  rememberStaffTotpFactor,
+} from "@/modules/identity/server/totp-factors";
+import {
+  totpEnrollmentAllowed,
+  totpFactorsAreTrusted,
+} from "@/modules/identity/totp-factors";
 
 export type FormMessage = { message: string };
 
@@ -172,6 +191,36 @@ export async function requireAuthSession(): Promise<void> {
   if (!userResult.data.user) redirect("/equipe/entrar");
 }
 
+export async function requireTotpEnrollmentSession(): Promise<{
+  userId: string;
+  sessionId: string;
+}> {
+  await connection();
+  const auth = await currentStaffAuth();
+  if (!auth) redirect("/equipe/entrar");
+  if (!staffEmailMfaEnabled()) return auth;
+  const supabase = await createSupabaseServerClient();
+  const sessionResult = await supabase.auth.getSession();
+  const accessToken =
+    sessionResult.data.session?.user.id === auth.userId
+      ? sessionResult.data.session.access_token
+      : "";
+  const aal = aalFromAccessToken(accessToken);
+  const listed = await supabase.auth.mfa.listFactors();
+  const verifiedIds = (listed.data?.totp ?? [])
+    .filter((factor) => factor.status === "verified")
+    .map((factor) => factor.id);
+  const known = await knownStaffTotpFactorIds(auth.userId);
+  const allowed = totpEnrollmentAllowed({
+    emailMfaEnabled: true,
+    aal,
+    totpFactorsTrusted: totpFactorsAreTrusted(verifiedIds, known),
+    hasEmailVerification: await hasConsumedEmailMfa(auth.userId, auth.sessionId),
+  });
+  if (!allowed) redirect("/equipe/mfa/verificar");
+  return auth;
+}
+
 export type TotpSetupState = {
   message: string;
   qrCode: string;
@@ -185,6 +234,7 @@ export async function generateTotpAction(
 ): Promise<TotpSetupState> {
   void _state;
   void _formData;
+  await requireTotpEnrollmentSession();
   const supabase = await createSupabaseServerClient();
   const userResult = await supabase.auth.getUser();
   if (!userResult.data.user) redirect("/equipe/entrar");
@@ -264,6 +314,7 @@ export async function confirmTotpAction(
   const factorId = String(formData.get("factorId") ?? "");
   if (!/^\d{6}$/.test(code) || !factorId)
     return { message: "Informe o código de 6 dígitos." };
+  await requireTotpEnrollmentSession();
   const supabase = await createSupabaseServerClient();
   const userResult = await supabase.auth.getUser();
   const userId = userResult.data.user?.id;
@@ -277,6 +328,7 @@ export async function confirmTotpAction(
     code,
   });
   if (verified.error) return rejectTotpCode(userId);
+  await rememberStaffTotpFactor({ userId, factorId });
   await writeStaffAudit({
     action: "auth.mfa.enrolled",
     actorUserId: userId,
@@ -319,4 +371,133 @@ export async function verifyTotpAction(
     }
   }
   redirect(profile ? staffHome(profile.roles) : "/equipe/entrar");
+}
+
+async function currentStaffAuth(): Promise<{ userId: string; sessionId: string } | null> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await supabase.auth.getUser();
+  const userId = userResult.data.user?.id;
+  if (!userId) return null;
+  const sessionResult = await supabase.auth.getSession();
+  const accessToken =
+    sessionResult.data.session?.user.id === userId
+      ? sessionResult.data.session.access_token
+      : "";
+  const sessionId = sessionIdFromAccessToken(accessToken);
+  if (!sessionId) return null;
+  return { userId, sessionId };
+}
+
+export type EmailMfaFormState = {
+  message: string;
+  sent: boolean;
+  locked: boolean;
+  retryAt: number;
+  maskedEmail: string;
+};
+
+export type VerifyMfaPageData = {
+  hasTotp: boolean;
+  emailEnabled: boolean;
+  maskedEmail: string;
+  autoSend: EmailMfaFormState;
+};
+
+export async function loadVerifyMfaPageData(): Promise<VerifyMfaPageData> {
+  await connection();
+  await requireAuthSession();
+  const auth = await currentStaffAuth();
+  if (!auth) redirect("/equipe/entrar");
+  const supabase = await createSupabaseServerClient();
+  const listed = await supabase.auth.mfa.listFactors();
+  const hasTotp = (listed.data?.totp ?? []).some(
+    (factor) => factor.status === "verified",
+  );
+  const email = await loadStaffEmail(auth.userId);
+  const emailEnabled = staffEmailMfaEnabled();
+  const maskedEmail = email ? maskStaffEmail(email) : "";
+  const empty: EmailMfaFormState = {
+    message: "",
+    sent: false,
+    locked: false,
+    retryAt: 0,
+    maskedEmail,
+  };
+  if (hasTotp || !emailEnabled) {
+    return { hasTotp, emailEnabled, maskedEmail, autoSend: empty };
+  }
+  const sent = await sendStaffEmailMfaCode({
+    userId: auth.userId,
+    sessionId: auth.sessionId,
+    ip: await requestIp(),
+  });
+  return {
+    hasTotp,
+    emailEnabled,
+    maskedEmail,
+    autoSend: {
+      message: sent.ok ? "" : sent.message,
+      sent: sent.ok,
+      locked: false,
+      retryAt: sent.ok ? sent.retryAt : (sent.retryAt ?? 0),
+      maskedEmail: sent.maskedEmail ?? maskedEmail,
+    },
+  };
+}
+
+export async function sendEmailMfaAction(
+  state: EmailMfaFormState,
+  _formData: FormData,
+): Promise<EmailMfaFormState> {
+  void _formData;
+  const auth = await currentStaffAuth();
+  if (!auth) redirect("/equipe/entrar");
+  const sent = await sendStaffEmailMfaCode({
+    userId: auth.userId,
+    sessionId: auth.sessionId,
+    ip: await requestIp(),
+  });
+  if (!sent.ok) {
+    return {
+      ...state,
+      message: sent.message,
+      sent: false,
+      maskedEmail: sent.maskedEmail ?? state.maskedEmail,
+      retryAt: sent.retryAt ?? state.retryAt,
+    };
+  }
+  return {
+    message: "",
+    sent: true,
+    locked: false,
+    retryAt: sent.retryAt,
+    maskedEmail: sent.maskedEmail,
+  };
+}
+
+export async function confirmEmailMfaAction(
+  state: EmailMfaFormState,
+  formData: FormData,
+): Promise<EmailMfaFormState> {
+  const code = String(formData.get("code") ?? "");
+  const auth = await currentStaffAuth();
+  if (!auth) redirect("/equipe/entrar");
+  const profile = await loadStaffProfile(auth.userId);
+  if (!profile || profile.kind !== "STAFF" || profile.disabledAt) {
+    return { ...state, message: EMAIL_MFA_INVALID_MESSAGE, locked: false };
+  }
+  const confirmed = await confirmStaffEmailMfaCode({
+    userId: auth.userId,
+    sessionId: auth.sessionId,
+    code,
+    ip: await requestIp(),
+  });
+  if (!confirmed.ok) {
+    return {
+      ...state,
+      message: confirmed.message,
+      locked: confirmed.locked,
+    };
+  }
+  redirect(staffHome(profile.roles));
 }
