@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { CONTENT_LIMITS } from "@/db/content-limits";
+import { confirmContentVersion } from "@/modules/content/edit-sync";
 import { contentCreatedPath, contentEditTitle } from "@/modules/content/list-copy";
 import type { StaffFaq } from "@/modules/content/queries";
 import { createFaqAction, updateFaqAction } from "@/modules/content/server/actions";
@@ -12,45 +13,100 @@ import {
   CountedField,
   FormNotice,
   SaveButton,
+  savedNoticeState,
   useDirtySinceSave,
+  useDismissSavedNotice,
   useUnsavedLeave,
 } from "../cms-fields";
 import { ContentFormChrome, PublishOnSiteField } from "../content-form-chrome";
+import { EditItemGate } from "../edit-item-gate";
 
 const idle = { ok: false as const, message: "" };
 const LIST_HREF = "/admin/conteudo/perguntas";
 const CREATE_HREF = "/admin/conteudo/perguntas/novo";
 
+type FormState =
+  | { ok: true; id?: string; path?: string; version?: number }
+  | { ok: false; message: string; field?: string; fields?: Record<string, string> };
+
 export function FaqForm({ item }: { item: StaffFaq | null }) {
-  const [generation, setGeneration] = useState(0);
+  const [createEpoch, setCreateEpoch] = useState(0);
   return (
-    <FaqFormFields
-      key={generation}
+    <FaqFormSession
+      key={item?.id ?? `new-${createEpoch}`}
       item={item}
-      onCreated={() => setGeneration((current) => current + 1)}
+      onCreated={() => setCreateEpoch((current) => current + 1)}
     />
   );
 }
 
-function FaqFormFields({
+function FaqFormSession({
   item,
   onCreated,
 }: {
   item: StaffFaq | null;
   onCreated: () => void;
 }) {
-  const router = useRouter();
   const action = item ? updateFaqAction : createFaqAction;
   const [state, formAction] = useActionState(action, idle);
+  const { hideSaved, trackSubmit } = useDismissSavedNotice(state.ok);
+  return (
+    <EditItemGate
+      serverVersion={item?.version ?? null}
+      savedVersion={state.ok ? state.version : undefined}
+    >
+      {({ formKey, onDirty }) => (
+        <FaqFormFields
+          key={formKey}
+          item={item}
+          state={state}
+          formAction={(formData) => {
+            trackSubmit();
+            formAction(formData);
+          }}
+          onCreated={onCreated}
+          onDirty={onDirty}
+          hideSaved={hideSaved}
+        />
+      )}
+    </EditItemGate>
+  );
+}
+
+function FaqFormFields({
+  item,
+  state,
+  formAction,
+  onCreated,
+  onDirty,
+  hideSaved,
+}: {
+  item: StaffFaq | null;
+  state: FormState;
+  formAction: (formData: FormData) => void;
+  onCreated: () => void;
+  onDirty: (dirty: boolean) => void;
+  hideSaved: boolean;
+}) {
+  const router = useRouter();
   const [question, setQuestion] = useState(item?.question ?? "");
   const [answer, setAnswer] = useState(item?.answer ?? "");
   const [published, setPublished] = useState(item?.published ?? true);
-  const version = state.ok && state.version ? state.version : (item?.version ?? 0);
+  const [mountedVersion] = useState(item?.version ?? 0);
+  const [confirmedVersion, setConfirmedVersion] = useState(mountedVersion);
+  const version = confirmContentVersion(
+    confirmedVersion,
+    state.ok ? state.version : undefined,
+  );
+  if (version !== confirmedVersion) setConfirmedVersion(version);
   const dirty = useDirtySinceSave(
     JSON.stringify({ question, answer, published }),
-    state.ok,
+    state.ok ? (state.version ?? state.id ?? "ok") : false,
   );
   useUnsavedLeave(dirty);
+  useEffect(() => {
+    onDirty(dirty);
+  }, [dirty, onDirty]);
 
   useEffect(() => {
     if (state.ok && !item && state.id) {
@@ -94,7 +150,11 @@ function FaqFormFields({
         onChange={setAnswer}
       />
       <PublishOnSiteField checked={published} onChange={setPublished} />
-      {dirty && state.ok ? null : <FormNotice state={state} />}
+      {dirty && state.ok ? null : (
+        <FormNotice
+          state={savedNoticeState(state, mountedVersion, Boolean(item), hideSaved)}
+        />
+      )}
       <SaveButton />
     </form>
   );

@@ -120,7 +120,7 @@ function ContentRowView({
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" render={<Link href={editHref} />}>
+        <Button variant="outline" render={<Link href={editHref} prefetch={false} />}>
           Editar
         </Button>
         <form action={publish}>

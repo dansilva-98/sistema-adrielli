@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { CONTENT_LIMITS } from "@/db/content-limits";
+import { confirmContentVersion } from "@/modules/content/edit-sync";
 import { sitePublicImageUrl } from "@/modules/content/image-path";
 import { contentCreatedPath, contentEditTitle } from "@/modules/content/list-copy";
 import type { StaffService } from "@/modules/content/queries";
@@ -27,14 +28,21 @@ import {
   CountedField,
   FormNotice,
   SaveButton,
+  savedNoticeState,
   useDirtySinceSave,
+  useDismissSavedNotice,
   useUnsavedLeave,
 } from "../cms-fields";
 import { ContentFormChrome, PublishOnSiteField } from "../content-form-chrome";
+import { EditItemGate } from "../edit-item-gate";
 
 const idle = { ok: false as const, message: "" };
 const LIST_HREF = "/admin/conteudo/servicos";
 const CREATE_HREF = "/admin/conteudo/servicos/novo";
+
+type FormState =
+  | { ok: true; id?: string; path?: string; version?: number }
+  | { ok: false; message: string; field?: string; fields?: Record<string, string> };
 
 export function ServiceForm({
   service,
@@ -43,18 +51,18 @@ export function ServiceForm({
   service: StaffService | null;
   imageOrigin: string;
 }) {
-  const [generation, setGeneration] = useState(0);
+  const [createEpoch, setCreateEpoch] = useState(0);
   return (
-    <ServiceFormFields
-      key={generation}
+    <ServiceFormSession
+      key={service?.id ?? `new-${createEpoch}`}
       service={service}
       imageOrigin={imageOrigin}
-      onCreated={() => setGeneration((current) => current + 1)}
+      onCreated={() => setCreateEpoch((current) => current + 1)}
     />
   );
 }
 
-function ServiceFormFields({
+function ServiceFormSession({
   service,
   imageOrigin,
   onCreated,
@@ -63,9 +71,51 @@ function ServiceFormFields({
   imageOrigin: string;
   onCreated: () => void;
 }) {
-  const router = useRouter();
   const action = service ? updateServiceAction : createServiceAction;
   const [state, formAction] = useActionState(action, idle);
+  const { hideSaved, trackSubmit } = useDismissSavedNotice(state.ok);
+  return (
+    <EditItemGate
+      serverVersion={service?.version ?? null}
+      savedVersion={state.ok ? state.version : undefined}
+    >
+      {({ formKey, onDirty }) => (
+        <ServiceFormFields
+          key={formKey}
+          service={service}
+          imageOrigin={imageOrigin}
+          state={state}
+          formAction={(formData) => {
+            trackSubmit();
+            formAction(formData);
+          }}
+          onCreated={onCreated}
+          onDirty={onDirty}
+          hideSaved={hideSaved}
+        />
+      )}
+    </EditItemGate>
+  );
+}
+
+function ServiceFormFields({
+  service,
+  imageOrigin,
+  state,
+  formAction,
+  onCreated,
+  onDirty,
+  hideSaved,
+}: {
+  service: StaffService | null;
+  imageOrigin: string;
+  state: FormState;
+  formAction: (formData: FormData) => void;
+  onCreated: () => void;
+  onDirty: (dirty: boolean) => void;
+  hideSaved: boolean;
+}) {
+  const router = useRouter();
   const [title, setTitle] = useState(service?.title ?? "");
   const [slug, setSlug] = useState(service?.slug ?? "");
   const [summary, setSummary] = useState(service?.summary ?? "");
@@ -74,7 +124,13 @@ function ServiceFormFields({
   const [published, setPublished] = useState(service?.published ?? true);
   const [file, setFile] = useState<File | null>(null);
   const [remove, setRemove] = useState(false);
-  const version = state.ok && state.version ? state.version : (service?.version ?? 0);
+  const [mountedVersion] = useState(service?.version ?? 0);
+  const [confirmedVersion, setConfirmedVersion] = useState(mountedVersion);
+  const version = confirmContentVersion(
+    confirmedVersion,
+    state.ok ? state.version : undefined,
+  );
+  if (version !== confirmedVersion) setConfirmedVersion(version);
   const [open, setOpen] = useState(false);
   const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   const kept = !remove && !file ? service?.imagePath : null;
@@ -88,8 +144,14 @@ function ServiceFormFields({
     published,
     image: file ? "novo" : kept,
   });
-  const dirty = useDirtySinceSave(snapshot, state.ok);
+  const dirty = useDirtySinceSave(
+    snapshot,
+    state.ok ? (state.version ?? state.id ?? "ok") : false,
+  );
   useUnsavedLeave(dirty);
+  useEffect(() => {
+    onDirty(dirty);
+  }, [dirty, onDirty]);
 
   useEffect(() => {
     if (!preview) return;
@@ -231,7 +293,11 @@ function ServiceFormFields({
         onChange={setAlt}
       />
       <PublishOnSiteField checked={published} onChange={setPublished} />
-      {dirty && state.ok ? null : <FormNotice state={state} />}
+      {dirty && state.ok ? null : (
+        <FormNotice
+          state={savedNoticeState(state, mountedVersion, Boolean(service), hideSaved)}
+        />
+      )}
       <SaveButton />
     </form>
   );
