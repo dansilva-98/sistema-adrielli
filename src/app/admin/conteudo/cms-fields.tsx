@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
@@ -93,19 +93,72 @@ export function CountedField({
   );
 }
 
-export function useDirtySinceSave(snapshot: string, saved: boolean): boolean {
-  const [baseline, setBaseline] = useState(snapshot);
-  const [marked, setMarked] = useState(false);
-  if (saved && !marked) {
-    setMarked(true);
-    setBaseline(snapshot);
-  } else if (!saved && marked) {
-    setMarked(false);
+export function advanceDirtySinceSave(input: {
+  snapshot: string;
+  savedToken: number | string | false;
+  baseline: string;
+  seenToken: number | string | false;
+}): { baseline: string; seenToken: number | string | false; dirty: boolean } {
+  let { baseline, seenToken } = input;
+  if (input.savedToken !== false && input.savedToken !== seenToken) {
+    seenToken = input.savedToken;
+    baseline = input.snapshot;
+  } else if (input.savedToken === false) {
+    seenToken = false;
   }
-  return snapshot !== baseline;
+  return { baseline, seenToken, dirty: input.snapshot !== baseline };
 }
 
-export function useUnsavedLeave(dirty: boolean) {
+export function useDirtySinceSave(
+  snapshot: string,
+  savedToken: number | string | false,
+): boolean {
+  const [baseline, setBaseline] = useState(snapshot);
+  const [seenToken, setSeenToken] = useState<number | string | false>(false);
+  const next = advanceDirtySinceSave({ snapshot, savedToken, baseline, seenToken });
+  if (next.baseline !== baseline) setBaseline(next.baseline);
+  if (next.seenToken !== seenToken) setSeenToken(next.seenToken);
+  return next.dirty;
+}
+
+export function savedNoticeState(
+  state:
+    | { ok: true; version?: number }
+    | { ok: false; message?: string; fields?: Record<string, string> },
+  mountedVersion: number,
+  editing: boolean,
+  hideSaved = false,
+) {
+  if (hideSaved) return { ok: false as const, message: "" };
+  if (state.ok && editing && (state.version ?? 0) <= mountedVersion) {
+    return { ok: false as const, message: "" };
+  }
+  return state;
+}
+
+export function useDismissSavedNotice(saved: boolean): {
+  hideSaved: boolean;
+  trackSubmit: () => void;
+} {
+  const [hideSaved, setHideSaved] = useState(false);
+  const shouldReset = useRef(false);
+  useEffect(() => {
+    if (saved) shouldReset.current = true;
+  }, [saved]);
+  useLayoutEffect(() => {
+    return () => {
+      if (!shouldReset.current) return;
+      shouldReset.current = false;
+      setHideSaved(true);
+    };
+  }, []);
+  return {
+    hideSaved,
+    trackSubmit: () => setHideSaved(false),
+  };
+}
+
+export function useUnsavedLeave(dirty: boolean, onDiscard?: () => void) {
   useEffect(() => {
     if (!dirty) return;
     const leave = (event: BeforeUnloadEvent) => {
@@ -119,7 +172,9 @@ export function useUnsavedLeave(dirty: boolean) {
       if (!window.confirm("Há alterações não salvas. Sair mesmo assim?")) {
         event.preventDefault();
         event.stopPropagation();
+        return;
       }
+      onDiscard?.();
     };
     window.addEventListener("beforeunload", leave);
     document.addEventListener("click", click, true);
@@ -127,5 +182,5 @@ export function useUnsavedLeave(dirty: boolean) {
       window.removeEventListener("beforeunload", leave);
       document.removeEventListener("click", click, true);
     };
-  }, [dirty]);
+  }, [dirty, onDiscard]);
 }

@@ -15,7 +15,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { CONTENT_LIMITS } from "@/db/content-limits";
+import { confirmContentVersion } from "@/modules/content/edit-sync";
 import { sitePublicImageUrl } from "@/modules/content/image-path";
+import { contentCreatedPath, contentEditTitle } from "@/modules/content/list-copy";
 import type { StaffService } from "@/modules/content/queries";
 import {
   createServiceAction,
@@ -26,11 +28,21 @@ import {
   CountedField,
   FormNotice,
   SaveButton,
+  savedNoticeState,
   useDirtySinceSave,
+  useDismissSavedNotice,
   useUnsavedLeave,
 } from "../cms-fields";
+import { ContentFormChrome, PublishOnSiteField } from "../content-form-chrome";
+import { EditItemGate } from "../edit-item-gate";
 
 const idle = { ok: false as const, message: "" };
+const LIST_HREF = "/admin/conteudo/servicos";
+const CREATE_HREF = "/admin/conteudo/servicos/novo";
+
+type FormState =
+  | { ok: true; id?: string; path?: string; version?: number }
+  | { ok: false; message: string; field?: string; fields?: Record<string, string> };
 
 export function ServiceForm({
   service,
@@ -39,18 +51,89 @@ export function ServiceForm({
   service: StaffService | null;
   imageOrigin: string;
 }) {
-  const router = useRouter();
+  const [createEpoch, setCreateEpoch] = useState(0);
+  return (
+    <ServiceFormSession
+      key={service?.id ?? `new-${createEpoch}`}
+      service={service}
+      imageOrigin={imageOrigin}
+      onCreated={() => setCreateEpoch((current) => current + 1)}
+    />
+  );
+}
+
+function ServiceFormSession({
+  service,
+  imageOrigin,
+  onCreated,
+}: {
+  service: StaffService | null;
+  imageOrigin: string;
+  onCreated: () => void;
+}) {
   const action = service ? updateServiceAction : createServiceAction;
   const [state, formAction] = useActionState(action, idle);
+  const { hideSaved, trackSubmit } = useDismissSavedNotice(state.ok);
+  return (
+    <EditItemGate
+      serverVersion={service?.version ?? null}
+      savedVersion={state.ok ? state.version : undefined}
+    >
+      {({ formKey, onDirty, onDiscard }) => (
+        <ServiceFormFields
+          key={formKey}
+          service={service}
+          imageOrigin={imageOrigin}
+          state={state}
+          formAction={(formData) => {
+            trackSubmit();
+            formAction(formData);
+          }}
+          onCreated={onCreated}
+          onDirty={onDirty}
+          onDiscard={onDiscard}
+          hideSaved={hideSaved}
+        />
+      )}
+    </EditItemGate>
+  );
+}
+
+function ServiceFormFields({
+  service,
+  imageOrigin,
+  state,
+  formAction,
+  onCreated,
+  onDirty,
+  onDiscard,
+  hideSaved,
+}: {
+  service: StaffService | null;
+  imageOrigin: string;
+  state: FormState;
+  formAction: (formData: FormData) => void;
+  onCreated: () => void;
+  onDirty: (dirty: boolean) => void;
+  onDiscard: () => void;
+  hideSaved: boolean;
+}) {
+  const router = useRouter();
   const [title, setTitle] = useState(service?.title ?? "");
   const [slug, setSlug] = useState(service?.slug ?? "");
   const [summary, setSummary] = useState(service?.summary ?? "");
   const [body, setBody] = useState(service?.body ?? "");
   const [alt, setAlt] = useState(service?.imageAlt ?? "");
-  const [published, setPublished] = useState(service?.published ?? false);
+  const [published, setPublished] = useState(service?.published ?? true);
   const [file, setFile] = useState<File | null>(null);
   const [remove, setRemove] = useState(false);
-  const version = state.ok && state.version ? state.version : (service?.version ?? 0);
+  const [mountedVersion] = useState(service?.version ?? 0);
+  const [confirmedVersion, setConfirmedVersion] = useState(mountedVersion);
+  const version = confirmContentVersion(
+    confirmedVersion,
+    state.ok ? state.version : undefined,
+  );
+  if (version !== confirmedVersion) setConfirmedVersion(version);
   const [open, setOpen] = useState(false);
   const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   const kept = !remove && !file ? service?.imagePath : null;
@@ -64,8 +147,14 @@ export function ServiceForm({
     published,
     image: file ? "novo" : kept,
   });
-  const dirty = useDirtySinceSave(snapshot, state.ok);
-  useUnsavedLeave(dirty);
+  const dirty = useDirtySinceSave(
+    snapshot,
+    state.ok ? (state.version ?? state.id ?? "ok") : false,
+  );
+  useUnsavedLeave(dirty, onDiscard);
+  useEffect(() => {
+    onDirty(dirty);
+  }, [dirty, onDirty]);
 
   useEffect(() => {
     if (!preview) return;
@@ -74,14 +163,21 @@ export function ServiceForm({
 
   useEffect(() => {
     if (state.ok && !service && state.id) {
-      router.push(`/admin/conteudo/servicos/${state.id}`);
+      onCreated();
+      router.push(contentCreatedPath(LIST_HREF));
     }
-  }, [router, service, state]);
+  }, [onCreated, router, service, state]);
 
   const fields = state.ok ? {} : (state.fields ?? {});
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-4">
-      <h2 className="text-xl">{service ? "Editar serviço" : "Novo serviço"}</h2>
+      <ContentFormChrome
+        kind="service"
+        listHref={LIST_HREF}
+        createHref={CREATE_HREF}
+        title={service ? contentEditTitle("service", service.title) : "Novo serviço"}
+        editing={Boolean(service)}
+      />
       {service ? <input type="hidden" name="id" value={service.id} /> : null}
       <input type="hidden" name="version" value={version} />
       <input
@@ -199,15 +295,12 @@ export function ServiceForm({
         error={fields.imageAlt}
         onChange={setAlt}
       />
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={published}
-          onChange={(event) => setPublished(event.target.checked)}
+      <PublishOnSiteField checked={published} onChange={setPublished} />
+      {dirty && state.ok ? null : (
+        <FormNotice
+          state={savedNoticeState(state, mountedVersion, Boolean(service), hideSaved)}
         />
-        Publicado
-      </label>
-      {dirty && state.ok ? null : <FormNotice state={state} />}
+      )}
       <SaveButton />
     </form>
   );

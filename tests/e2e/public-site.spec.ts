@@ -107,14 +107,15 @@ test.describe("site público", () => {
       await page.getByLabel("Título").fill(title);
       await page.getByLabel("Resumo").fill("Resumo curto.");
       await page.getByLabel("Texto").fill("Texto do serviço.");
+      await page.getByLabel("Publicar no site").uncheck();
       await page.getByRole("button", { name: "Salvar" }).click();
-      await expect(page).toHaveURL(/\/admin\/conteudo\/servicos\/[0-9a-f-]{36}$/, {
-        timeout: 20_000,
-      });
+      await expect(page.getByText("Serviço criado.")).toBeVisible({ timeout: 20_000 });
+      await expect(page).toHaveURL(/\/admin\/conteudo\/servicos(\?|$)/);
       await page.goto("/servicos");
       await expect(page.getByRole("heading", { name: title })).toHaveCount(0);
       await page.goto("/admin/conteudo/servicos");
       const row = page.locator("li").filter({ hasText: title });
+      await expect(row.getByText("não aparece no site")).toBeVisible();
       await row.getByRole("button", { name: "Publicar" }).click();
       await expect(row.getByText("Publicado")).toBeVisible({ timeout: 15_000 });
       await page.goto("/servicos");

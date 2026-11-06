@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { HIDDEN_ON_SITE_STATUS } from "@/modules/content/list-copy";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ export function ContentList({
   createLabel,
   editBase,
   kind,
+  notice,
   items,
   deleteAction,
   moveAction,
@@ -49,6 +51,7 @@ export function ContentList({
   createLabel: string;
   editBase: string;
   kind: string;
+  notice?: string;
   items: ContentRow[];
   deleteAction: PlainAction;
   moveAction: PlainAction;
@@ -58,15 +61,15 @@ export function ContentList({
     <div className="flex max-w-3xl flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl">{title}</h2>
-        {items.length > 0 ? (
-          <Button render={<Link href={createHref} />}>Novo</Button>
-        ) : null}
+        <Button render={<Link href={createHref} />}>{createLabel}</Button>
       </div>
+      {notice ? (
+        <p role="status" className="text-sm">
+          {notice}
+        </p>
+      ) : null}
       {items.length === 0 ? (
-        <div className="flex flex-col items-start gap-3">
-          <p>{empty}</p>
-          <Button render={<Link href={createHref} />}>{createLabel}</Button>
-        </div>
+        <p>{empty}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {items.map((item, index) => (
@@ -113,11 +116,11 @@ function ContentRowView({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="font-medium">{item.label}</p>
         <p className="text-sm text-muted">
-          {item.published ? "Publicado" : "Oculto"} · ordem {item.sortOrder}
+          {item.published ? "Publicado" : HIDDEN_ON_SITE_STATUS} · ordem {item.sortOrder}
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" render={<Link href={editHref} />}>
+        <Button variant="outline" render={<Link href={editHref} prefetch={false} />}>
           Editar
         </Button>
         <form action={publish}>
