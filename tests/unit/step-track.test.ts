@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+﻿import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -177,15 +177,38 @@ describe("rótulo no celular", () => {
     expect(tabs).not.toContain('aria-label="Etapa 1: Primeiro contato"');
     expect(hasAriaLabelOn(tabs, "button")).toBe(false);
     expect(staticMarkup).not.toContain("hidden font-serif");
-    expect(staticMarkup).not.toContain("sm:block");
     expect(staticMarkup).not.toContain("sm:not-sr-only");
     expect(progress).not.toContain("hidden font-serif");
     expect(progress).not.toContain("sm:block");
     expect(progress).not.toContain("sm:not-sr-only");
-    expect(staticMarkup).toContain("font-sans text-xs");
-    expect(progress).toContain("font-sans text-xs");
-    expect(staticMarkup).toContain("hyphens-auto");
+    expect(staticMarkup).toContain("font-sans text-sm");
+    expect(progress).toContain("font-sans text-sm");
+    expect(progress).toContain("lg:font-serif lg:text-2xl");
+    expect(staticMarkup).not.toContain("hyphens");
     expect(staticMarkup).not.toContain("break-words");
+  });
+
+  it("na static, abaixo de 640 px troca a linha horizontal pela vertical", () => {
+    const markup = html({
+      variant: "static",
+      steps: threeSteps,
+      currentIndex: 0,
+      lastAccent: true,
+    });
+    expect(markup).toContain('class="sm:hidden"');
+    expect(markup).toContain("hidden sm:block");
+    expect(markup.match(/<ol\b/g)).toHaveLength(2);
+    expect(markup).toContain("data-step-title");
+    expect(markup).not.toContain("<button");
+    expect(markup).not.toContain("aria-expanded");
+    expect(markup.match(/bg-support/g)).toHaveLength(2);
+    expect(markup.match(/ring-gold-light/g)).toHaveLength(2);
+  });
+
+  it("as outras variantes não duplicam a lista", () => {
+    const progress = html({ variant: "progress", steps: threeSteps, currentIndex: 0 });
+    expect(progress.match(/<ol\b/g)).toHaveLength(1);
+    expect(progress).not.toContain("sm:hidden");
   });
 });
 

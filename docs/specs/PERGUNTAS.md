@@ -79,3 +79,7 @@ O teste `tests/e2e/staff-areas.spec.ts` (“CONTENT_ADMIN salva o topo e confirm
 ## Manutenção — public-read-timeout instável
 
 `tests/unit/public-read-timeout.test.ts` às vezes mede 1001–1034 ms contra o limite de 1000 ms. Fora do A1. Tratar num PR de manutenção.
+
+## L3.3 — trilha vertical do Contato até 640 px
+
+A spec manda a variante vertical abaixo de 480 px quando os rótulos são longos. Entre 480 e 639 px, porém, a coluna de cada etapa tem cerca de 106 px. Com o rótulo no mínimo da spec (Source Sans 3, 14 px), "Acompanhamento" sai da coluna, e o E2E mede isso em 480 px. Por isso a trilha do Contato fica vertical até `sm` (640 px). Se a responsável preferir manter 480 px, os rótulos dessa faixa precisam ficar menores que o mínimo da spec ou ter outro texto.

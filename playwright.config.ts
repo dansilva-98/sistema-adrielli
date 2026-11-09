@@ -32,7 +32,7 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: /patient-attachment\.spec\.ts/,
+      testIgnore: /(patient-attachment|public-captures)\.spec\.ts/,
     },
     {
       name: "iphone",
@@ -41,6 +41,12 @@ export default defineConfig({
         baseURL: `http://localhost:${port}`,
       },
       testMatch: /patient-attachment\.spec\.ts/,
+    },
+    {
+      name: "capturas",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /public-captures\.spec\.ts/,
+      dependencies: ["chromium", "iphone"],
     },
   ],
   webServer: {
