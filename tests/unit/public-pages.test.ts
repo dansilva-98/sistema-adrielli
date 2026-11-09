@@ -75,6 +75,23 @@ describe("Sobre", () => {
     );
   });
 
+  it("mostra a lista inteira quando o Sobre começa com itens", async () => {
+    clientEnv();
+    const { AboutContent } = await import("@/app/(public)/about-content");
+    const html = renderToStaticMarkup(
+      createElement(AboutContent, {
+        site: {
+          ...EMPTY_PUBLIC_SITE,
+          aboutTitle: "Sobre",
+          aboutBody: "- Formação em psicopedagogia\n- Atendimento a famílias\n\nTexto.",
+        },
+      }),
+    );
+    expect(html).toContain("Formação em psicopedagogia");
+    expect(html).toContain("Atendimento a famílias");
+    expect(html).toContain("Texto.");
+  });
+
   it("não mostra Onde atua sem área cadastrada", async () => {
     clientEnv();
     const { AboutContent } = await import("@/app/(public)/about-content");
@@ -138,6 +155,35 @@ describe("abertura do Sobre", () => {
         source.replaceAll("\r\n", "\n").replace(/\s+/g, " ").trim(),
       );
     }
+  });
+
+  it("não destaca nem perde itens quando o texto começa com lista", () => {
+    const source = "- A\n- B\n\nTexto.";
+    expect(featuredAboutText(source)).toBe("");
+    expect(remainingAboutSource(source)).toBe(source);
+  });
+
+  it("mantém link e negrito depois da primeira frase", () => {
+    expect(remainingAboutSource("Frase um. Veja o [site](https://exemplo.com).")).toBe(
+      "Veja o [site](https://exemplo.com).",
+    );
+    expect(remainingAboutSource("Frase um. **Dois.**")).toBe("**Dois.**");
+    expect(featuredAboutText("Frase um. **Dois.**")).toBe("Frase um.");
+  });
+
+  it("não corta a primeira frase em Dra., Sra. ou Profa.", () => {
+    expect(
+      featuredAboutText("Sou a Dra. Adrielli Flores. Atendo em Fernandópolis."),
+    ).toBe("Sou a Dra. Adrielli Flores.");
+    expect(
+      remainingAboutSource("Sou a Dra. Adrielli Flores. Atendo em Fernandópolis."),
+    ).toBe("Atendo em Fernandópolis.");
+    expect(
+      featuredAboutText("A Sra. Ana acompanha a família. Depois segue o plano."),
+    ).toBe("A Sra. Ana acompanha a família.");
+    expect(
+      featuredAboutText("A Profa. Adrielli explica a etapa. A família participa."),
+    ).toBe("A Profa. Adrielli explica a etapa.");
   });
 });
 

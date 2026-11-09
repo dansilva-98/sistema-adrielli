@@ -182,8 +182,10 @@ describe("rótulo no celular", () => {
     expect(progress).not.toContain("hidden font-serif");
     expect(progress).not.toContain("sm:block");
     expect(progress).not.toContain("sm:not-sr-only");
-    expect(staticMarkup).toContain("font-sans text-sm");
-    expect(progress).toContain("font-sans text-sm");
+    expect(staticMarkup).toContain("font-sans text-xs");
+    expect(progress).toContain("font-sans text-xs");
+    expect(staticMarkup).toContain("hyphens-auto");
+    expect(staticMarkup).not.toContain("break-words");
   });
 });
 

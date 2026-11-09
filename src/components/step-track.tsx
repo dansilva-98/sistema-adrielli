@@ -166,11 +166,13 @@ function StepLabel({
 }) {
   return (
     <span
+      lang="pt-BR"
+      data-step-label=""
       className={cn(
-        "mt-2 max-w-full min-w-0 break-words text-center text-text",
+        "mt-2 max-w-full min-w-0 hyphens-auto text-center text-text",
         hideOnMobile
           ? "sr-only font-serif text-[1.3125rem] sm:not-sr-only sm:text-2xl"
-          : "font-sans text-sm sm:font-serif sm:text-[1.3125rem] sm:text-2xl",
+          : "font-sans text-xs leading-tight sm:font-serif sm:text-[1.3125rem] sm:leading-snug sm:text-2xl",
       )}
     >
       {title}
