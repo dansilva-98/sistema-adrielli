@@ -1,13 +1,18 @@
 import Link from "next/link";
 
 import { RestrictedMarkdown } from "@/modules/content/markdown-view";
-import { featuredAboutText, remainingAboutSource } from "@/modules/content/opening";
+import {
+  featuredAboutText,
+  remainingAboutSource,
+  shouldHighlightFeaturedAbout,
+} from "@/modules/content/opening";
 import type { PublicSite } from "@/modules/content/queries";
 
 import { SitePhoto } from "./site-photo";
 
 export function AboutContent({ site }: { site: PublicSite }) {
   const featured = featuredAboutText(site.aboutBody);
+  const highlight = shouldHighlightFeaturedAbout(featured);
   const rest = remainingAboutSource(site.aboutBody);
   const area = site.serviceAreaText?.trim() ?? "";
 
@@ -32,7 +37,13 @@ export function AboutContent({ site }: { site: PublicSite }) {
             {site.aboutTitle.trim() || "Sobre"}
           </h1>
           {featured ? (
-            <p className="max-w-[65ch] font-serif text-2xl break-words text-text">
+            <p
+              className={
+                highlight
+                  ? "max-w-[65ch] font-serif text-xl break-words text-text sm:text-2xl"
+                  : "max-w-[65ch] break-words text-text"
+              }
+            >
               {featured}
             </p>
           ) : null}

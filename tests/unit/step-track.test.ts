@@ -201,8 +201,18 @@ describe("rótulo no celular", () => {
     expect(markup).toContain("data-step-title");
     expect(markup).not.toContain("<button");
     expect(markup).not.toContain("aria-expanded");
-    expect(markup.match(/bg-support/g)).toHaveLength(2);
+  });
+
+  it("na static com etapa atual, só a atual fica preenchida nas duas orientações", () => {
+    const markup = html({
+      variant: "static",
+      steps: threeSteps,
+      currentIndex: 0,
+      lastAccent: true,
+    });
     expect(markup.match(/ring-gold-light/g)).toHaveLength(2);
+    expect(markup.match(/border-2 border-gold bg-surface/g)).toHaveLength(4);
+    expect(markup).not.toContain("bg-support");
   });
 
   it("as outras variantes não duplicam a lista", () => {
