@@ -166,11 +166,10 @@ function StepLabel({
 }) {
   return (
     <span
+      data-step-label=""
       className={cn(
-        "mt-2 text-center text-text",
-        hideOnMobile
-          ? "sr-only font-serif text-[1.3125rem] sm:not-sr-only sm:text-2xl"
-          : "font-sans text-sm sm:font-serif sm:text-[1.3125rem] sm:text-2xl",
+        "mt-2 max-w-full min-w-0 text-center font-sans text-sm leading-tight text-text md:text-base lg:font-serif lg:text-2xl lg:leading-snug",
+        hideOnMobile && "sr-only sm:not-sr-only",
       )}
     >
       {title}
@@ -231,8 +230,8 @@ export function StepTrack({
   const hasCurrent = currentIndex != null;
   const activeIndex = hasCurrent ? clampIndex(currentIndex, count) : 0;
 
-  return (
-    <div className="relative">
+  const horizontal = (
+    <div className={cn("relative", variant === "static" && "hidden sm:block")}>
       <TrackLine axis="horizontal" markers={markers} />
       <ol className="relative flex list-none justify-between gap-2 p-0" {...listLabel}>
         {steps.map((step, index) => {
@@ -259,6 +258,25 @@ export function StepTrack({
         })}
       </ol>
     </div>
+  );
+
+  if (variant !== "static") return horizontal;
+
+  return (
+    <>
+      <div className="sm:hidden">
+        <VerticalTrack
+          steps={steps}
+          markers={markers}
+          numbered={numbered}
+          listLabel={listLabel}
+          currentIndex={currentIndex}
+          lastAccent={lastAccent}
+          collapsible={false}
+        />
+      </div>
+      {horizontal}
+    </>
   );
 }
 
@@ -456,7 +474,7 @@ function VerticalTrack({
                 ) : (
                   <p className="font-serif text-xl text-text sm:text-2xl">
                     <StepIndex index={index} numbered={numbered} />
-                    {step.title}
+                    <span data-step-title="">{step.title}</span>
                   </p>
                 )}
                 {collapsible ? (

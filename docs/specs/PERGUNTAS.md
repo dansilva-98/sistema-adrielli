@@ -68,6 +68,10 @@ Um Supabase local temporário, fora deste repositório, atende ao projeto descar
 
 O workflow Banco ativo consulta a API pública do GitHub, sem segredo, e falha se a última execução bem-sucedida do backup na `main` tiver 30 horas ou mais.
 
+## L3.3 — subtítulo de Serviços
+
+A spec pede título "Como posso ajudar seu filho." e subtítulo, mas não define o texto do subtítulo nem um campo no painel. A página ficou só com o título até essa decisão.
+
 ## Manutenção — E2E staff-areas e Date.now no prerender
 
 O teste `tests/e2e/staff-areas.spec.ts` (“CONTENT_ADMIN salva o topo e confirma antes de sair”) ficou instável no CI. Há avisos de `Date.now()` no prerender de `/equipe/*` (a guarda já chama `connection()`, mas o contexto ainda lê o relógio). Tratar num PR de manutenção, fora do L3.3.
@@ -75,3 +79,9 @@ O teste `tests/e2e/staff-areas.spec.ts` (“CONTENT_ADMIN salva o topo e confirm
 ## Manutenção — public-read-timeout instável
 
 `tests/unit/public-read-timeout.test.ts` às vezes mede 1001–1034 ms contra o limite de 1000 ms. Fora do A1. Tratar num PR de manutenção.
+
+## L3.3 — trilha vertical do Contato até 640 px
+
+A spec manda a variante vertical abaixo de 480 px quando os rótulos são longos. Entre 480 e 639 px, porém, a coluna de cada etapa tem cerca de 106 px. Com o rótulo no mínimo da spec (Source Sans 3, 14 px), "Acompanhamento" sai da coluna, e o E2E mede isso em 480 px. Por isso a trilha do Contato fica vertical até `sm` (640 px). Se a responsável preferir manter 480 px, os rótulos dessa faixa precisam ficar menores que o mínimo da spec ou ter outro texto.
+
+Junto com isso, o rótulo da trilha horizontal (Contato e abas da home) passou a usar Source Sans 3 de 14 a 16 px entre 640 e 1023 px, e a Newsreader de 24 px só a partir de `lg` (1024 px). Antes a serif começava em 640 px, e em 768 px "Acompanhamento" invadia a etapa vizinha.

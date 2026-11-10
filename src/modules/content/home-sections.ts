@@ -27,6 +27,8 @@ export function heroHeadingClass(text: string): string {
   return "text-[2rem] sm:text-[3.25rem]";
 }
 
+export const IN_PERSON_SERVICE_AREA = "Atendimento presencial";
+
 export function hasContact(site: PublicSite): boolean {
   return Boolean(
     site.whatsappUrl ||
@@ -35,6 +37,13 @@ export function hasContact(site: PublicSite): boolean {
     site.addressText ||
     site.serviceAreaText,
   );
+}
+
+export function homeAreaText(site: PublicSite): string | null {
+  const area = site.serviceAreaText?.trim() ?? "";
+  if (area) return area;
+  if (site.addressText?.trim()) return IN_PERSON_SERVICE_AREA;
+  return null;
 }
 
 export function homeSectionKeys(
@@ -47,7 +56,7 @@ export function homeSectionKeys(
   if (site.heroTitle || site.heroSubtitle || site.heroTagline || site.heroImagePath) {
     keys.push("hero");
   }
-  if (site.serviceAreaText?.trim()) keys.push("area");
+  if (homeAreaText(site)) keys.push("area");
   if (hasHowItWorks(site)) keys.push("how");
   if (site.aboutTitle || openingText(site.aboutBody)) keys.push("about");
   if (testimonials.length > 0) keys.push("testimonials");

@@ -24,6 +24,7 @@ describe("security headers", () => {
       "camera=(), microphone=(), geolocation=()",
     );
     expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("frame-src 'none'");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'self'");
     expect(csp).toContain("http://127.0.0.1:54321");

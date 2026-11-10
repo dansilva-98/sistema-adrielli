@@ -7,7 +7,7 @@ import { readPublicSite } from "@/modules/content/server/public";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <div className="flex min-h-full min-w-0 flex-1 flex-col">
       <Suspense fallback={<PublicHeader />}>
         <SiteHeader />
       </Suspense>
