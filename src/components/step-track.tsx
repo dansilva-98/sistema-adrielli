@@ -83,6 +83,7 @@ function markerTone(options: {
     return index === currentIndex ? "active" : "inactive";
   }
   if (hasCurrent && index === currentIndex) return "active";
+  if (hasCurrent) return "inactive";
   if (lastAccent && index === count - 1) return "filled-support";
   return "filled";
 }

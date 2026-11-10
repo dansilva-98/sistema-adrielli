@@ -46,6 +46,8 @@ function firstSentenceBoundary(source: string): number {
   return source.length;
 }
 
+export const FEATURED_ABOUT_MAX_CHARS = 180;
+
 export function featuredAboutText(source: string): string {
   if (firstBlockIsList(source)) return "";
   const first = firstBlockSource(source);
@@ -53,6 +55,10 @@ export function featuredAboutText(source: string): string {
     first.slice(0, firstSentenceBoundary(first)),
     Number.MAX_SAFE_INTEGER,
   );
+}
+
+export function shouldHighlightFeaturedAbout(text: string): boolean {
+  return text.length > 0 && text.length <= FEATURED_ABOUT_MAX_CHARS;
 }
 
 export function remainingAboutSource(source: string): string {

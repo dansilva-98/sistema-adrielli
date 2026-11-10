@@ -38,6 +38,9 @@ describe("contato público", () => {
     expect(html).toContain("Depois da sua mensagem");
     expect(html).toContain("Você está aqui");
     expect(html).toContain("ring-gold-light");
+    expect(html.match(/ring-gold-light/g)).toHaveLength(2);
+    expect(html.match(/border-2 border-gold bg-surface/g)).toHaveLength(6);
+    expect(html).toContain("bg-support px-4");
     expect(html).not.toContain("<iframe");
     expect(html).not.toContain("<script");
   });

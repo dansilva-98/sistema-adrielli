@@ -2,7 +2,12 @@ import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { featuredAboutText, remainingAboutSource } from "@/modules/content/opening";
+import {
+  FEATURED_ABOUT_MAX_CHARS,
+  featuredAboutText,
+  remainingAboutSource,
+  shouldHighlightFeaturedAbout,
+} from "@/modules/content/opening";
 import {
   EMPTY_PUBLIC_SITE,
   type PublicFaq,
@@ -43,7 +48,8 @@ describe("Sobre", () => {
       }),
     );
     expect(html).toContain("Quem é Adrielli Flores");
-    expect(html).toContain("font-serif text-2xl");
+    expect(html).toContain("font-serif text-xl");
+    expect(html).toContain("sm:text-2xl");
     expect(html).toContain("Primeira frase do texto.");
     expect(html).toContain("Segundo parágrafo.");
     expect(html).toContain("max-w-[65ch]");
@@ -67,7 +73,8 @@ describe("Sobre", () => {
         },
       }),
     );
-    expect(html).toContain("font-serif text-2xl");
+    expect(html).toContain("font-serif text-xl");
+    expect(html).toContain("sm:text-2xl");
     expect(html).toContain("Frase um.");
     expect(html).toContain("Frase dois do mesmo parágrafo.");
     expect(html.indexOf("Frase um.")).toBeLessThan(
@@ -102,6 +109,36 @@ describe("Sobre", () => {
     );
     expect(html).not.toContain("Onde atua");
     expect(html).not.toContain("Agendar avaliação");
+  });
+
+  it("destaca uma frase curta em text-xl sm:text-2xl", async () => {
+    clientEnv();
+    const { AboutContent } = await import("@/app/(public)/about-content");
+    const short = "Frase curta do Sobre.";
+    expect(short.length).toBeLessThanOrEqual(FEATURED_ABOUT_MAX_CHARS);
+    const html = renderToStaticMarkup(
+      createElement(AboutContent, {
+        site: { ...EMPTY_PUBLIC_SITE, aboutTitle: "Sobre", aboutBody: short },
+      }),
+    );
+    expect(html).toContain(short);
+    expect(html).toContain("font-serif text-xl");
+    expect(html).toContain("sm:text-2xl");
+  });
+
+  it("mostra uma frase longa no tamanho do corpo, sem destaque", async () => {
+    clientEnv();
+    const { AboutContent } = await import("@/app/(public)/about-content");
+    const long = `${"Acompanhamento combinado com a família no cotidiano ".repeat(4).trim()}.`;
+    expect(long.length).toBeGreaterThan(FEATURED_ABOUT_MAX_CHARS);
+    const html = renderToStaticMarkup(
+      createElement(AboutContent, {
+        site: { ...EMPTY_PUBLIC_SITE, aboutTitle: "Sobre", aboutBody: long },
+      }),
+    );
+    expect(html).toContain(long);
+    expect(html).not.toContain("font-serif text-xl");
+    expect(html).not.toContain("sm:text-2xl");
   });
 });
 
@@ -169,6 +206,14 @@ describe("abertura do Sobre", () => {
     );
     expect(remainingAboutSource("Frase um. **Dois.**")).toBe("**Dois.**");
     expect(featuredAboutText("Frase um. **Dois.**")).toBe("Frase um.");
+  });
+
+  it("só destaca a abertura até 180 caracteres", () => {
+    expect(shouldHighlightFeaturedAbout("a".repeat(FEATURED_ABOUT_MAX_CHARS))).toBe(true);
+    expect(shouldHighlightFeaturedAbout("a".repeat(FEATURED_ABOUT_MAX_CHARS + 1))).toBe(
+      false,
+    );
+    expect(shouldHighlightFeaturedAbout("")).toBe(false);
   });
 
   it("não corta a primeira frase em Dra., Sra. ou Profa.", () => {

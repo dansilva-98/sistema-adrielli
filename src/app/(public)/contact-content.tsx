@@ -66,7 +66,6 @@ export function ContactContent({ site }: { site: PublicSite }) {
             variant="static"
             steps={howItWorksSteps(site)}
             currentIndex={0}
-            lastAccent
             labelledBy="depois-da-mensagem"
           />
         </section>
