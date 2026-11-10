@@ -83,3 +83,5 @@ O teste `tests/e2e/staff-areas.spec.ts` (“CONTENT_ADMIN salva o topo e confirm
 ## L3.3 — trilha vertical do Contato até 640 px
 
 A spec manda a variante vertical abaixo de 480 px quando os rótulos são longos. Entre 480 e 639 px, porém, a coluna de cada etapa tem cerca de 106 px. Com o rótulo no mínimo da spec (Source Sans 3, 14 px), "Acompanhamento" sai da coluna, e o E2E mede isso em 480 px. Por isso a trilha do Contato fica vertical até `sm` (640 px). Se a responsável preferir manter 480 px, os rótulos dessa faixa precisam ficar menores que o mínimo da spec ou ter outro texto.
+
+Junto com isso, o rótulo da trilha horizontal (Contato e abas da home) passou a usar Source Sans 3 de 14 a 16 px entre 640 e 1023 px, e a Newsreader de 24 px só a partir de `lg` (1024 px). Antes a serif começava em 640 px, e em 768 px "Acompanhamento" invadia a etapa vizinha.

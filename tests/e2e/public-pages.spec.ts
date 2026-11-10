@@ -1,4 +1,4 @@
-﻿import AxeBuilder from "@axe-core/playwright";
+import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 import { CAPTURE_WIDTHS, expectPage, fillService, PAGES } from "./public-pages-fixtures";

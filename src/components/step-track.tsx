@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { CheckIcon } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
