@@ -3,17 +3,6 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { CONTENT_LIMITS } from "@/db/content-limits";
 import { confirmContentVersion } from "@/modules/content/edit-sync";
 import { sitePublicImageUrl } from "@/modules/content/image-path";
@@ -34,6 +23,7 @@ import {
   useUnsavedLeave,
 } from "../cms-fields";
 import { ContentFormChrome, PublishOnSiteField } from "../content-form-chrome";
+import { ContentImageField } from "../content-image-field";
 import { EditItemGate } from "../edit-item-gate";
 
 const idle = { ok: false as const, message: "" };
@@ -134,7 +124,6 @@ function ServiceFormFields({
     state.ok ? state.version : undefined,
   );
   if (version !== confirmedVersion) setConfirmedVersion(version);
-  const [open, setOpen] = useState(false);
   const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   const kept = !remove && !file ? service?.imagePath : null;
   const src = preview ?? (kept ? sitePublicImageUrl(imageOrigin, kept) : null);
@@ -228,63 +217,22 @@ function ServiceFormFields({
         multiline
         onChange={setBody}
       />
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium">Imagem</p>
-        <p className="text-sm text-muted">
-          JPEG, PNG ou WebP, até 4 MB. A foto é regravada.
-        </p>
-        {src ? (
-          // A prévia é local ou do bucket público; o alt fica no campo ao lado.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={src}
-            alt={alt || "Prévia da imagem"}
-            className="max-h-48 w-auto rounded-lg"
-          />
-        ) : (
-          <p className="text-sm text-muted">Nenhuma imagem.</p>
-        )}
-        <Label htmlFor="servico-imagem">Trocar imagem</Label>
-        <input
-          id="servico-imagem"
-          name="image"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={(event) => {
-            setFile(event.target.files?.[0] ?? null);
-            setRemove(false);
-          }}
-        />
-        {fields.image ? <p className="text-sm text-destructive">{fields.image}</p> : null}
-        {src ? (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger render={<Button type="button" variant="outline" />}>
-              Remover
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Remover a imagem</DialogTitle>
-                <DialogDescription>
-                  Ela sai do site quando você salvar este serviço.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => {
-                    setFile(null);
-                    setRemove(true);
-                    setOpen(false);
-                  }}
-                >
-                  Remover
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        ) : null}
-      </div>
+      <ContentImageField
+        id="servico-imagem"
+        label="Imagem"
+        help="JPEG, PNG ou WebP, até 4 MB. A foto é regravada."
+        src={src}
+        alt={alt || "Prévia da imagem"}
+        error={fields.image}
+        onFile={(next) => {
+          setFile(next);
+          setRemove(false);
+        }}
+        onRemove={() => {
+          setFile(null);
+          setRemove(true);
+        }}
+      />
       <CountedField
         id="servico-alt"
         label="Descrição da imagem"

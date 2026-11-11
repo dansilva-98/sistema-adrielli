@@ -27,6 +27,7 @@ export const CONTENT_LIMITS = {
   serviceImageAlt: 160,
   testimonialQuote: 600,
   testimonialAuthor: 80,
+  testimonialImagePath: 240,
   faqQuestion: 200,
   faqAnswer: 2_000,
 } as const;

@@ -259,6 +259,54 @@ describe("escrita de conteúdo", () => {
       ),
     ).rejects.toThrow(/testimonials_published_requires_consent/);
   });
+
+  it("grava, troca e remove a imagem do depoimento", async () => {
+    const first = "11111111-1111-4111-8111-111111111111.webp";
+    const second = "22222222-2222-4222-8222-222222222222.webp";
+    const id = await createTestimonial(
+      runtime,
+      {
+        quote: "Relato com print",
+        authorLabel: "Mãe",
+        consentAt: "2026-11-11",
+        imagePath: first,
+        published: true,
+      },
+      actor(),
+    );
+    const swapped = await updateTestimonial(
+      runtime,
+      id,
+      {
+        quote: "Relato com print",
+        authorLabel: "Mãe",
+        consentAt: "2026-11-11",
+        imagePath: second,
+        published: true,
+        version: 1,
+      },
+      actor(),
+    );
+    expect(swapped.removedPaths).toEqual([first]);
+    const [row] = await runtime<{ image_path: string | null }[]>`
+      select image_path from content.testimonials where id = ${id}::uuid
+    `;
+    expect(row?.image_path).toBe(second);
+    const removed = await updateTestimonial(
+      runtime,
+      id,
+      {
+        quote: "Relato com print",
+        authorLabel: "Mãe",
+        consentAt: "2026-11-11",
+        imagePath: null,
+        published: true,
+        version: 2,
+      },
+      actor(),
+    );
+    expect(removed.removedPaths).toEqual([second]);
+  });
 });
 
 function actor() {

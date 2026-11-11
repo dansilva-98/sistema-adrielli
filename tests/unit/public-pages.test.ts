@@ -276,7 +276,7 @@ describe("Serviços", () => {
     const html = await renderServices({
       site: EMPTY_PUBLIC_SITE,
       services: [service, { ...service, slug: "avaliacao", title: "Avaliação" }],
-      testimonials: [{ id: "t1", quote: "Ajuda.", authorLabel: "Ana" }],
+      testimonials: [{ id: "t1", quote: "Ajuda.", authorLabel: "Ana", imagePath: null }],
       faq: [{ id: "f1", question: "Como?", answer: "Assim." }],
     });
     expect(html).toContain('role="tablist"');
@@ -285,5 +285,61 @@ describe("Serviços", () => {
     expect(html).toContain("Depoimentos");
     expect(html).toContain("Perguntas frequentes");
     expect(html).not.toContain("bg-gold");
+  });
+
+  it("depoimento com imagem usa alt, transcrição e grade", async () => {
+    clientEnv();
+    const { TestimonialList } = await import("@/app/(public)/testimonial-list");
+    const quote = "a".repeat(260);
+    const withImage = renderToStaticMarkup(
+      createElement(TestimonialList, {
+        items: [
+          {
+            id: "t-img",
+            quote,
+            authorLabel: "Família",
+            imagePath: "11111111-1111-4111-8111-111111111111.webp",
+          },
+        ],
+      }),
+    );
+    expect(withImage).toContain("Ler a transcrição");
+    expect(withImage).toContain("object-contain");
+    expect(withImage).toContain("max-w-[360px]");
+    expect(withImage).toContain("max-h-[32rem]");
+    expect(withImage).toContain('loading="lazy"');
+    expect(withImage).toContain(`${"a".repeat(250)}…`);
+    expect(withImage).not.toContain("<blockquote");
+    expect(withImage).not.toContain("sm:grid-cols-2");
+
+    const quoted = renderToStaticMarkup(
+      createElement(TestimonialList, {
+        items: [{ id: "t-txt", quote: "Ajuda.", authorLabel: "Ana", imagePath: null }],
+      }),
+    );
+    expect(quoted).toContain("<blockquote>Ajuda.</blockquote>");
+    expect(quoted).not.toContain("Ler a transcrição");
+
+    const grid = renderToStaticMarkup(
+      createElement(TestimonialList, {
+        items: [
+          {
+            id: "a",
+            quote: "Um",
+            authorLabel: "A",
+            imagePath: "11111111-1111-4111-8111-111111111111.webp",
+          },
+          {
+            id: "b",
+            quote: "Dois",
+            authorLabel: "B",
+            imagePath: "22222222-2222-4222-8222-222222222222.webp",
+          },
+        ],
+      }),
+    );
+    expect(grid).toContain("sm:grid-cols-2");
+    expect(grid).toContain("lg:grid-cols-3");
+    expect(grid).toContain("items-start");
   });
 });

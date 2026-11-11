@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ServiceList } from "@/app/(public)/service-list";
+import { TestimonialList } from "@/app/(public)/testimonial-list";
 import { RestrictedMarkdown } from "@/modules/content/markdown-view";
 import type {
   PublicFaq,
@@ -52,14 +53,7 @@ export function ServicesContent({
       {testimonials.length > 0 ? (
         <section className="flex flex-col gap-4">
           <h2 className="font-serif text-2xl">Depoimentos</h2>
-          {testimonials.map((item) => (
-            <figure key={item.id} className="flex flex-col gap-1">
-              <blockquote>{item.quote}</blockquote>
-              {item.authorLabel ? (
-                <figcaption className="text-sm text-muted">{item.authorLabel}</figcaption>
-              ) : null}
-            </figure>
-          ))}
+          <TestimonialList items={testimonials} />
         </section>
       ) : null}
       {faq.length > 0 ? (

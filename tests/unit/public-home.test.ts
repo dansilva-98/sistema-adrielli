@@ -50,7 +50,7 @@ describe("site público", () => {
             imageAlt: null,
           },
         ],
-        [{ id: "testimonial-1", quote: "Texto", authorLabel: "Ana" }],
+        [{ id: "testimonial-1", quote: "Texto", authorLabel: "Ana", imagePath: null }],
         [{ id: "faq-1", question: "Como?", answer: "Assim." }],
       ),
     ).toEqual(["hero", "area", "how", "about", "testimonials", "faq"]);

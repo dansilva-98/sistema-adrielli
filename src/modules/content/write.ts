@@ -333,19 +333,25 @@ export async function updateService(
 }
 
 export async function createTestimonial(sql: Sql, input: TestimonialInput, actor: Actor) {
-  return insertList(sql, "testimonials", actor, async (tx) => {
+  return sql.begin(async (tx) => {
     const sortOrder = await nextSortOrder(tx, "testimonials");
     const rows = await tx<{ id: string }[]>`
       insert into content.testimonials (
-        quote, author_label, consent_at, published, sort_order, updated_by
+        quote, author_label, image_path, consent_at, published, sort_order, updated_by
       )
       values (
-        ${input.quote}, ${input.authorLabel}, ${input.consentAt}, ${input.published},
-        ${sortOrder}, ${actor.actorId}::uuid
+        ${input.quote}, ${input.authorLabel}, ${input.imagePath ?? null}, ${input.consentAt},
+        ${input.published}, ${sortOrder}, ${actor.actorId}::uuid
       )
       returning id
     `;
-    return rows[0]?.id;
+    const id = rows[0]?.id;
+    if (!id) throw new Error("Falha ao criar o conteúdo.");
+    await writeAudit(tx, actor, "content.testimonial.created", "testimonial", id);
+    if (input.imagePath) {
+      await writeAudit(tx, actor, "content.image.uploaded", "testimonial", id);
+    }
+    return id;
   });
 }
 
@@ -354,10 +360,10 @@ export async function updateTestimonial(
   id: string,
   input: TestimonialInput & { version: number },
   actor: Actor,
-) {
-  const updated = await sql.begin(async (tx) => {
-    const current = await tx<{ consent_at: string | null }[]>`
-      select consent_at::text as consent_at
+): Promise<{ removedPaths: string[] }> {
+  return sql.begin(async (tx) => {
+    const current = await tx<{ consent_at: string | null; image_path: string | null }[]>`
+      select consent_at::text as consent_at, image_path
       from content.testimonials
       where id = ${id}::uuid
       for update
@@ -369,8 +375,9 @@ export async function updateTestimonial(
     const result = await tx`
       update content.testimonials
       set quote = ${input.quote}, author_label = ${input.authorLabel},
-        consent_at = ${input.consentAt}, published = ${input.published},
-        updated_at = now(), updated_by = ${actor.actorId}::uuid, version = version + 1
+        image_path = ${input.imagePath ?? null}, consent_at = ${input.consentAt},
+        published = ${input.published}, updated_at = now(), updated_by = ${actor.actorId}::uuid,
+        version = version + 1
       where id = ${id}::uuid and version = ${input.version}
     `;
     if (result.count !== 1) {
@@ -380,8 +387,13 @@ export async function updateTestimonial(
       throw new ContentWriteError(exists[0] ? "conflict" : "missing");
     }
     await writeAudit(tx, actor, "content.testimonial.updated", "testimonial", id);
+    const nextPath = input.imagePath ?? null;
+    if (nextPath && nextPath !== current[0].image_path) {
+      await writeAudit(tx, actor, "content.image.uploaded", "testimonial", id);
+    }
+    const previous = current[0].image_path;
+    return { removedPaths: previous && previous !== nextPath ? [previous] : [] };
   });
-  return updated;
 }
 
 export async function createFaq(sql: Sql, input: FaqInput, actor: Actor) {
@@ -467,13 +479,14 @@ export async function deleteContent(
 ): Promise<{ removedPaths: string[] }> {
   const meta = LIST_ACTIONS[table];
   return sql.begin(async (tx) => {
+    const withImage = table === "services" || table === "testimonials";
     const rows = await tx.unsafe<{ image_path?: string | null }[]>(
-      `delete from content.${table} where id = $1 returning ${table === "services" ? "image_path" : "id"}`,
+      `delete from content.${table} where id = $1 returning ${withImage ? "image_path" : "id"}`,
       [id],
     );
     if (rows.length === 0) throw new ContentWriteError("missing");
     await writeAudit(tx, actor, meta.deleted, meta.entity, id);
-    const imagePath = table === "services" ? rows[0]?.image_path : null;
+    const imagePath = withImage ? rows[0]?.image_path : null;
     return { removedPaths: imagePath ? [imagePath] : [] };
   });
 }

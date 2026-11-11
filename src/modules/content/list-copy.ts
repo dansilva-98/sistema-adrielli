@@ -58,6 +58,11 @@ export function contentListPreview(text: string, max = 80): string {
   return text.length > max ? `${text.slice(0, max - 3)}…` : text;
 }
 
+export function testimonialListLabel(quote: string, imagePath: string | null): string {
+  const preview = contentListPreview(quote);
+  return imagePath ? `${preview} · com imagem` : preview;
+}
+
 export function createdNoticeFromSearch(
   kind: ContentKind,
   criado: string | undefined,

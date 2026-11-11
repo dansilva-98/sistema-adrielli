@@ -1,0 +1,2 @@
+ALTER TABLE "content"."testimonials" ADD COLUMN "image_path" varchar(240);--> statement-breakpoint
+ALTER TABLE "content"."testimonials" ADD CONSTRAINT "testimonials_image_path" CHECK ("content"."testimonials"."image_path" is null or "content"."testimonials"."image_path" ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$');
