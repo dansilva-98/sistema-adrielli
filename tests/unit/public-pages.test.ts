@@ -311,6 +311,10 @@ describe("Serviços", () => {
     expect(withImage).toContain(`${"a".repeat(250)}…`);
     expect(withImage).not.toContain("<blockquote");
     expect(withImage).not.toContain("sm:grid-cols-2");
+    expect(withImage.indexOf("</figure>")).toBeGreaterThan(
+      withImage.indexOf("figcaption"),
+    );
+    expect(withImage.indexOf("</figure>")).toBeLessThan(withImage.indexOf("<details"));
 
     const quoted = renderToStaticMarkup(
       createElement(TestimonialList, {

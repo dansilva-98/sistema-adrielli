@@ -50,21 +50,23 @@ function TestimonialQuote({
 
 function TestimonialWithImage({ item, path }: { item: PublicTestimonial; path: string }) {
   return (
-    <figure className="flex flex-col gap-2">
-      <SitePhoto
-        path={path}
-        alt={testimonialImageAlt(item.quote)}
-        className="max-w-[360px] border border-line object-contain"
-      />
-      {item.authorLabel ? (
-        <figcaption className="text-sm text-muted">{item.authorLabel}</figcaption>
-      ) : null}
+    <div className="flex flex-col gap-2">
+      <figure className="flex flex-col gap-2">
+        <SitePhoto
+          path={path}
+          alt={testimonialImageAlt(item.quote)}
+          className="max-w-[360px] border border-line object-contain"
+        />
+        {item.authorLabel ? (
+          <figcaption className="text-sm text-muted">{item.authorLabel}</figcaption>
+        ) : null}
+      </figure>
       <details>
         <summary className="cursor-pointer focus-visible:outline-2">
           Ler a transcrição
         </summary>
         <p className="pt-2">{item.quote}</p>
       </details>
-    </figure>
+    </div>
   );
 }
