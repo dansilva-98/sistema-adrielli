@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   date,
@@ -7,6 +8,7 @@ import {
   integer,
   pgSchema,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -32,6 +34,20 @@ export const attachmentCategory = clinic.enum("attachment_category", [
   "ASSESSMENT",
   "PERSONAL_DOCUMENT",
   "OTHER",
+]);
+
+export const appointmentStatus = clinic.enum("appointment_status", [
+  "scheduled",
+  "completed",
+  "missed_notified",
+  "missed_unnotified",
+  "cancelled",
+  "rescheduled",
+]);
+
+export const appointmentModality = clinic.enum("appointment_modality", [
+  "in_person",
+  "online",
 ]);
 
 export const patients = clinic
@@ -157,6 +173,100 @@ export const patientAttachments = clinic
         sql`${table.sizeBytes} between 1 and 10485760`,
       ),
       check("patient_attachments_sha256", sql`${table.sha256} ~ '^[0-9a-f]{64}$'`),
+    ],
+  )
+  .enableRLS();
+
+export const settings = clinic
+  .table(
+    "settings",
+    {
+      id: smallint("id").primaryKey().default(1),
+      defaultDurationMinutes: integer("default_duration_minutes").notNull().default(50),
+      locationName: text("location_name").notNull().default(""),
+      locationAddress: text("location_address").notNull().default(""),
+      reminderSendHour: integer("reminder_send_hour").notNull().default(9),
+      updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+      updatedBy: uuid("updated_by").references(() => users.id),
+    },
+    (table) => [
+      check("settings_id_singleton", sql`${table.id} = 1`),
+      check(
+        "settings_default_duration_minutes",
+        sql`${table.defaultDurationMinutes} > 0`,
+      ),
+      check(
+        "settings_reminder_send_hour",
+        sql`${table.reminderSendHour} between 0 and 23`,
+      ),
+    ],
+  )
+  .enableRLS();
+
+export const packages = clinic
+  .table(
+    "packages",
+    {
+      id: uuid("id").primaryKey().defaultRandom(),
+      patientId: uuid("patient_id")
+        .notNull()
+        .references(() => patients.id),
+      totalSessions: integer("total_sessions").notNull(),
+      startsOn: date("starts_on").notNull(),
+      expiresOn: date("expires_on"),
+      priceCents: integer("price_cents"),
+      notes: varchar("notes", { length: 2000 }),
+      closedAt: timestamp("closed_at", { withTimezone: true }),
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+      updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    },
+    (table) => [
+      index("packages_patient_id_idx").on(table.patientId),
+      check("packages_total_sessions", sql`${table.totalSessions} > 0`),
+      check(
+        "packages_price_cents",
+        sql`${table.priceCents} is null or ${table.priceCents} >= 0`,
+      ),
+    ],
+  )
+  .enableRLS();
+
+export const appointments = clinic
+  .table(
+    "appointments",
+    {
+      id: uuid("id").primaryKey().defaultRandom(),
+      patientId: uuid("patient_id")
+        .notNull()
+        .references(() => patients.id),
+      packageId: uuid("package_id").references(() => packages.id),
+      startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+      endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+      modality: appointmentModality("modality").notNull().default("in_person"),
+      seriesId: uuid("series_id"),
+      status: appointmentStatus("status").notNull().default("scheduled"),
+      makeupOfId: uuid("makeup_of_id").references((): AnyPgColumn => appointments.id),
+      rescheduledToId: uuid("rescheduled_to_id").references(
+        (): AnyPgColumn => appointments.id,
+      ),
+      notes: varchar("notes", { length: 2000 }),
+      reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+      updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+      createdBy: uuid("created_by")
+        .notNull()
+        .references(() => users.id),
+    },
+    (table) => [
+      index("appointments_starts_at_idx").on(table.startsAt),
+      index("appointments_patient_id_idx").on(table.patientId),
+      index("appointments_package_id_idx").on(table.packageId),
+      uniqueIndex("appointments_makeup_of_unique").on(table.makeupOfId),
+      check("appointments_time_order", sql`${table.endsAt} > ${table.startsAt}`),
+      check(
+        "appointments_rescheduled_link",
+        sql`${table.rescheduledToId} is null or ${table.status} = 'rescheduled'`,
+      ),
     ],
   )
   .enableRLS();

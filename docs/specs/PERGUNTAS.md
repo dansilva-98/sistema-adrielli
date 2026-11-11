@@ -86,6 +86,34 @@ A spec manda a variante vertical abaixo de 480 px quando os rótulos são longos
 
 Junto com isso, o rótulo da trilha horizontal (Contato e abas da home) passou a usar Source Sans 3 de 14 a 16 px entre 640 e 1023 px, e a Newsreader de 24 px só a partir de `lg` (1024 px). Antes a serif começava em 640 px, e em 768 px "Acompanhamento" invadia a etapa vizinha.
 
+## E8.1 — desfazer no mesmo dia e motivo do cancelamento
+
+A spec pede desfazer o status no mesmo dia, com auditoria, e cancelar “com motivo”. Essas duas coisas ficaram de fora desta tarefa: não há coluna de motivo e a transição inversa não entra na matriz. Confirmar o texto do motivo, se ele é obrigatório, e se o desfazer vale para todos os status ou só para alguns.
+
+## E8.1 — ocupação do pacote inclui sessão marcada
+
+A sessão `scheduled` ocupa vaga no pacote, junto com `completed` e `missed_unnotified`. Assim não se ligam mais sessões do que o total. Se a profissional puder marcar à frente além do total, essa conta muda.
+
+## E8.1 — remarcar copia pacote, modalidade e série
+
+A nova sessão herda `package_id`, `modality` e `series_id` da original. A ocupação do pacote permanece a mesma. Confirmar se a tela da E8.2 poderá mudar modalidade ou pacote na remarcação.
+
+## E8.1 — reposição única mesmo se a reposição for cancelada
+
+O índice único em `makeup_of_id` não ignora `cancelled`. Cancelar a reposição não libera outra. Confirmar se nesse caso ela pode agendar de novo.
+
+## E8.1 — pacote encerrado ou vencido
+
+Pacote com `closed_at` recusa nova sessão (`package-exhausted`). A data `expires_on` ainda não bloqueia. Confirmar se sessão depois do vencimento deve ser recusada.
+
+## E8.1 — auditoria da agenda
+
+Os oito eventos entram no CHECK. `metadata` fica `{}`. Não há ação para alterar `clinic.settings`; a gravação da configuração não gera linha de auditoria. `clinic.reminder.sent` e `clinic.calendar_feed.rotated` ficam listados, sem escritor nesta tarefa.
+
+## E8.1 — observações e migration
+
+`notes` da sessão e do pacote têm no máximo 2000 caracteres, como na ficha. A migration desta branch é `0013_clinic_agenda`. Se o PR 87 (C1) entrar na `main` antes, esta branch precisa de rebase e a migration passa a ser `0014`, gerada de novo, sem renumerar à mão.
+
 ## L3.3 — destaque do Sobre e trilha do Contato (staging 10/11)
 
 A primeira frase do Sobre usa `text-xl sm:text-2xl`. Se passar de 180 caracteres, aparece no tamanho do corpo, sem destaque. Na trilha estática do Contato, só a etapa 1 fica preenchida; as outras têm contorno dourado e fundo claro, na vertical e na horizontal.

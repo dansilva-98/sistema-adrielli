@@ -26,7 +26,13 @@ export class ClinicRuleError extends Error {
     | "not-found"
     | "type"
     | "size"
-    | "already-confirmed";
+    | "already-confirmed"
+    | "overlap"
+    | "invalid-transition"
+    | "package-exhausted"
+    | "package-patient-mismatch"
+    | "makeup-not-allowed"
+    | "makeup-taken";
 
   constructor(code: ClinicRuleError["code"]) {
     super(code);
@@ -89,10 +95,26 @@ function dateText(value: unknown): string {
   return "";
 }
 
-function mapDatabaseError(error: unknown): ClinicRuleError | null {
+function postgresCode(error: unknown): string {
+  if (typeof error !== "object" || error === null) return "";
+  if ("code" in error && typeof error.code === "string" && /^\d{5}$/.test(error.code)) {
+    return error.code;
+  }
+  if ("cause" in error) return postgresCode(error.cause);
+  return "";
+}
+
+export function mapClinicError(error: unknown): ClinicRuleError | null {
   if (error instanceof ClinicRuleError) return error;
   if (!(error instanceof Error)) return null;
   const message = error.message;
+  const code = postgresCode(error);
+  if (code === "23P01" || message.includes("appointments_no_overlap")) {
+    return new ClinicRuleError("overlap");
+  }
+  if (message.includes("appointments_makeup_of_unique")) {
+    return new ClinicRuleError("makeup-taken");
+  }
   if (message.includes("patient must have a guardian")) {
     return new ClinicRuleError("last-guardian");
   }
@@ -120,7 +142,7 @@ async function transaction<T>(
   try {
     return (await db.begin(async (tx) => work(tx))) as T;
   } catch (error) {
-    const mapped = mapDatabaseError(error);
+    const mapped = mapClinicError(error);
     if (mapped) throw mapped;
     throw error;
   }

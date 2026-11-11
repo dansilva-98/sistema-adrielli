@@ -21,6 +21,9 @@ describe("papel do consultório", () => {
   it.each([
     "src/modules/clinic/patients.ts",
     "src/modules/clinic/attachments.ts",
+    "src/modules/clinic/agenda-settings.ts",
+    "src/modules/clinic/packages.ts",
+    "src/modules/clinic/appointments.ts",
     "src/modules/clinic/server/actions.ts",
     "src/modules/clinic/server/read.ts",
   ])("%s chama assertRole antes de ler ou gravar", (file) => {

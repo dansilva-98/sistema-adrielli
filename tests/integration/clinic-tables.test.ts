@@ -41,18 +41,22 @@ describe("tabelas de pacientes", () => {
 
   afterAll(async () => {
     await owner`alter table clinic.patient_guardians disable trigger "patient_guardians_keep_one"`;
-    await owner`delete from clinic.patient_attachments where uploaded_by = ${STAFF_ID}::uuid`;
-    await owner`
-      delete from clinic.patient_guardians
-      where patient_id in (
-        select id from clinic.patients where created_by = ${STAFF_ID}::uuid
-      )
-    `;
-    await owner`delete from clinic.patients where created_by = ${STAFF_ID}::uuid`;
-    await owner`
-      delete from clinic.guardians
-      where id in (${GUARDIAN_ID}::uuid, ${GUARDIAN_2_ID}::uuid)
-    `;
+    try {
+      await owner`delete from clinic.patient_attachments where uploaded_by = ${STAFF_ID}::uuid`;
+      await owner`
+        delete from clinic.patient_guardians
+        where patient_id in (
+          select id from clinic.patients where created_by = ${STAFF_ID}::uuid
+        )
+      `;
+      await owner`delete from clinic.patients where created_by = ${STAFF_ID}::uuid`;
+      await owner`
+        delete from clinic.guardians
+        where id in (${GUARDIAN_ID}::uuid, ${GUARDIAN_2_ID}::uuid)
+      `;
+    } finally {
+      await owner`alter table clinic.patient_guardians enable trigger "patient_guardians_keep_one"`;
+    }
     await owner`delete from identity.users where id = ${STAFF_ID}::uuid`;
     await owner`delete from auth.users where id = ${STAFF_ID}::uuid`;
     await owner?.end({ timeout: 5 });
