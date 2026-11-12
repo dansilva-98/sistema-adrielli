@@ -60,16 +60,20 @@ describe("cadastro de pacientes", () => {
     const patientIds = patients.map((row) => row.id);
     if (patientIds.length > 0) {
       await owner`alter table clinic.patient_guardians disable trigger "patient_guardians_keep_one"`;
-      const guardians = await owner<{ guardian_id: string }[]>`
-        select guardian_id from clinic.patient_guardians
-        where patient_id in ${owner(patientIds)}
-      `;
-      await owner`delete from clinic.patient_attachments where patient_id in ${owner(patientIds)}`;
-      await owner`delete from clinic.patient_guardians where patient_id in ${owner(patientIds)}`;
-      await owner`delete from clinic.patients where id in ${owner(patientIds)}`;
-      const guardianIds = guardians.map((row) => row.guardian_id);
-      if (guardianIds.length > 0) {
-        await owner`delete from clinic.guardians where id in ${owner(guardianIds)}`;
+      try {
+        const guardians = await owner<{ guardian_id: string }[]>`
+          select guardian_id from clinic.patient_guardians
+          where patient_id in ${owner(patientIds)}
+        `;
+        await owner`delete from clinic.patient_attachments where patient_id in ${owner(patientIds)}`;
+        await owner`delete from clinic.patient_guardians where patient_id in ${owner(patientIds)}`;
+        await owner`delete from clinic.patients where id in ${owner(patientIds)}`;
+        const guardianIds = guardians.map((row) => row.guardian_id);
+        if (guardianIds.length > 0) {
+          await owner`delete from clinic.guardians where id in ${owner(guardianIds)}`;
+        }
+      } finally {
+        await owner`alter table clinic.patient_guardians enable trigger "patient_guardians_keep_one"`;
       }
     }
     await owner`delete from clinic.guardians where id = ${OTHER_GUARDIAN}::uuid`;

@@ -41,6 +41,15 @@ export const AUDIT_ACTIONS = [
   "clinic.attachment.uploaded",
   "clinic.attachment.downloaded",
   "clinic.attachment.deleted",
+  "clinic.appointment.created",
+  "clinic.appointment.status_changed",
+  "clinic.appointment.rescheduled",
+  "clinic.appointment.cancelled",
+  "clinic.package.created",
+  "clinic.package.closed",
+  "clinic.reminder.sent",
+  "clinic.calendar_feed.rotated",
+  "clinic.settings.updated",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

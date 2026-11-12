@@ -4,6 +4,16 @@ import { describe, expect, it } from "vitest";
 
 import { AUDIT_ACTIONS } from "@/db/audit-actions";
 
+function isAgendaAuditAction(action: string): boolean {
+  return (
+    action.startsWith("clinic.appointment.") ||
+    action.startsWith("clinic.package.") ||
+    action.startsWith("clinic.reminder.") ||
+    action.startsWith("clinic.calendar_feed.") ||
+    action.startsWith("clinic.settings.")
+  );
+}
+
 const T1_7_ACTIONS = [
   "user.bootstrap",
   "auth.login.success",
@@ -59,7 +69,9 @@ describe("ações de auditoria", () => {
     const sql = readFileSync("src/db/migrations/0009_clinic_patients.sql", "utf8");
     for (const action of AUDIT_ACTIONS.filter(
       (action) =>
-        !action.startsWith("mfa.email.") && action !== "auth.mfa.unknown_factor",
+        !action.startsWith("mfa.email.") &&
+        action !== "auth.mfa.unknown_factor" &&
+        !isAgendaAuditAction(action),
     )) {
       expect(sql).toContain(`'${action}'`);
     }
@@ -77,7 +89,7 @@ describe("ações de auditoria", () => {
   it("inclui os eventos de MFA por e-mail na migration nova", () => {
     const sql = readFileSync("src/db/migrations/0011_staff_email_mfa.sql", "utf8");
     for (const action of AUDIT_ACTIONS.filter(
-      (action) => action !== "auth.mfa.unknown_factor",
+      (action) => action !== "auth.mfa.unknown_factor" && !isAgendaAuditAction(action),
     )) {
       expect(sql).toContain(`'${action}'`);
     }
@@ -87,12 +99,33 @@ describe("ações de auditoria", () => {
 
   it("inclui fatores TOTP conhecidos, backfill e unknown_factor", () => {
     const sql = readFileSync("src/db/migrations/0012_staff_totp_factors.sql", "utf8");
-    for (const action of AUDIT_ACTIONS) {
+    for (const action of AUDIT_ACTIONS.filter((action) => !isAgendaAuditAction(action))) {
       expect(sql).toContain(`'${action}'`);
     }
     expect(sql).toContain('"identity"."staff_totp_factors"');
     expect(sql).toContain("auth.mfa_factors");
     expect(sql).toContain('ON CONFLICT ("factor_id") DO NOTHING');
     expect(sql).toContain('REVOKE ALL ON TABLE "identity"."staff_totp_factors"');
+  });
+
+  it("inclui os eventos da agenda, btree_gist e a restrição de exclusão", () => {
+    const sql = readFileSync("src/db/migrations/0014_clinic_agenda.sql", "utf8");
+    for (const action of AUDIT_ACTIONS) {
+      expect(sql).toContain(`'${action}'`);
+    }
+    expect(sql).toContain("CREATE EXTENSION btree_gist WITH SCHEMA extensions");
+    expect(sql).toContain("appointments_no_overlap");
+    expect(sql).toContain("tstzrange");
+    expect(sql).toContain("cancel_reason");
+    expect(sql).toContain("status_changed_at");
+    expect(sql).toContain("not in ('cancelled', 'rescheduled')");
+    expect(sql).toContain("'clinic.settings.updated'");
+    expect(sql).toContain('ON CONFLICT ("id") DO NOTHING');
+    expect(sql.toLowerCase()).not.toContain("on delete cascade");
+    expect(sql.toLowerCase()).not.toContain(
+      'grant delete on table "clinic"."appointments"',
+    );
+    expect(sql.toLowerCase()).not.toContain('grant delete on table "clinic"."packages"');
+    expect(sql.toLowerCase()).not.toContain('grant delete on table "clinic"."settings"');
   });
 });
