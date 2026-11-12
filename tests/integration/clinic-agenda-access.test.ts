@@ -200,6 +200,29 @@ describe("acesso à agenda sem papel clínico ou sem MFA (A8)", () => {
           notes: null,
         }),
       () => appointments.undoAppointmentStatus(db, actor, dummyId),
+      () => appointments.clinicDateTime(db, "2027-07-01", "08:00", 50),
+      () => appointments.clinicWeeklySlots(db, "2027-07-01", "08:00", 50, 2),
+      () => appointments.clinicDayRange(db, "2027-07-01", 1),
+      () => appointments.listAgendaAppointments(db, { from: now, to: later }),
+      () => appointments.listPatientAppointments(db, dummyId),
+      () => appointments.getAppointmentDetail(db, dummyId),
+      () => appointments.previewAppointmentSeries(db, [{ startsAt: now, endsAt: later }]),
+      () =>
+        appointments.createAppointmentSeries(
+          db,
+          actor,
+          {
+            patientId: dummyId,
+            packageId: null,
+            startsAt: now,
+            endsAt: later,
+            modality: "in_person",
+            seriesId: null,
+            notes: null,
+            slots: [{ startsAt: now, endsAt: later }],
+          },
+          { skipConflicts: false },
+        ),
     ];
     for (const call of calls) {
       await expect(call()).rejects.toMatchObject({ name: "StaffAccessError", reason });
@@ -245,7 +268,7 @@ describe("acesso à agenda sem papel clínico ou sem MFA (A8)", () => {
     );
     session.totp = [];
     await exercise("forbidden");
-    expect(await auditCount(contentId, "access.denied")).toBe(15);
+    expect(await auditCount(contentId, "access.denied")).toBe(23);
     expect(await auditCount(contentId, "clinic.appointment.created")).toBe(0);
 
     const clinicSession = crypto.randomUUID();

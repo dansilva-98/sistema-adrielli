@@ -139,6 +139,70 @@ export function formatClinicTimestamp(value: Date | string): string {
   }).format(date);
 }
 
+export function formatClinicClock(value: Date | string): string {
+  return clinicTimeValue(value);
+}
+
+export function clinicTimeValue(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: CLINIC_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "";
+  if (!hour || !minute) return "";
+  return `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
+export function durationMinutes(startsAt: Date | string, endsAt: Date | string): number {
+  const start = startsAt instanceof Date ? startsAt : new Date(startsAt);
+  const end = endsAt instanceof Date ? endsAt : new Date(endsAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+  return Math.round((end.getTime() - start.getTime()) / 60_000);
+}
+
+export function formatClinicSlotLabel(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${formatClinicDate(todayInClinic(date))} ${clinicTimeValue(date)}`;
+}
+
+export function expiredPackageLabel(
+  expiresOn: string | null,
+  today: string,
+): string | null {
+  if (!expiresOn || expiresOn >= today) return null;
+  return `Pacote vencido em ${formatClinicDate(expiresOn).slice(0, 5)}`;
+}
+
+export function isClinicTime(value: string): boolean {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+  return Boolean(match);
+}
+
+export function addClinicDays(date: string, days: number): string {
+  if (!isRealDate(date)) return "";
+  const [year, month, day] = date.split("-").map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + days));
+  const nextYear = String(next.getUTCFullYear());
+  const nextMonth = String(next.getUTCMonth() + 1).padStart(2, "0");
+  const nextDay = String(next.getUTCDate()).padStart(2, "0");
+  return `${nextYear}-${nextMonth}-${nextDay}`;
+}
+
+export function mondayOfClinicWeek(date: string): string {
+  if (!isRealDate(date)) return "";
+  const [year, month, day] = date.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const offset = (weekday + 6) % 7;
+  return addClinicDays(date, -offset);
+}
+
 export function phoneLinks(phone: string): { call: string; whatsapp: string } | null {
   const digits = onlyDigits(phone);
   if (!/^[0-9]{10,13}$/.test(digits)) return null;

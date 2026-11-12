@@ -33,7 +33,8 @@ export class ClinicRuleError extends Error {
     | "package-patient-mismatch"
     | "makeup-not-allowed"
     | "makeup-taken"
-    | "undo-not-allowed";
+    | "undo-not-allowed"
+    | "series-conflict";
 
   constructor(code: ClinicRuleError["code"]) {
     super(code);

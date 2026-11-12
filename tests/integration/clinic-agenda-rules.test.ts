@@ -19,8 +19,12 @@ import { updateAgendaSettings } from "../../src/modules/clinic/agenda-settings";
 import {
   cancelAppointment,
   changeAppointmentStatus,
+  clinicDateTime,
+  clinicWeeklySlots,
   createAppointment,
+  createAppointmentSeries,
   getAppointment,
+  previewAppointmentSeries,
   rescheduleAppointment,
   scheduleMakeup,
   undoAppointmentStatus,
@@ -642,5 +646,64 @@ describe("regras da agenda e do pacote", () => {
     expect(rows).toEqual([
       { action: "clinic.settings.updated", entity_id: null, metadata: {} },
     ]);
+  });
+
+  it("série com conflito não grava e só cria as livres com skipConflicts", async () => {
+    const date = "2028-06-05";
+    const first = await clinicDateTime(runtime, date, "16:00", 50);
+    await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      startsAt: first.startsAt,
+      endsAt: first.endsAt,
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    const slots = await clinicWeeklySlots(runtime, date, "16:00", 50, 2);
+    const preview = await previewAppointmentSeries(runtime, slots);
+    expect(preview.map((item) => item.conflict)).toEqual([true, false]);
+    await expect(
+      createAppointmentSeries(
+        runtime,
+        ACTOR,
+        {
+          patientId: PATIENT_ID,
+          packageId: null,
+          startsAt: slots[0]!.startsAt,
+          endsAt: slots[0]!.endsAt,
+          modality: "in_person",
+          seriesId: null,
+          notes: null,
+          slots,
+        },
+        { skipConflicts: false },
+      ),
+    ).rejects.toMatchObject({ name: "ClinicRuleError", code: "series-conflict" });
+    const blocked = await runtime<{ total: number }[]>`
+      select count(*)::int as total
+      from clinic.appointments
+      where patient_id = ${PATIENT_ID}::uuid
+        and starts_at = ${slots[1]!.startsAt}
+    `;
+    expect(blocked[0]?.total).toBe(0);
+    const ids = await createAppointmentSeries(
+      runtime,
+      ACTOR,
+      {
+        patientId: PATIENT_ID,
+        packageId: null,
+        startsAt: slots[0]!.startsAt,
+        endsAt: slots[0]!.endsAt,
+        modality: "in_person",
+        seriesId: null,
+        notes: null,
+        slots,
+      },
+      { skipConflicts: true },
+    );
+    expect(ids).toHaveLength(1);
+    const created = await getAppointment(runtime, ids[0]!);
+    expect(new Date(created.startsAt).getTime()).toBe(slots[1]!.startsAt.getTime());
   });
 });

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 
 import { displayName, todayInClinic } from "@/modules/clinic/format";
+import { readPatientAgenda } from "@/modules/clinic/server/agenda-read";
 import { readPatient } from "@/modules/clinic/server/read";
 import { CONSULTORIO_ROLES } from "@/modules/identity/access";
 import { requireStaff } from "@/modules/identity/server/guard";
@@ -12,12 +13,13 @@ import { AttachmentPanel } from "../attachment-panel";
 import { GuardianPanel } from "../guardian-panel";
 import { PatientEditForm } from "../patient-edit-form";
 import { SectionNav } from "../section-nav";
+import { SessionsPanel } from "../sessions-panel";
 
 export const instant = false;
 
 export const metadata = { title: { absolute: "Paciente" } };
 
-const sections = ["dados", "responsaveis", "anexos"] as const;
+const sections = ["dados", "responsaveis", "anexos", "sessoes"] as const;
 type Section = (typeof sections)[number];
 
 function sectionHref(patientId: string, section: Section): string {
@@ -45,6 +47,7 @@ export default async function PatientPage({
   if (query.busca !== undefined) redirect(sectionHref(id, section));
   const patient = await readPatient(id);
   if (!patient) notFound();
+  const agenda = section === "sessoes" ? await readPatientAgenda(patient.id) : null;
   return (
     <section className="flex flex-col gap-4">
       <Link
@@ -85,6 +88,13 @@ export default async function PatientPage({
       ) : null}
       {section === "anexos" ? (
         <AttachmentPanel patientId={patient.id} attachments={patient.attachments} />
+      ) : null}
+      {section === "sessoes" && agenda ? (
+        <SessionsPanel
+          appointments={agenda.appointments}
+          packages={agenda.packages}
+          today={todayInClinic()}
+        />
       ) : null}
     </section>
   );

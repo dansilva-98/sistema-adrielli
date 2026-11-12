@@ -38,6 +38,7 @@ test.describe("áreas da equipe", () => {
     const opened = await page.goto("/admin");
     expect(opened?.status()).toBe(200);
     await expectDenied(page, "/consultorio");
+    await expectDenied(page, "/consultorio/agenda");
     await expectDenied(page, "/admin/usuarios");
     const editor = await page.goto("/admin/conteudo/site");
     expect(editor?.status()).toBe(200);

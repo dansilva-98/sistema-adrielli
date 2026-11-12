@@ -21,6 +21,12 @@ export default async function ConsultorioLayout({
       links={[
         { href: "/consultorio", label: "Dashboard", group: null },
         {
+          href: "/consultorio/agenda",
+          label: "Agenda",
+          group: null,
+          match: "prefix",
+        },
+        {
           href: "/consultorio/pacientes",
           label: "Pacientes",
           group: null,

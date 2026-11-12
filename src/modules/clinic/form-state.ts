@@ -34,3 +34,19 @@ export type GuardianSearchState = {
   }[];
   message: string;
 };
+
+export type AgendaActionState = {
+  ok: boolean;
+  code: string;
+  message: string;
+  conflicts: string[];
+  slotKey: string;
+};
+
+export const idleAgendaAction: AgendaActionState = {
+  ok: false,
+  code: "",
+  message: "",
+  conflicts: [],
+  slotKey: "",
+};
