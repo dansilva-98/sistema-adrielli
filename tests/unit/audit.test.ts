@@ -17,4 +17,27 @@ describe("recordAudit", () => {
       }),
     ).rejects.toThrow("Metadado de auditoria recusado.");
   });
+
+  it("aceita o metadata do desfazer e recusa to diferente de scheduled", async () => {
+    await expect(
+      recordAudit({
+        action: "clinic.appointment.status_changed",
+        metadata: { from: "completed", to: "scheduled", undo: true },
+      }),
+    ).rejects.toThrow(
+      /Variável de ambiente inválida|Recusado: URLs|ECONNREFUSED|connect/i,
+    );
+    await expect(
+      recordAudit({
+        action: "clinic.appointment.status_changed",
+        metadata: { from: "completed", to: "cancelled", undo: true },
+      }),
+    ).rejects.toThrow("Metadado de auditoria recusado.");
+    await expect(
+      recordAudit({
+        action: "clinic.appointment.status_changed",
+        metadata: { from: "completed", to: "scheduled", undo: true, notes: "clínico" },
+      }),
+    ).rejects.toThrow("Metadado de auditoria recusado.");
+  });
 });

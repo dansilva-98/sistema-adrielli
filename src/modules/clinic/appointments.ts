@@ -9,8 +9,12 @@ import type {
   MakeupAppointmentInput,
   RescheduleAppointmentInput,
 } from "./agenda-schema";
+import { parseCancelReason } from "./agenda-schema";
 import {
   canChangeAppointmentStatus,
+  canUndoAppointmentStatus,
+  occupiesPackageSlot,
+  sameClinicDay,
   type AppointmentModality,
   type AppointmentStatus,
   type StatusChangeFromScheduled,
@@ -33,6 +37,8 @@ type AppointmentRow = {
   makeup_of_id: string | null;
   rescheduled_to_id: string | null;
   notes: string | null;
+  cancel_reason: string | null;
+  status_changed_at: Date | string | null;
   reminder_sent_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
@@ -51,6 +57,8 @@ export type AppointmentRecord = {
   makeupOfId: string | null;
   rescheduledToId: string | null;
   notes: string | null;
+  cancelReason: string | null;
+  statusChangedAt: Date | string | null;
   reminderSentAt: Date | string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -70,11 +78,18 @@ function mapAppointment(row: AppointmentRow): AppointmentRecord {
     makeupOfId: row.makeup_of_id,
     rescheduledToId: row.rescheduled_to_id,
     notes: row.notes,
+    cancelReason: row.cancel_reason,
+    statusChangedAt: row.status_changed_at,
     reminderSentAt: row.reminder_sent_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     createdBy: row.created_by,
   };
+}
+
+function asDate(value: Date | string | null): Date | null {
+  if (value === null) return null;
+  return value instanceof Date ? value : new Date(value);
 }
 
 async function audit(
@@ -86,6 +101,7 @@ async function audit(
     | "clinic.appointment.rescheduled"
     | "clinic.appointment.cancelled",
   entityId: string,
+  metadata: Record<string, unknown> = {},
 ): Promise<void> {
   await recordAudit(
     {
@@ -94,7 +110,7 @@ async function audit(
       entityType: "appointment",
       entityId,
       ip: actor.ip,
-      metadata: {},
+      metadata,
     },
     tx,
   );
@@ -108,16 +124,16 @@ async function loadAppointment(
   const rows = forUpdate
     ? await db<AppointmentRow[]>`
         select id, patient_id, package_id, starts_at, ends_at, modality, series_id, status,
-          makeup_of_id, rescheduled_to_id, notes, reminder_sent_at, created_at, updated_at,
-          created_by
+          makeup_of_id, rescheduled_to_id, notes, cancel_reason, status_changed_at,
+          reminder_sent_at, created_at, updated_at, created_by
         from clinic.appointments
         where id = ${appointmentId}::uuid
         for update
       `
     : await db<AppointmentRow[]>`
         select id, patient_id, package_id, starts_at, ends_at, modality, series_id, status,
-          makeup_of_id, rescheduled_to_id, notes, reminder_sent_at, created_at, updated_at,
-          created_by
+          makeup_of_id, rescheduled_to_id, notes, cancel_reason, status_changed_at,
+          reminder_sent_at, created_at, updated_at, created_by
         from clinic.appointments
         where id = ${appointmentId}::uuid
       `;
@@ -168,6 +184,16 @@ async function assertPackageAcceptsSession(
   if (!packageHasSlot(pkg.total_sessions, occupied)) {
     throw new ClinicRuleError("package-exhausted");
   }
+}
+
+async function activeMakeupId(tx: Database, missedId: string): Promise<string | null> {
+  const rows = await tx<{ id: string }[]>`
+    select id
+    from clinic.appointments
+    where makeup_of_id = ${missedId}::uuid
+      and status not in ('cancelled', 'rescheduled')
+  `;
+  return rows[0]?.id ?? null;
 }
 
 async function insertAppointment(
@@ -222,8 +248,8 @@ export async function listAppointments(
   await assertRole(CONSULTORIO_ROLES);
   const rows = await db<AppointmentRow[]>`
     select id, patient_id, package_id, starts_at, ends_at, modality, series_id, status,
-      makeup_of_id, rescheduled_to_id, notes, reminder_sent_at, created_at, updated_at,
-      created_by
+      makeup_of_id, rescheduled_to_id, notes, cancel_reason, status_changed_at,
+      reminder_sent_at, created_at, updated_at, created_by
     from clinic.appointments
     where starts_at < ${range.to}
       and ends_at > ${range.from}
@@ -254,18 +280,34 @@ export async function changeAppointmentStatus(
   actor: Actor,
   appointmentId: string,
   nextStatus: StatusChangeFromScheduled,
+  options?: { cancelReason?: string | null },
 ): Promise<void> {
   await assertRole(CONSULTORIO_ROLES);
+  const cancelReason =
+    nextStatus === "cancelled" ? parseCancelReason(options?.cancelReason ?? null) : null;
   await runClinicTransaction(db, async (tx) => {
     const current = await loadAppointment(tx, appointmentId, true);
     if (!canChangeAppointmentStatus(current.status, nextStatus)) {
       throw new ClinicRuleError("invalid-transition");
     }
-    await tx`
-      update clinic.appointments
-      set status = ${nextStatus}::clinic.appointment_status
-      where id = ${appointmentId}::uuid
-    `;
+    if (nextStatus === "cancelled") {
+      await tx`
+        update clinic.appointments
+        set
+          status = ${nextStatus}::clinic.appointment_status,
+          status_changed_at = now(),
+          cancel_reason = ${cancelReason}
+        where id = ${appointmentId}::uuid
+      `;
+    } else {
+      await tx`
+        update clinic.appointments
+        set
+          status = ${nextStatus}::clinic.appointment_status,
+          status_changed_at = now()
+        where id = ${appointmentId}::uuid
+      `;
+    }
     const action =
       nextStatus === "cancelled"
         ? "clinic.appointment.cancelled"
@@ -278,9 +320,10 @@ export async function cancelAppointment(
   db: postgres.Sql,
   actor: Actor,
   appointmentId: string,
+  cancelReason: string | null = null,
 ): Promise<void> {
   await assertRole(CONSULTORIO_ROLES);
-  await changeAppointmentStatus(db, actor, appointmentId, "cancelled");
+  await changeAppointmentStatus(db, actor, appointmentId, "cancelled", { cancelReason });
 }
 
 export async function rescheduleAppointment(
@@ -303,7 +346,9 @@ export async function rescheduleAppointment(
     }
     await tx`
       update clinic.appointments
-      set status = 'rescheduled'::clinic.appointment_status
+      set
+        status = 'rescheduled'::clinic.appointment_status,
+        status_changed_at = now()
       where id = ${appointmentId}::uuid
     `;
     const nextId = await insertAppointment(tx, actor, {
@@ -314,6 +359,7 @@ export async function rescheduleAppointment(
       modality: original.modality,
       seriesId: original.series_id,
       notes: input.notes,
+      makeupOfId: original.makeup_of_id,
     });
     await tx`
       update clinic.appointments
@@ -338,13 +384,15 @@ export async function scheduleMakeup(
     if (missed.status !== "missed_notified") {
       throw new ClinicRuleError("makeup-not-allowed");
     }
-    const existing = await tx<{ id: string }[]>`
-      select id from clinic.appointments where makeup_of_id = ${missedId}::uuid
-    `;
-    if (existing[0]) throw new ClinicRuleError("makeup-taken");
+    if (await activeMakeupId(tx, missedId)) {
+      throw new ClinicRuleError("makeup-taken");
+    }
+    if (missed.package_id) {
+      await assertPackageAcceptsSession(tx, missed.package_id, missed.patient_id);
+    }
     const id = await insertAppointment(tx, actor, {
       patientId: missed.patient_id,
-      packageId: null,
+      packageId: missed.package_id,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       modality: input.modality,
@@ -354,5 +402,43 @@ export async function scheduleMakeup(
     });
     await audit(tx, actor, "clinic.appointment.created", id);
     return id;
+  });
+}
+
+export async function undoAppointmentStatus(
+  db: postgres.Sql,
+  actor: Actor,
+  appointmentId: string,
+  options?: { now?: Date },
+): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
+  const now = options?.now ?? new Date();
+  await runClinicTransaction(db, async (tx) => {
+    const current = await loadAppointment(tx, appointmentId, true);
+    if (!canUndoAppointmentStatus(current.status)) {
+      throw new ClinicRuleError("invalid-transition");
+    }
+    const changedAt = asDate(current.status_changed_at);
+    if (!changedAt || !sameClinicDay(changedAt, now)) {
+      throw new ClinicRuleError("undo-not-allowed");
+    }
+    if (current.status === "missed_notified" && (await activeMakeupId(tx, current.id))) {
+      throw new ClinicRuleError("undo-not-allowed");
+    }
+    if (!occupiesPackageSlot(current.status) && current.package_id) {
+      await assertPackageAcceptsSession(tx, current.package_id, current.patient_id);
+    }
+    await tx`
+      update clinic.appointments
+      set
+        status = 'scheduled'::clinic.appointment_status,
+        status_changed_at = now()
+      where id = ${appointmentId}::uuid
+    `;
+    await audit(tx, actor, "clinic.appointment.status_changed", appointmentId, {
+      from: current.status,
+      to: "scheduled",
+      undo: true,
+    });
   });
 }

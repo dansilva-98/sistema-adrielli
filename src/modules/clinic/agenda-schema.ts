@@ -123,6 +123,18 @@ export const agendaSettingsSchema = z.object({
 
 export const statusChangeSchema = z.enum(STATUS_CHANGES_FROM_SCHEDULED);
 
+export const cancelReasonSchema = z
+  .union([z.string(), z.null()])
+  .transform((value) => {
+    if (value === null) return null;
+    const trimmed = value.trim();
+    return trimmed === "" ? null : trimmed;
+  })
+  .refine(
+    (value) => value === null || value.length <= 200,
+    "Use no máximo 200 caracteres.",
+  );
+
 export function parseCreatePackage(input: unknown): CreatePackageInput {
   return createPackageSchema.parse(input);
 }
@@ -145,4 +157,8 @@ export function parseAgendaSettings(input: unknown): AgendaSettingsInput {
 
 export function parseStatusChange(input: unknown): StatusChangeFromScheduled {
   return statusChangeSchema.parse(input);
+}
+
+export function parseCancelReason(input: unknown): string | null {
+  return cancelReasonSchema.parse(input);
 }

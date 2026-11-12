@@ -88,31 +88,35 @@ Junto com isso, o rótulo da trilha horizontal (Contato e abas da home) passou a
 
 ## E8.1 — desfazer no mesmo dia e motivo do cancelamento
 
-A spec pede desfazer o status no mesmo dia, com auditoria, e cancelar “com motivo”. Essas duas coisas ficaram de fora desta tarefa: não há coluna de motivo e a transição inversa não entra na matriz. Confirmar o texto do motivo, se ele é obrigatório, e se o desfazer vale para todos os status ou só para alguns.
+Aprovado em 12/11/2026: `status_changed_at` em toda mudança de status. Dá para desfazer `completed`, `missed_notified`, `missed_unnotified` e `cancelled` de volta para `scheduled` no mesmo dia em America/Sao_Paulo. Não desfaz `rescheduled` nem `missed_notified` com reposição ativa. A exclusão de horário volta a valer. Auditoria `clinic.appointment.status_changed` com `{ from, to: "scheduled", undo: true }`. `cancel_reason` opcional, no máximo 200 caracteres. Ajuda da tela (“Ex.: feriado, viagem…”) fica na E8.2. Não entra nos metadados da auditoria.
 
 ## E8.1 — ocupação do pacote inclui sessão marcada
 
-A sessão `scheduled` ocupa vaga no pacote, junto com `completed` e `missed_unnotified`. Assim não se ligam mais sessões do que o total. Se a profissional puder marcar à frente além do total, essa conta muda.
+Aprovado em 12/11/2026: `scheduled` ocupa vaga, junto com `completed` e `missed_unnotified`.
 
 ## E8.1 — remarcar copia pacote, modalidade e série
 
-A nova sessão herda `package_id`, `modality` e `series_id` da original. A ocupação do pacote permanece a mesma. Confirmar se a tela da E8.2 poderá mudar modalidade ou pacote na remarcação.
+Aprovado em 12/11/2026: a nova sessão herda `package_id`, `modality`, `series_id` e `makeup_of_id`. A ocupação do pacote permanece a mesma.
 
 ## E8.1 — reposição única mesmo se a reposição for cancelada
 
-O índice único em `makeup_of_id` não ignora `cancelled`. Cancelar a reposição não libera outra. Confirmar se nesse caso ela pode agendar de novo.
+Aprovado em 12/11/2026: índice único parcial em `makeup_of_id` ignora `cancelled` e `rescheduled`. Cancelar a reposição libera outra. Remarcar a reposição copia o vínculo e mantém uma ativa.
 
 ## E8.1 — pacote encerrado ou vencido
 
-Pacote com `closed_at` recusa nova sessão (`package-exhausted`). A data `expires_on` ainda não bloqueia. Confirmar se sessão depois do vencimento deve ser recusada.
+Aprovado em 12/11/2026: `closed_at` recusa nova sessão, reposição e desfazer que precise de vaga (`package-exhausted`). `expires_on` não bloqueia no banco; aviso só na E8.2.
 
 ## E8.1 — auditoria da agenda
 
-Os oito eventos entram no CHECK. `metadata` fica `{}`. Não há ação para alterar `clinic.settings`; a gravação da configuração não gera linha de auditoria. `clinic.reminder.sent` e `clinic.calendar_feed.rotated` ficam listados, sem escritor nesta tarefa.
+Aprovado em 12/11/2026: os eventos da agenda entram no CHECK, inclusive `clinic.settings.updated` ao salvar a configuração, com `entity_id` nulo e `metadata {}`. `clinic.reminder.sent` e `clinic.calendar_feed.rotated` ficam listados, sem escritor nesta tarefa. O desfazer é o único caso com metadata além de `{}`.
 
 ## E8.1 — observações e migration
 
-`notes` da sessão e do pacote têm no máximo 2000 caracteres, como na ficha. A migration desta branch é `0013_clinic_agenda`. Se o PR 87 (C1) entrar na `main` antes, esta branch precisa de rebase e a migration passa a ser `0014`, gerada de novo, sem renumerar à mão.
+`notes` da sessão e do pacote têm no máximo 2000 caracteres, como na ficha. A migration desta branch é `0014_clinic_agenda`, gerada depois do rebase na `main` com o C1 (`0013_testimonials_image_path`).
+
+## E8.1 — reposição herda o pacote
+
+Aprovado em 12/11/2026: a reposição herda o `package_id` da falta avisada e ocupa a vaga. Pacote de 2 com 1 realizada e 1 falta avisada fica cheio depois da reposição; a terceira sessão é recusada.
 
 ## L3.3 — destaque do Sobre e trilha do Contato (staging 10/11)
 

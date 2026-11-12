@@ -250,6 +250,8 @@ export const appointments = clinic
         (): AnyPgColumn => appointments.id,
       ),
       notes: varchar("notes", { length: 2000 }),
+      cancelReason: varchar("cancel_reason", { length: 200 }),
+      statusChangedAt: timestamp("status_changed_at", { withTimezone: true }),
       reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
       createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
       updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -261,7 +263,11 @@ export const appointments = clinic
       index("appointments_starts_at_idx").on(table.startsAt),
       index("appointments_patient_id_idx").on(table.patientId),
       index("appointments_package_id_idx").on(table.packageId),
-      uniqueIndex("appointments_makeup_of_unique").on(table.makeupOfId),
+      uniqueIndex("appointments_makeup_of_unique")
+        .on(table.makeupOfId)
+        .where(
+          sql`${table.makeupOfId} is not null and ${table.status} not in ('cancelled', 'rescheduled')`,
+        ),
       check("appointments_time_order", sql`${table.endsAt} > ${table.startsAt}`),
       check(
         "appointments_rescheduled_link",

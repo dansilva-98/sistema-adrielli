@@ -199,6 +199,7 @@ describe("acesso à agenda sem papel clínico ou sem MFA (A8)", () => {
           modality: "in_person",
           notes: null,
         }),
+      () => appointments.undoAppointmentStatus(db, actor, dummyId),
     ];
     for (const call of calls) {
       await expect(call()).rejects.toMatchObject({ name: "StaffAccessError", reason });
@@ -244,7 +245,7 @@ describe("acesso à agenda sem papel clínico ou sem MFA (A8)", () => {
     );
     session.totp = [];
     await exercise("forbidden");
-    expect(await auditCount(contentId, "access.denied")).toBe(14);
+    expect(await auditCount(contentId, "access.denied")).toBe(15);
     expect(await auditCount(contentId, "clinic.appointment.created")).toBe(0);
 
     const clinicSession = crypto.randomUUID();

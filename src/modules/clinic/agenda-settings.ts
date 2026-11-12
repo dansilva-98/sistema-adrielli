@@ -1,5 +1,6 @@
 import type postgres from "postgres";
 
+import { recordAudit } from "@/modules/audit/record";
 import { CONSULTORIO_ROLES } from "@/modules/identity/access";
 import { assertRole } from "@/modules/identity/server/guard";
 
@@ -78,6 +79,17 @@ export async function updateAgendaSettings(
         updated_by
     `;
     if (!rows[0]) throw new ClinicRuleError("not-found");
+    await recordAudit(
+      {
+        action: "clinic.settings.updated",
+        actorUserId: actor.userId,
+        entityType: "settings",
+        entityId: null,
+        ip: actor.ip,
+        metadata: {},
+      },
+      tx,
+    );
     return mapSettings(rows[0]);
   });
 }

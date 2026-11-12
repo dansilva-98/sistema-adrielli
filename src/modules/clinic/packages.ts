@@ -113,6 +113,7 @@ export async function getPackage(
             select 1
             from clinic.appointments makeup
             where makeup.makeup_of_id = missed.id
+              and makeup.status not in ('cancelled', 'rescheduled')
           )
       ) as pending_makeups
     from clinic.packages p
@@ -172,6 +173,7 @@ export async function listPatientPackages(
             select 1
             from clinic.appointments makeup
             where makeup.makeup_of_id = missed.id
+              and makeup.status not in ('cancelled', 'rescheduled')
           )
       ) as pending_makeups
     from clinic.packages p

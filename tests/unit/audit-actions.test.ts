@@ -9,7 +9,8 @@ function isAgendaAuditAction(action: string): boolean {
     action.startsWith("clinic.appointment.") ||
     action.startsWith("clinic.package.") ||
     action.startsWith("clinic.reminder.") ||
-    action.startsWith("clinic.calendar_feed.")
+    action.startsWith("clinic.calendar_feed.") ||
+    action.startsWith("clinic.settings.")
   );
 }
 
@@ -108,13 +109,17 @@ describe("ações de auditoria", () => {
   });
 
   it("inclui os eventos da agenda, btree_gist e a restrição de exclusão", () => {
-    const sql = readFileSync("src/db/migrations/0013_clinic_agenda.sql", "utf8");
+    const sql = readFileSync("src/db/migrations/0014_clinic_agenda.sql", "utf8");
     for (const action of AUDIT_ACTIONS) {
       expect(sql).toContain(`'${action}'`);
     }
     expect(sql).toContain("CREATE EXTENSION btree_gist WITH SCHEMA extensions");
     expect(sql).toContain("appointments_no_overlap");
     expect(sql).toContain("tstzrange");
+    expect(sql).toContain("cancel_reason");
+    expect(sql).toContain("status_changed_at");
+    expect(sql).toContain("not in ('cancelled', 'rescheduled')");
+    expect(sql).toContain("'clinic.settings.updated'");
     expect(sql).toContain('ON CONFLICT ("id") DO NOTHING');
     expect(sql.toLowerCase()).not.toContain("on delete cascade");
     expect(sql.toLowerCase()).not.toContain(

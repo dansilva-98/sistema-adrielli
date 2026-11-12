@@ -15,6 +15,7 @@ vi.mock("@/modules/identity/server/guard", () => ({
 
 import { TEST_DATABASE_NAME } from "../../src/db/seed";
 import {
+  cancelAppointment,
   changeAppointmentStatus,
   createAppointment,
   scheduleMakeup,
@@ -274,6 +275,54 @@ describe("concorrência da agenda (A1)", () => {
           withoutDeadlock(() =>
             scheduleMakeup(right, ACTOR, missedId, {
               ...slot(index + 40, 13),
+              modality: "in_person",
+              notes: null,
+            }),
+          ),
+        ]);
+        const ok = results.filter((result) => result.status === "fulfilled");
+        const failed = results.filter((result) => result.status === "rejected");
+        expect(ok, `loop ${index}`).toHaveLength(1);
+        expect(failed, `loop ${index}`).toHaveLength(1);
+        expect((failed[0] as PromiseRejectedResult).reason).toMatchObject({
+          name: "ClinicRuleError",
+          code: "makeup-taken",
+        });
+      }
+    },
+  );
+
+  it(
+    "depois de cancelar a reposição, duas novas em paralelo: uma grava e a outra recebe makeup-taken",
+    { timeout: 60_000 },
+    async () => {
+      for (let index = 0; index < LOOPS; index += 1) {
+        const missedId = await createAppointment(left, ACTOR, {
+          patientId: PATIENT_A,
+          packageId: null,
+          ...slot(index, 21),
+          modality: "in_person",
+          seriesId: null,
+          notes: null,
+        });
+        await changeAppointmentStatus(left, ACTOR, missedId, "missed_notified");
+        const firstMakeup = await scheduleMakeup(left, ACTOR, missedId, {
+          ...slot(index + 80, 15),
+          modality: "in_person",
+          notes: null,
+        });
+        await cancelAppointment(left, ACTOR, firstMakeup);
+        const results = await Promise.allSettled([
+          withoutDeadlock(() =>
+            scheduleMakeup(left, ACTOR, missedId, {
+              ...slot(index + 120, 11),
+              modality: "in_person",
+              notes: null,
+            }),
+          ),
+          withoutDeadlock(() =>
+            scheduleMakeup(right, ACTOR, missedId, {
+              ...slot(index + 120, 13),
               modality: "in_person",
               notes: null,
             }),

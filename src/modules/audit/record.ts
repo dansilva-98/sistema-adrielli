@@ -3,10 +3,22 @@ import { z } from "zod";
 
 import type { AuditAction } from "../../db/audit-actions.ts";
 
+const undoFromStatuses = [
+  "scheduled",
+  "completed",
+  "missed_notified",
+  "missed_unnotified",
+  "cancelled",
+  "rescheduled",
+] as const;
+
 const metadataSchema = z
   .object({
     attempt: z.number().int().min(1).max(5).optional(),
     factor_id: z.string().uuid().optional(),
+    from: z.enum(undoFromStatuses).optional(),
+    to: z.literal("scheduled").optional(),
+    undo: z.literal(true).optional(),
   })
   .strict();
 
@@ -20,6 +32,14 @@ export type AuditEvent = {
 };
 
 type AuditExecutor = postgres.Sql | postgres.TransactionSql;
+
+type AuditMetadata = {
+  attempt?: number;
+  factor_id?: string;
+  from?: (typeof undoFromStatuses)[number];
+  to?: "scheduled";
+  undo?: true;
+};
 
 export async function recordAudit(event: AuditEvent, tx?: AuditExecutor): Promise<void> {
   const metadata = metadataSchema.safeParse(event.metadata ?? {});
@@ -43,7 +63,7 @@ export async function recordAudit(event: AuditEvent, tx?: AuditExecutor): Promis
 async function insertAudit(
   tx: AuditExecutor,
   event: AuditEvent,
-  metadata: { attempt?: number; factor_id?: string },
+  metadata: AuditMetadata,
 ): Promise<void> {
   await tx`
     insert into audit.audit_log (

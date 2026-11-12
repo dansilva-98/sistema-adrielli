@@ -49,6 +49,7 @@ export const AUDIT_ACTIONS = [
   "clinic.package.closed",
   "clinic.reminder.sent",
   "clinic.calendar_feed.rotated",
+  "clinic.settings.updated",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

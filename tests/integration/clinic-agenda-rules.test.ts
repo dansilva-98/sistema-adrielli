@@ -14,6 +14,8 @@ vi.mock("@/modules/identity/server/guard", () => ({
 }));
 
 import { TEST_DATABASE_NAME } from "../../src/db/seed";
+import { parseCancelReason } from "../../src/modules/clinic/agenda-schema";
+import { updateAgendaSettings } from "../../src/modules/clinic/agenda-settings";
 import {
   cancelAppointment,
   changeAppointmentStatus,
@@ -21,6 +23,7 @@ import {
   getAppointment,
   rescheduleAppointment,
   scheduleMakeup,
+  undoAppointmentStatus,
 } from "../../src/modules/clinic/appointments";
 import type { Actor } from "../../src/modules/clinic/patients";
 import {
@@ -106,6 +109,16 @@ describe("regras da agenda e do pacote", () => {
     } finally {
       await owner`alter table clinic.patient_guardians enable trigger "patient_guardians_keep_one"`;
     }
+    await owner`
+      update clinic.settings
+      set
+        default_duration_minutes = 50,
+        location_name = '',
+        location_address = '',
+        reminder_send_hour = 9,
+        updated_by = null
+      where id = 1
+    `;
     await owner`delete from identity.users where id = ${STAFF_ID}::uuid`;
     await owner`delete from auth.users where id = ${STAFF_ID}::uuid`;
     await owner.end({ timeout: 5 });
@@ -206,12 +219,13 @@ describe("regras da agenda e do pacote", () => {
       notes: null,
     });
     const makeup = await getAppointment(runtime, makeupId);
-    expect(makeup.packageId).toBeNull();
+    expect(makeup.packageId).toBe(packageId);
     expect(makeup.makeupOfId).toBe(third);
     expect(makeup.modality).toBe("online");
     balance = await getPackageBalance(runtime, packageId);
     expect(balance.pendingMakeups).toBe(0);
-    expect(balance.occupied).toBe(2);
+    expect(balance.occupied).toBe(3);
+    expect(balance.remaining).toBe(0);
 
     await expect(
       scheduleMakeup(runtime, ACTOR, third, {
@@ -323,6 +337,8 @@ describe("regras da agenda e do pacote", () => {
     await cancelAppointment(runtime, ACTOR, extra);
     const cancelled = await getAppointment(runtime, extra);
     expect(cancelled.status).toBe("cancelled");
+    expect(cancelled.cancelReason).toBeNull();
+    expect(cancelled.statusChangedAt).toBeTruthy();
 
     const overlap = await createAppointment(runtime, ACTOR, {
       patientId: PATIENT_ID,
@@ -364,6 +380,220 @@ describe("regras da agenda e do pacote", () => {
       { action: "clinic.appointment.created", total: 3 },
       { action: "clinic.appointment.rescheduled", total: 1 },
       { action: "clinic.appointment.status_changed", total: 1 },
+    ]);
+  });
+
+  it("reposição herda o pacote, ocupa a vaga e recusa a terceira sessão", async () => {
+    const packageId = await createPackage(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      totalSessions: 2,
+      startsOn: "2028-01-01",
+      expiresOn: "2020-01-01",
+      priceCents: null,
+      notes: null,
+    });
+    const completedId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId,
+      ...slot("2028-01-01", 11),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    const missedId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId,
+      ...slot("2028-01-01", 13),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await changeAppointmentStatus(runtime, ACTOR, completedId, "completed");
+    await changeAppointmentStatus(runtime, ACTOR, missedId, "missed_notified");
+    const makeupId = await scheduleMakeup(runtime, ACTOR, missedId, {
+      ...slot("2028-01-08", 11),
+      modality: "in_person",
+      notes: null,
+    });
+    const makeup = await getAppointment(runtime, makeupId);
+    expect(makeup.packageId).toBe(packageId);
+    const balance = await getPackageBalance(runtime, packageId);
+    expect(balance).toMatchObject({
+      occupied: 2,
+      remaining: 0,
+      pendingMakeups: 0,
+    });
+    await expect(
+      createAppointment(runtime, ACTOR, {
+        patientId: PATIENT_ID,
+        packageId,
+        ...slot("2028-01-09", 11),
+        modality: "in_person",
+        seriesId: null,
+        notes: null,
+      }),
+    ).rejects.toMatchObject({ name: "ClinicRuleError", code: "package-exhausted" });
+  });
+
+  it("remarcar a reposição copia o vínculo e cancelar libera outra", async () => {
+    const missedId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      ...slot("2028-02-01", 11),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await changeAppointmentStatus(runtime, ACTOR, missedId, "missed_notified");
+    const firstMakeup = await scheduleMakeup(runtime, ACTOR, missedId, {
+      ...slot("2028-02-08", 11),
+      modality: "online",
+      notes: "primeira",
+    });
+    const nextId = await rescheduleAppointment(runtime, ACTOR, firstMakeup, {
+      ...slot("2028-02-09", 14),
+      notes: "remarcada",
+    });
+    const original = await getAppointment(runtime, firstMakeup);
+    const next = await getAppointment(runtime, nextId);
+    expect(original.status).toBe("rescheduled");
+    expect(next.makeupOfId).toBe(missedId);
+    expect(next.modality).toBe("online");
+    await expect(
+      scheduleMakeup(runtime, ACTOR, missedId, {
+        ...slot("2028-02-10", 11),
+        modality: "in_person",
+        notes: null,
+      }),
+    ).rejects.toMatchObject({ name: "ClinicRuleError", code: "makeup-taken" });
+
+    await cancelAppointment(runtime, ACTOR, nextId, "viagem");
+    const cancelled = await getAppointment(runtime, nextId);
+    expect(cancelled.cancelReason).toBe("viagem");
+    const replacement = await scheduleMakeup(runtime, ACTOR, missedId, {
+      ...slot("2028-02-11", 11),
+      modality: "in_person",
+      notes: null,
+    });
+    expect(replacement).toBeTruthy();
+    expect(() => parseCancelReason("x".repeat(201))).toThrow();
+  });
+
+  it("desfaz no mesmo dia e recusa no dia seguinte, com reposição ativa ou horário ocupado", async () => {
+    const completedId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      ...slot("2028-03-01", 11),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await changeAppointmentStatus(runtime, ACTOR, completedId, "completed");
+    await undoAppointmentStatus(runtime, ACTOR, completedId);
+    const restored = await getAppointment(runtime, completedId);
+    expect(restored.status).toBe("scheduled");
+    const undoAudit = await owner<
+      { action: string; metadata: { from: string; to: string; undo: boolean } }[]
+    >`
+      select action, metadata
+      from audit.audit_log
+      where entity_id = ${completedId}::uuid
+        and action = 'clinic.appointment.status_changed'
+        and metadata ? 'undo'
+    `;
+    expect(undoAudit).toEqual([
+      {
+        action: "clinic.appointment.status_changed",
+        metadata: { from: "completed", to: "scheduled", undo: true },
+      },
+    ]);
+
+    await changeAppointmentStatus(runtime, ACTOR, completedId, "completed");
+    await owner`
+      update clinic.appointments
+      set status_changed_at = ${new Date("2026-12-02T02:59:00.000Z")}
+      where id = ${completedId}::uuid
+    `;
+    await expect(
+      undoAppointmentStatus(runtime, ACTOR, completedId, {
+        now: new Date("2026-12-02T03:01:00.000Z"),
+      }),
+    ).rejects.toMatchObject({ name: "ClinicRuleError", code: "undo-not-allowed" });
+
+    const missedId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      ...slot("2028-03-02", 11),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await changeAppointmentStatus(runtime, ACTOR, missedId, "missed_notified");
+    await scheduleMakeup(runtime, ACTOR, missedId, {
+      ...slot("2028-03-09", 11),
+      modality: "in_person",
+      notes: null,
+    });
+    await expect(undoAppointmentStatus(runtime, ACTOR, missedId)).rejects.toMatchObject({
+      name: "ClinicRuleError",
+      code: "undo-not-allowed",
+    });
+
+    const originalId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      ...slot("2028-03-03", 11),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await rescheduleAppointment(runtime, ACTOR, originalId, {
+      ...slot("2028-03-04", 11),
+      notes: null,
+    });
+    await expect(undoAppointmentStatus(runtime, ACTOR, originalId)).rejects.toMatchObject(
+      { name: "ClinicRuleError", code: "invalid-transition" },
+    );
+
+    const cancelledId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      ...slot("2028-03-05", 11),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await cancelAppointment(runtime, ACTOR, cancelledId);
+    await createAppointment(runtime, ACTOR, {
+      patientId: OTHER_PATIENT_ID,
+      packageId: null,
+      ...slot("2028-03-05", 11),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await expect(
+      undoAppointmentStatus(runtime, ACTOR, cancelledId),
+    ).rejects.toMatchObject({ name: "ClinicRuleError", code: "overlap" });
+  });
+
+  it("grava clinic.settings.updated ao salvar a configuração", async () => {
+    await updateAgendaSettings(runtime, ACTOR, {
+      defaultDurationMinutes: 40,
+      locationName: "Sala",
+      locationAddress: "Rua",
+      reminderSendHour: 8,
+    });
+    const rows = await owner<
+      { action: string; entity_id: string | null; metadata: object }[]
+    >`
+      select action, entity_id, metadata
+      from audit.audit_log
+      where actor_user_id = ${STAFF_ID}::uuid
+        and action = 'clinic.settings.updated'
+    `;
+    expect(rows).toEqual([
+      { action: "clinic.settings.updated", entity_id: null, metadata: {} },
     ]);
   });
 });

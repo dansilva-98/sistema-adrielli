@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   APPOINTMENT_STATUSES,
   canChangeAppointmentStatus,
+  canUndoAppointmentStatus,
   consumesPackageSession,
   occupiesPackageSlot,
+  sameClinicDay,
   type AppointmentStatus,
 } from "@/modules/clinic/appointment-status";
 
@@ -26,7 +28,7 @@ describe("mudanças de status da sessão", () => {
     }
   });
 
-  it("não desfaz nem altera status depois de sair de scheduled", () => {
+  it("não altera status pelo fluxo normal depois de sair de scheduled", () => {
     const blocked: AppointmentStatus[] = [
       "completed",
       "missed_notified",
@@ -48,6 +50,36 @@ describe("mudanças de status da sessão", () => {
     expect(occupiesPackageSlot("missed_notified")).toBe(false);
     expect(occupiesPackageSlot("cancelled")).toBe(false);
     expect(occupiesPackageSlot("rescheduled")).toBe(false);
+  });
+
+  it("desfaz completed, faltas e cancelada, mas não scheduled nem remarcada", () => {
+    expect(canUndoAppointmentStatus("completed")).toBe(true);
+    expect(canUndoAppointmentStatus("missed_notified")).toBe(true);
+    expect(canUndoAppointmentStatus("missed_unnotified")).toBe(true);
+    expect(canUndoAppointmentStatus("cancelled")).toBe(true);
+    expect(canUndoAppointmentStatus("scheduled")).toBe(false);
+    expect(canUndoAppointmentStatus("rescheduled")).toBe(false);
+  });
+
+  it("compara o mesmo dia no fuso America/Sao_Paulo perto da meia-noite", () => {
+    expect(
+      sameClinicDay(
+        new Date("2026-12-02T02:58:00.000Z"),
+        new Date("2026-12-02T02:59:00.000Z"),
+      ),
+    ).toBe(true);
+    expect(
+      sameClinicDay(
+        new Date("2026-12-02T02:59:00.000Z"),
+        new Date("2026-12-02T03:01:00.000Z"),
+      ),
+    ).toBe(false);
+    expect(
+      sameClinicDay(
+        new Date("2026-12-01T23:30:00.000Z"),
+        new Date("2026-12-02T02:30:00.000Z"),
+      ),
+    ).toBe(true);
   });
 
   it("consome sessão só com completed e missed_unnotified", () => {

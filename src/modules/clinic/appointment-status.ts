@@ -1,3 +1,5 @@
+import { todayInClinic } from "./format";
+
 export const APPOINTMENT_STATUSES = [
   "scheduled",
   "completed",
@@ -32,6 +34,15 @@ export const STATUS_CHANGES_FROM_SCHEDULED = [
 
 export type StatusChangeFromScheduled = (typeof STATUS_CHANGES_FROM_SCHEDULED)[number];
 
+export const UNDOABLE_STATUSES = [
+  "completed",
+  "missed_notified",
+  "missed_unnotified",
+  "cancelled",
+] as const;
+
+export type UndoableStatus = (typeof UNDOABLE_STATUSES)[number];
+
 const fromScheduled = new Set<string>(STATUS_CHANGES_FROM_SCHEDULED);
 const occupied = new Set<string>(PACKAGE_OCCUPIED_STATUSES);
 const consumed = new Set<string>(PACKAGE_CONSUMED_STATUSES);
@@ -53,4 +64,14 @@ export function occupiesPackageSlot(status: AppointmentStatus): boolean {
 
 export function consumesPackageSession(status: AppointmentStatus): boolean {
   return consumed.has(status);
+}
+
+const undoable = new Set<string>(UNDOABLE_STATUSES);
+
+export function canUndoAppointmentStatus(from: AppointmentStatus): boolean {
+  return undoable.has(from);
+}
+
+export function sameClinicDay(left: Date, right: Date): boolean {
+  return todayInClinic(left) === todayInClinic(right);
 }

@@ -270,6 +270,55 @@ describe("tabelas da agenda", () => {
       `,
     ).rejects.toThrow(/appointments_makeup_of_unique|duplicate key/);
 
+    await runtime`
+      update clinic.appointments
+      set status = 'cancelled'
+      where makeup_of_id = ${missedId}::uuid
+    `;
+    const afterCancel = await runtime<{ id: string }[]>`
+      insert into clinic.appointments (
+        patient_id, starts_at, ends_at, makeup_of_id, created_by
+      ) values (
+        ${PATIENT_ID}::uuid,
+        ${new Date("2027-03-05T11:00:00.000Z")},
+        ${new Date("2027-03-05T11:50:00.000Z")},
+        ${missedId}::uuid,
+        ${STAFF_ID}::uuid
+      )
+      returning id
+    `;
+    expect(afterCancel).toHaveLength(1);
+    await runtime`
+      update clinic.appointments
+      set status = 'rescheduled'
+      where id = ${afterCancel[0]!.id}::uuid
+    `;
+    const afterReschedule = await runtime<{ id: string }[]>`
+      insert into clinic.appointments (
+        patient_id, starts_at, ends_at, makeup_of_id, created_by
+      ) values (
+        ${PATIENT_ID}::uuid,
+        ${new Date("2027-03-07T11:00:00.000Z")},
+        ${new Date("2027-03-07T11:50:00.000Z")},
+        ${missedId}::uuid,
+        ${STAFF_ID}::uuid
+      )
+      returning id
+    `;
+    expect(afterReschedule).toHaveLength(1);
+    const columns = await owner<{ column_name: string }[]>`
+      select column_name
+      from information_schema.columns
+      where table_schema = 'clinic'
+        and table_name = 'appointments'
+        and column_name in ('cancel_reason', 'status_changed_at')
+      order by column_name
+    `;
+    expect(columns.map((column) => column.column_name)).toEqual([
+      "cancel_reason",
+      "status_changed_at",
+    ]);
+
     await expect(
       runtime`
         insert into clinic.appointments (
