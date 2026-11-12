@@ -20,6 +20,7 @@ import type {
 } from "@/modules/content/queries";
 
 import { SitePhoto } from "./site-photo";
+import { TestimonialList } from "./testimonial-list";
 
 export function HomeContent({
   site,
@@ -135,14 +136,7 @@ export function HomeContent({
       {testimonials.length > 0 ? (
         <section className="flex flex-col gap-4">
           <h2 className="font-serif text-2xl">Depoimentos</h2>
-          {testimonials.map((item) => (
-            <figure key={item.id} className="flex flex-col gap-1">
-              <blockquote>{item.quote}</blockquote>
-              {item.authorLabel ? (
-                <figcaption className="text-sm text-muted">{item.authorLabel}</figcaption>
-              ) : null}
-            </figure>
-          ))}
+          <TestimonialList items={testimonials} />
         </section>
       ) : null}
       {faq.length > 0 ? (

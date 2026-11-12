@@ -47,6 +47,7 @@ describe("limites do conteúdo", () => {
       published: true,
     });
     expect(testimony.success).toBe(false);
+    expect(CONTENT_LIMITS.testimonialImagePath).toBe(CONTENT_LIMITS.serviceImagePath);
   });
 
   it("gera o slug sem acento", () => {

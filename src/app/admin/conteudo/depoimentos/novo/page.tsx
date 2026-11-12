@@ -1,3 +1,4 @@
+import { clientEnv } from "@/lib/env-client";
 import { ADMIN_ROLES } from "@/modules/identity/access";
 import { requireStaff } from "@/modules/identity/server/guard";
 
@@ -7,5 +8,5 @@ export const instant = false;
 
 export default async function NewTestimonialPage() {
   await requireStaff({ roles: ADMIN_ROLES });
-  return <TestimonialForm item={null} />;
+  return <TestimonialForm item={null} imageOrigin={clientEnv.NEXT_PUBLIC_SUPABASE_URL} />;
 }

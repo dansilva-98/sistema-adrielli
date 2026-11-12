@@ -1,4 +1,5 @@
 import { sql } from "@/db/client";
+import { clientEnv } from "@/lib/env-client";
 import { ADMIN_ROLES } from "@/modules/identity/access";
 import { requireStaff } from "@/modules/identity/server/guard";
 import { loadStaffTestimonial } from "@/modules/content/queries";
@@ -18,5 +19,5 @@ export default async function EditTestimonialPage({
   if (!isRecordId(id)) return <p role="alert">Não foi possível carregar o conteúdo.</p>;
   const item = await loadOrNull(loadStaffTestimonial(sql, id));
   if (!item) return <p role="alert">Não foi possível carregar o conteúdo.</p>;
-  return <TestimonialForm item={item} />;
+  return <TestimonialForm item={item} imageOrigin={clientEnv.NEXT_PUBLIC_SUPABASE_URL} />;
 }

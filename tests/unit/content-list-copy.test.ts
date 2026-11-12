@@ -11,6 +11,7 @@ import {
   createdNoticeFromSearch,
   HIDDEN_ON_SITE_STATUS,
   PUBLISH_ON_SITE_LABEL,
+  testimonialListLabel,
 } from "@/modules/content/list-copy";
 
 describe("rótulos da lista de conteúdo", () => {
@@ -53,5 +54,14 @@ describe("rótulos da lista de conteúdo", () => {
   it("corta a citação do depoimento como na lista", () => {
     const quote = "a".repeat(90);
     expect(contentListPreview(quote)).toBe(`${"a".repeat(77)}…`);
+    expect(testimonialListLabel("Gostei do atendimento", null)).toBe(
+      "Gostei do atendimento",
+    );
+    expect(
+      testimonialListLabel(
+        "Gostei do atendimento",
+        "11111111-1111-4111-8111-111111111111.webp",
+      ),
+    ).toBe("Gostei do atendimento · com imagem");
   });
 });

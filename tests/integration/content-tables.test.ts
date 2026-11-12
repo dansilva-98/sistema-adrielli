@@ -143,4 +143,27 @@ describe("tabelas de conteúdo", () => {
       `,
     ).rejects.toThrow(/audit_log_action_check/);
   });
+
+  it("aceita depoimento antigo sem imagem e recusa caminho fora do padrão", async () => {
+    const valid = "11111111-1111-4111-8111-111111111111.webp";
+    const legacy = await runtime<{ id: string; image_path: string | null }[]>`
+      insert into content.testimonials (quote, author_label, published)
+      values ('Relato antigo', 'Família', false)
+      returning id, image_path
+    `;
+    expect(legacy[0]?.image_path).toBeNull();
+    const withImage = await runtime<{ id: string }[]>`
+      insert into content.testimonials (quote, author_label, image_path, published)
+      values ('Relato com print', 'Família', ${valid}, false)
+      returning id
+    `;
+    await expect(
+      runtime`
+        insert into content.testimonials (quote, author_label, image_path, published)
+        values ('Relato inválido', 'Família', 'pasta/arquivo.webp', false)
+      `,
+    ).rejects.toThrow(/testimonials_image_path/);
+    const ids = [legacy[0]?.id, withImage[0]?.id].filter((id) => id !== undefined);
+    await owner`delete from content.testimonials where id in ${owner(ids)}`;
+  });
 });

@@ -26,10 +26,10 @@ import {
   isSiteSection,
   searchSectionSchema,
   siteSettingsSchema,
-  testimonialSchema,
   type SiteSection,
 } from "@/modules/content/schema";
 import { planServiceWrite } from "@/modules/content/service-plan";
+import { planTestimonialWrite } from "@/modules/content/testimonial-plan";
 import { slugFromTitle } from "@/modules/content/slug";
 import { removeSiteObject, uploadSiteObject } from "@/modules/content/storage";
 import {
@@ -312,17 +312,20 @@ export async function createTestimonialAction(
   formData: FormData,
 ): Promise<ContentFormState> {
   const actor = await requireStaff({ roles: ADMIN_ROLES });
-  const parsed = testimonialSchema.safeParse(readTestimonial(formData));
-  if (!parsed.success) return issuesState(parsed.error.issues);
+  const plan = planTestimonialWrite(readTestimonial(formData));
+  if (!plan.ok) return invalid(plan.message, plan.field, plan.fields);
+  const image = await uploadPlannedImage(formData, plan.upload);
+  if (!image.ok) return image.state;
   try {
     const id = await createTestimonial(
       sql,
-      parsed.data,
+      { ...plan.data, imagePath: image.uploaded ? image.path : plan.data.imagePath },
       await actorContext(actor.userId),
     );
     updateTag(CONTENT_TESTIMONIALS_TAG);
-    return { ok: true, id };
+    return { ok: true, id, path: image.path, version: 1 };
   } catch (error) {
+    if (image.uploaded) await forgetImages([image.path]);
     return failure(error);
   }
 }
@@ -445,13 +448,16 @@ async function uploadPlannedImage(
 
 function readTestimonial(formData: FormData) {
   const consent = text(formData, "consentAt");
-  const version = numberValue(formData, "version");
+  const file = formData.get("image");
+  const remove = formData.get("removeImage") === "true";
   return {
     quote: text(formData, "quote"),
     authorLabel: text(formData, "authorLabel"),
     consentAt: consent || null,
+    imagePath: remove ? "" : text(formData, "imagePath"),
     published: formData.get("published") === "true",
-    ...(version >= 1 ? { version } : {}),
+    version: numberValue(formData, "version"),
+    hasNewFile: !remove && file instanceof File && file.size > 0,
   };
 }
 
@@ -595,22 +601,35 @@ export async function updateTestimonialAction(
 ): Promise<ContentFormState> {
   const actor = await requireStaff({ roles: ADMIN_ROLES });
   const id = text(formData, "id");
-  const parsed = testimonialSchema.safeParse(readTestimonial(formData));
-  if (!id || !parsed.success || !parsed.data.version) {
-    return parsed.success
+  const plan = planTestimonialWrite(readTestimonial(formData));
+  if (!id || !plan.ok || !plan.data.version) {
+    return plan.ok
       ? invalid("Confira os dados e tente novamente.")
-      : issuesState(parsed.error.issues);
+      : invalid(plan.message, plan.field, plan.fields);
   }
+  const image = await uploadPlannedImage(formData, plan.upload);
+  if (!image.ok) return image.state;
   try {
-    await updateTestimonial(
+    const saved = await updateTestimonial(
       sql,
       id,
-      { ...parsed.data, version: parsed.data.version },
+      {
+        ...plan.data,
+        imagePath: image.uploaded ? image.path : plan.data.imagePath,
+        version: plan.data.version,
+      },
       await actorContext(actor.userId),
     );
     updateTag(CONTENT_TESTIMONIALS_TAG);
-    return { ok: true, id, version: parsed.data.version + 1 };
+    await forgetImages(saved.removedPaths);
+    return {
+      ok: true,
+      id,
+      path: image.uploaded ? image.path : (plan.data.imagePath ?? ""),
+      version: plan.data.version + 1,
+    };
   } catch (error) {
+    if (image.uploaded) await forgetImages([image.path]);
     return failure(error);
   }
 }
@@ -622,8 +641,14 @@ export async function deleteTestimonialAction(
   const id = text(formData, "id");
   if (!id) return invalid();
   try {
-    await deleteContent(sql, "testimonials", id, await actorContext(actor.userId));
+    const saved = await deleteContent(
+      sql,
+      "testimonials",
+      id,
+      await actorContext(actor.userId),
+    );
     updateTag(CONTENT_TESTIMONIALS_TAG);
+    await forgetImages(saved.removedPaths);
     return { ok: true, id };
   } catch (error) {
     return failure(error);

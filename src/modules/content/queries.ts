@@ -66,7 +66,12 @@ export type PublicService = {
   imageAlt: string | null;
 };
 
-export type PublicTestimonial = { id: string; quote: string; authorLabel: string };
+export type PublicTestimonial = {
+  id: string;
+  quote: string;
+  authorLabel: string;
+  imagePath: string | null;
+};
 export type PublicFaq = { id: string; question: string; answer: string };
 
 type Sql = postgres.Sql | postgres.TransactionSql;
@@ -226,7 +231,7 @@ export async function loadPublishedServiceBySlug(
 
 export async function loadPublishedTestimonials(sql: Sql): Promise<PublicTestimonial[]> {
   return sql<PublicTestimonial[]>`
-    select id, quote, author_label as "authorLabel"
+    select id, quote, author_label as "authorLabel", image_path as "imagePath"
     from content.testimonials
     where published = true
     order by sort_order, id
@@ -259,6 +264,7 @@ export type StaffTestimonial = {
   id: string;
   quote: string;
   authorLabel: string;
+  imagePath: string | null;
   consentAt: string | null;
   published: boolean;
   sortOrder: number;
@@ -298,8 +304,8 @@ export async function loadStaffService(
 
 export async function loadStaffTestimonials(sql: Sql): Promise<StaffTestimonial[]> {
   return sql<StaffTestimonial[]>`
-    select id, quote, author_label as "authorLabel", consent_at::text as "consentAt",
-      published, sort_order as "sortOrder", version
+    select id, quote, author_label as "authorLabel", image_path as "imagePath",
+      consent_at::text as "consentAt", published, sort_order as "sortOrder", version
     from content.testimonials
     order by sort_order, id
   `;
@@ -310,8 +316,8 @@ export async function loadStaffTestimonial(
   id: string,
 ): Promise<StaffTestimonial | null> {
   const rows = await sql<StaffTestimonial[]>`
-    select id, quote, author_label as "authorLabel", consent_at::text as "consentAt",
-      published, sort_order as "sortOrder", version
+    select id, quote, author_label as "authorLabel", image_path as "imagePath",
+      consent_at::text as "consentAt", published, sort_order as "sortOrder", version
     from content.testimonials
     where id = ${id}::uuid
   `;

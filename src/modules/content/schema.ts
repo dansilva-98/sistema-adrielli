@@ -138,6 +138,7 @@ export const testimonialSchema = z
   .object({
     quote: requiredText(CONTENT_LIMITS.testimonialQuote),
     authorLabel: requiredText(CONTENT_LIMITS.testimonialAuthor),
+    imagePath: optionalImagePath.optional(),
     consentAt: z
       .string()
       .trim()

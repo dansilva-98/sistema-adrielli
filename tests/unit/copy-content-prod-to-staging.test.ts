@@ -378,6 +378,11 @@ describe("cópia do conteúdo público para o staging", () => {
         testimonials: [{ quote: imagePath, image_path: null }],
       }),
     ).toEqual([imagePath]);
+    expect(
+      imagePathsFromRows({
+        testimonials: [{ quote: "Relato", image_path: imagePath }],
+      }),
+    ).toEqual([imagePath]);
     expect(() =>
       imagePathsFromRows({
         services: [{ image_path: `clinic-private/${imagePath}` }],

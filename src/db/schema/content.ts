@@ -153,6 +153,7 @@ export const testimonials = content
       authorLabel: varchar("author_label", {
         length: CONTENT_LIMITS.testimonialAuthor,
       }).notNull(),
+      imagePath: varchar("image_path", { length: CONTENT_LIMITS.testimonialImagePath }),
       consentAt: date("consent_at"),
       published: boolean("published").notNull().default(false),
       sortOrder: integer("sort_order").notNull().default(0),
@@ -166,6 +167,10 @@ export const testimonials = content
       check(
         "testimonials_published_requires_consent",
         sql`not ${table.published} or ${table.consentAt} is not null`,
+      ),
+      check(
+        "testimonials_image_path",
+        sql`${table.imagePath} is null or ${table.imagePath} ~ ${siteImagePathPattern}`,
       ),
     ],
   )

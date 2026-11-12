@@ -4,8 +4,8 @@ import { requireStaff } from "@/modules/identity/server/guard";
 import { loadStaffTestimonials } from "@/modules/content/queries";
 import {
   addContentLabel,
-  contentListPreview,
   createdNoticeFromSearch,
+  testimonialListLabel,
 } from "@/modules/content/list-copy";
 import {
   deleteTestimonialAction,
@@ -38,7 +38,7 @@ export default async function TestimonialsPage({
       notice={createdNoticeFromSearch("testimonial", criado)}
       items={items.map((item) => ({
         id: item.id,
-        label: contentListPreview(item.quote),
+        label: testimonialListLabel(item.quote, item.imagePath),
         published: item.published,
         sortOrder: item.sortOrder,
         version: item.version,
