@@ -173,6 +173,11 @@ test.describe("agenda no iPhone", () => {
 
 async function expectAxe(page: Page): Promise<void> {
   await page.mouse.move(0, 0);
+  const enabled = page.locator("button[data-slot='button']:not([disabled])");
+  const count = await enabled.count();
+  for (let index = 0; index < count; index += 1) {
+    await expect(enabled.nth(index)).toHaveCSS("opacity", "1");
+  }
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .disableRules(["document-title"])
