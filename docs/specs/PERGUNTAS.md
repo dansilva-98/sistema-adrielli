@@ -118,6 +118,14 @@ Aprovado em 12/11/2026: os eventos da agenda entram no CHECK, inclusive `clinic.
 
 Aprovado em 12/11/2026: a reposição herda o `package_id` da falta avisada e ocupa a vaga. Pacote de 2 com 1 realizada e 1 falta avisada fica cheio depois da reposição; a terceira sessão é recusada.
 
+## E8.1 — desfazer reposição cujo original já não é falta avisada
+
+A reposição pode ser desfeita no mesmo dia mesmo se a falta de origem já tiver voltado para `scheduled`. Confirmar se o desfazer da reposição deve exigir que a origem ainda seja `missed_notified`.
+
+## E8.1 — cancel_reason ao desfazer
+
+O desfazer de `cancelled` não limpa `cancel_reason`. Confirmar se a sessão marcada deve ficar sem motivo.
+
 ## L3.3 — destaque do Sobre e trilha do Contato (staging 10/11)
 
 A primeira frase do Sobre usa `text-xl sm:text-2xl`. Se passar de 180 caracteres, aparece no tamanho do corpo, sem destaque. Na trilha estática do Contato, só a etapa 1 fica preenchida; as outras têm contorno dourado e fundo claro, na vertical e na horizontal.
