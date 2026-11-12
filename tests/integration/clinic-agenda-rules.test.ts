@@ -577,6 +577,53 @@ describe("regras da agenda e do pacote", () => {
     ).rejects.toMatchObject({ name: "ClinicRuleError", code: "overlap" });
   });
 
+  it("recusa desfazer a reposição se a falta de origem já não for avisada", async () => {
+    const missedId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      ...slot("2028-04-01", 11),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await changeAppointmentStatus(runtime, ACTOR, missedId, "missed_notified");
+    const makeupId = await scheduleMakeup(runtime, ACTOR, missedId, {
+      ...slot("2028-04-08", 11),
+      modality: "in_person",
+      notes: null,
+    });
+    await cancelAppointment(runtime, ACTOR, makeupId, "viagem");
+    await undoAppointmentStatus(runtime, ACTOR, missedId);
+    const origin = await getAppointment(runtime, missedId);
+    expect(origin.status).toBe("scheduled");
+    await expect(undoAppointmentStatus(runtime, ACTOR, makeupId)).rejects.toMatchObject({
+      name: "ClinicRuleError",
+      code: "undo-not-allowed",
+    });
+    const makeup = await getAppointment(runtime, makeupId);
+    expect(makeup.status).toBe("cancelled");
+    expect(makeup.makeupOfId).toBe(missedId);
+  });
+
+  it("limpa o motivo ao desfazer o cancelamento", async () => {
+    const appointmentId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      ...slot("2028-05-01", 11),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await cancelAppointment(runtime, ACTOR, appointmentId, "feriado");
+    const cancelled = await getAppointment(runtime, appointmentId);
+    expect(cancelled.status).toBe("cancelled");
+    expect(cancelled.cancelReason).toBe("feriado");
+    await undoAppointmentStatus(runtime, ACTOR, appointmentId);
+    const restored = await getAppointment(runtime, appointmentId);
+    expect(restored.status).toBe("scheduled");
+    expect(restored.cancelReason).toBeNull();
+  });
+
   it("grava clinic.settings.updated ao salvar a configuração", async () => {
     await updateAgendaSettings(runtime, ACTOR, {
       defaultDurationMinutes: 40,

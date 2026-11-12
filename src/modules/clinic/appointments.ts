@@ -425,16 +425,33 @@ export async function undoAppointmentStatus(
     if (current.status === "missed_notified" && (await activeMakeupId(tx, current.id))) {
       throw new ClinicRuleError("undo-not-allowed");
     }
+    if (current.makeup_of_id) {
+      const origin = await loadAppointment(tx, current.makeup_of_id, true);
+      if (origin.status !== "missed_notified") {
+        throw new ClinicRuleError("undo-not-allowed");
+      }
+    }
     if (!occupiesPackageSlot(current.status) && current.package_id) {
       await assertPackageAcceptsSession(tx, current.package_id, current.patient_id);
     }
-    await tx`
-      update clinic.appointments
-      set
-        status = 'scheduled'::clinic.appointment_status,
-        status_changed_at = now()
-      where id = ${appointmentId}::uuid
-    `;
+    if (current.status === "cancelled") {
+      await tx`
+        update clinic.appointments
+        set
+          status = 'scheduled'::clinic.appointment_status,
+          status_changed_at = now(),
+          cancel_reason = null
+        where id = ${appointmentId}::uuid
+      `;
+    } else {
+      await tx`
+        update clinic.appointments
+        set
+          status = 'scheduled'::clinic.appointment_status,
+          status_changed_at = now()
+        where id = ${appointmentId}::uuid
+      `;
+    }
     await audit(tx, actor, "clinic.appointment.status_changed", appointmentId, {
       from: current.status,
       to: "scheduled",

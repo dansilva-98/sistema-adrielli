@@ -120,11 +120,11 @@ Aprovado em 12/11/2026: a reposição herda o `package_id` da falta avisada e oc
 
 ## E8.1 — desfazer reposição cujo original já não é falta avisada
 
-A reposição pode ser desfeita no mesmo dia mesmo se a falta de origem já tiver voltado para `scheduled`. Confirmar se o desfazer da reposição deve exigir que a origem ainda seja `missed_notified`.
+Aprovado em 12/11/2026: ao desfazer uma sessão com `makeup_of_id`, a origem é travada com `FOR UPDATE` e precisa continuar `missed_notified`. Caso contrário a operação é `undo-not-allowed`.
 
 ## E8.1 — cancel_reason ao desfazer
 
-O desfazer de `cancelled` não limpa `cancel_reason`. Confirmar se a sessão marcada deve ficar sem motivo.
+Aprovado em 12/11/2026: desfazer `cancelled` grava `cancel_reason = null`.
 
 ## L3.3 — destaque do Sobre e trilha do Contato (staging 10/11)
 
