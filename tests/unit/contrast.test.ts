@@ -59,5 +59,19 @@ describe("contraste dos tokens", () => {
         4.5,
       );
     }
+
+    const hoverPrimary = mixTowardBlack(colors.primary, 0.12);
+    expect(contrast(colors.primaryForeground, hoverPrimary)).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+function mixTowardBlack(hex: string, amount: number): string {
+  const keep = 1 - amount;
+  return `#${channel(hex)
+    .map((value) =>
+      Math.round(value * keep)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}

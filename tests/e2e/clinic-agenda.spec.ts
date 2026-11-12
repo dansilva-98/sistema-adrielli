@@ -172,6 +172,7 @@ test.describe("agenda no iPhone", () => {
 });
 
 async function expectAxe(page: Page): Promise<void> {
+  await page.mouse.move(0, 0);
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .disableRules(["document-title"])
