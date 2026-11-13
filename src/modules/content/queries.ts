@@ -344,12 +344,12 @@ export async function loadStaffFaqItem(sql: Sql, id: string): Promise<StaffFaq |
 export async function readOrEmpty<T>(
   load: () => Promise<T>,
   empty: T,
-  report: (error: unknown) => void,
+  report: (error: unknown) => void | Promise<void>,
 ): Promise<T> {
   try {
     return await load();
   } catch (error) {
-    report(error);
+    await report(error);
     return empty;
   }
 }

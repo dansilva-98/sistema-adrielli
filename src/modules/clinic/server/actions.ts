@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
-import * as Sentry from "@sentry/nextjs";
 import { z, ZodError } from "zod";
 
 import { sql } from "@/db/client";
+import { reportServerError } from "@/lib/sentry-server";
 import { clientEnv } from "@/lib/env-client";
 import { serverEnv } from "@/lib/env.server";
 import {
@@ -50,7 +50,7 @@ import {
 } from "@/modules/identity/server/guard";
 import { clientIp } from "@/modules/identity/staff-session";
 
-function failure(error: unknown): ClinicActionState {
+async function failure(error: unknown): Promise<ClinicActionState> {
   if (error instanceof StaffAccessError) throw error;
   if (error instanceof ClinicRuleError) {
     if (error.code === "duplicate") {
@@ -106,7 +106,7 @@ function failure(error: unknown): ClinicActionState {
       message: error.issues[0]?.message ?? "Confira os dados e tente novamente.",
     };
   }
-  Sentry.captureException(error);
+  await reportServerError(error);
   return { ok: false, code: "", message: "Não foi possível concluir. Tente novamente." };
 }
 
@@ -261,8 +261,8 @@ function formText(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value : "";
 }
 
-function reportSearchFailure(): void {
-  Sentry.captureException(new Error("Clinic search failed"));
+async function reportSearchFailure(): Promise<void> {
+  await reportServerError(new Error("Clinic search failed"));
 }
 
 export async function searchPatientsFormAction(
@@ -279,7 +279,7 @@ export async function searchPatientsFormAction(
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof StaffAccessError) throw error;
-    reportSearchFailure();
+    await reportSearchFailure();
     return {
       patients: [],
       hasQuery: false,
@@ -305,7 +305,7 @@ export async function searchGuardiansFormAction(
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof StaffAccessError) throw error;
-    reportSearchFailure();
+    await reportSearchFailure();
     return { matches: [], message: "Não foi possível buscar. Tente novamente." };
   }
 }
@@ -352,7 +352,7 @@ export async function prepareAttachmentUploadAction(
     );
     return { ok: true, ...prepared };
   } catch (error) {
-    const result = failure(error);
+    const result = await failure(error);
     return { ok: false, message: result.message };
   }
 }
@@ -396,7 +396,7 @@ export async function openAttachmentAction(
     const url = await openAttachment(sql, actor, attachmentStore(), parsed.data);
     return { ok: true, url };
   } catch (error) {
-    const result = failure(error);
+    const result = await failure(error);
     return { ok: false, message: result.message };
   }
 }

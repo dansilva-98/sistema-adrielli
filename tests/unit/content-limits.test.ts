@@ -61,7 +61,9 @@ describe("limites do conteúdo", () => {
         throw new Error("pessoa@example.com");
       },
       [],
-      (error) => reported.push(error instanceof Error ? error.name : "unknown"),
+      (error) => {
+        reported.push(error instanceof Error ? error.name : "unknown");
+      },
     );
     expect(value).toEqual([]);
     expect(reported).toEqual(["Error"]);

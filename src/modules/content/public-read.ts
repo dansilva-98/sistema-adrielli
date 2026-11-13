@@ -57,7 +57,7 @@ export type PublicHomeQueries = {
 
 export async function loadPublicHome(
   queries: PublicHomeQueries,
-  report: (error: unknown) => void,
+  report: (error: unknown) => void | Promise<void>,
   timeoutMs = PUBLIC_READ_TIMEOUT_MS,
   onTimeout: () => void = () => undefined,
 ): Promise<{

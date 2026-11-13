@@ -99,8 +99,8 @@ export async function pingDatabase(): Promise<boolean> {
     return true;
   } catch (error) {
     try {
-      const sentry = await import("@sentry/nextjs");
-      sentry.captureException(error);
+      const { reportServerError } = await import("@/lib/sentry-server");
+      await reportServerError(error);
     } catch (monitoringError) {
       console.error("database ping failed and monitoring was unavailable", {
         monitoringError:

@@ -1,8 +1,8 @@
-import * as Sentry from "@sentry/nextjs";
+import { reportServerError } from "@/lib/sentry-server";
 
 export function loadOrNull<T>(load: Promise<T>): Promise<T | null> {
-  return load.catch((error: unknown) => {
-    Sentry.captureException(error);
+  return load.catch(async (error: unknown) => {
+    await reportServerError(error);
     return null;
   });
 }

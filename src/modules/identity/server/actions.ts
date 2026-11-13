@@ -4,10 +4,9 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
-import * as Sentry from "@sentry/nextjs";
-
-import { serverEnv } from "@/lib/env.server";
 import { parseClientEnv } from "@/lib/env";
+import { serverEnv } from "@/lib/env.server";
+import { reportServerError } from "@/lib/sentry-server";
 import {
   clearStaffSessionCookie,
   createSupabaseServerClient,
@@ -133,7 +132,7 @@ export async function logoutAction(): Promise<void> {
         ip,
         metadata: {},
       }),
-    report: (error) => Sentry.captureException(error),
+    report: (error) => reportServerError(error),
   });
   redirect("/equipe/entrar");
 }
@@ -285,9 +284,7 @@ async function stopIfMfaLimited(userId: string): Promise<void> {
         ip: await requestIp(),
         metadata: {},
       }),
-    report: (error) => {
-      Sentry.captureException(error);
-    },
+    report: (error) => reportServerError(error),
   });
   redirect("/equipe/entrar?motivo=limite");
 }

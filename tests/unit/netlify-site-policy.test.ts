@@ -87,4 +87,17 @@ describe("site da Netlify", () => {
     expect(readme).toContain("`resend._domainkey`, `rsend` e `send`");
     expect(readme).toContain("CNAME de `www` para `adrielli-flores.netlify.app`");
   });
+
+  it("os deploys publicam SENTRY_DSN no runtime da Netlify", () => {
+    const staging = readFileSync(".github/workflows/staging.yml", "utf8");
+    const production = readFileSync(".github/workflows/production.yml", "utf8");
+    const envScript = readFileSync("scripts/netlify-env.mjs", "utf8");
+    expect(envScript).toContain('"SENTRY_DSN"');
+    expect(staging).toContain("node scripts/netlify-env.mjs");
+    expect(staging).toContain("NETLIFY_ENV_CONTEXTS: deploy-preview,branch-deploy");
+    expect(staging).toContain("SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN }}");
+    expect(production).toContain("node scripts/netlify-env.mjs");
+    expect(production).toContain("NETLIFY_ENV_CONTEXTS: production");
+    expect(production).toContain("SENTRY_DSN: ${{ secrets.PRODUCTION_SENTRY_DSN }}");
+  });
 });
