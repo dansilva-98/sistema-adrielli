@@ -1,5 +1,7 @@
 import "server-only";
 
+import type postgres from "postgres";
+
 import { sql } from "@/db/client";
 import {
   clinicDayRange,
@@ -17,8 +19,11 @@ import {
   type AgendaView,
 } from "@/modules/clinic/agenda-view";
 import { listPatientPackages, type PackageBalance } from "@/modules/clinic/packages";
+import { loadPatient, type Actor, type PatientRecord } from "@/modules/clinic/patients";
 import { CONSULTORIO_ROLES } from "@/modules/identity/access";
 import { assertRole } from "@/modules/identity/server/guard";
+
+type Database = postgres.Sql | postgres.TransactionSql;
 
 export type { AgendaView };
 
@@ -59,4 +64,20 @@ export async function readAgendaSettings(): Promise<AgendaSettings> {
 export async function readPatientPackages(patientId: string): Promise<PackageBalance[]> {
   await assertRole(CONSULTORIO_ROLES);
   return listPatientPackages(sql, patientId);
+}
+
+export async function readNewAppointmentForm(
+  db: Database,
+  actor: Actor,
+  patientId: string,
+): Promise<{
+  settings: AgendaSettings;
+  patient: PatientRecord | null;
+  packages: PackageBalance[];
+}> {
+  await assertRole(CONSULTORIO_ROLES);
+  const settings = await getAgendaSettings(db);
+  const patient = await loadPatient(db, actor, patientId);
+  const packages = await listPatientPackages(db, patientId);
+  return { settings, patient, packages };
 }

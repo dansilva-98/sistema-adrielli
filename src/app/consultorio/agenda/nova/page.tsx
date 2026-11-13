@@ -1,15 +1,14 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 import { z } from "zod";
 
+import { sql } from "@/db/client";
 import { parseAgendaDate } from "@/modules/clinic/agenda-view";
 import { displayName, isRealDate, todayInClinic } from "@/modules/clinic/format";
-import {
-  readAgendaSettings,
-  readPatientPackages,
-} from "@/modules/clinic/server/agenda-read";
-import { readPatient } from "@/modules/clinic/server/read";
+import { readNewAppointmentForm } from "@/modules/clinic/server/agenda-read";
 import { CONSULTORIO_ROLES } from "@/modules/identity/access";
 import { requireStaff } from "@/modules/identity/server/guard";
+import { clientIp } from "@/modules/identity/staff-session";
 
 import { AppointmentForm } from "./appointment-form";
 import { AgendaPatientPicker } from "./patient-picker";
@@ -23,18 +22,21 @@ export default async function NewAppointmentPage({
 }: {
   searchParams: Promise<{ paciente?: string; data?: string }>;
 }) {
-  await requireStaff({ roles: CONSULTORIO_ROLES });
+  const access = await requireStaff({ roles: CONSULTORIO_ROLES });
   const query = await searchParams;
   const today = todayInClinic();
   const date = parseAgendaDate(query.data, today);
   const patientId =
     query.paciente && z.uuid().safeParse(query.paciente).success ? query.paciente : "";
-  const [settings, patient, packages] = await Promise.all([
-    readAgendaSettings(),
-    patientId ? readPatient(patientId) : Promise.resolve(null),
-    patientId ? readPatientPackages(patientId) : Promise.resolve([]),
-  ]);
-  const openPackages = packages.filter(
+  const loaded = patientId
+    ? await readNewAppointmentForm(
+        sql,
+        { userId: access.userId, ip: clientIp(await headers()) },
+        patientId,
+      )
+    : null;
+  const patient = loaded?.patient ?? null;
+  const openPackages = (loaded?.packages ?? []).filter(
     (item) => item.closedAt === null && item.remaining > 0,
   );
 
@@ -49,7 +51,7 @@ export default async function NewAppointmentPage({
         Voltar para a agenda
       </Link>
       <h2 className="font-serif text-2xl">Nova sessão</h2>
-      {patient ? (
+      {patient && loaded ? (
         <div className="flex flex-col gap-3">
           <p className="break-words text-lg font-medium">
             {displayName(patient.fullName, patient.preferredName)}
@@ -63,7 +65,7 @@ export default async function NewAppointmentPage({
           <AppointmentForm
             patientId={patient.id}
             date={date}
-            durationMinutes={settings.defaultDurationMinutes}
+            durationMinutes={loaded.settings.defaultDurationMinutes}
             packages={openPackages}
             today={today}
           />
