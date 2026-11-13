@@ -150,6 +150,22 @@ A semana começa na segunda-feira. Os 14 dias contam a partir da data selecionad
 
 `Symbol.for("@next/request-context")` não é API pública. O `@netlify/plugin-nextjs` 5.16.4 usa o mesmo símbolo em `dist/run/handlers/wait-until.cjs`. Ao atualizar o Next ou o plugin, repetir a prova do 500 no staging (header RSC inválido na home) e conferir o evento Node com stack do servidor e `route_type: render`.
 
+## E8.4 — dois responsáveis na mesma sessão
+
+A rotina trava os responsáveis e as sessões na mesma transação, envia um e-mail para cada um que aceitou e só então marca `reminder_sent_at`. Se um responsável da sessão não puder ser travado, a sessão espera a próxima hora.
+
+## E8.4 — hora do lembrete fora das 07h–21h
+
+O formulário aceita 0–23. O cron roda das 07h às 21h de Brasília. Hora 22 ou 23 nunca dispara; 0–6 sai na execução das 07h, se `hora atual >= reminder_send_hour`.
+
+## E8.4 — WhatsApp ou local vazios
+
+O e-mail omite o bloco do local se os dois campos estão vazios. Sem número de WhatsApp, o texto do aviso permanece, sem link. A rotina não falha por isso.
+
+## E8.4 — RESEND_API_KEY no staging do GitHub
+
+O ambiente `production` já tem a chave. O ambiente `staging` do GitHub ainda não. A execução real do A5 precisa desse secret (e do e-mail de teste que a responsável indicar).
+
 ## L3.3 — destaque do Sobre e trilha do Contato (staging 10/11)
 
 A primeira frase do Sobre usa `text-xl sm:text-2xl`. Se passar de 180 caracteres, aparece no tamanho do corpo, sem destaque. Na trilha estática do Contato, só a etapa 1 fica preenchida; as outras têm contorno dourado e fundo claro, na vertical e na horizontal.

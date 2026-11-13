@@ -1,0 +1,73 @@
+name: Lembretes da agenda
+
+on:
+  schedule:
+    # 07h–21h em America/Sao_Paulo (UTC-3 o ano todo).
+    - cron: "0 10-23,0 * * *"
+  workflow_dispatch:
+    inputs:
+      destino:
+        description: Destino
+        required: true
+        type: choice
+        default: production
+        options:
+          - production
+          - staging
+
+concurrency:
+  group: reminders-${{ github.event_name == 'workflow_dispatch' && inputs.destino || 'production' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    if: github.event_name == 'schedule' || inputs.destino != 'staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Enviar lembretes
+        run: node --experimental-strip-types scripts/send-reminders.ts
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          APP_ENV: production
+  staging:
+    if: github.event_name == 'workflow_dispatch' && inputs.destino == 'staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Enviar lembretes
+        run: node --experimental-strip-types scripts/send-reminders.ts
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          APP_ENV: staging
