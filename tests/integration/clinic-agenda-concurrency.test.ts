@@ -439,4 +439,49 @@ describe("concorrência da agenda (A1)", () => {
       }
     },
   );
+
+  it("trocas cruzadas de pacote terminam sem deadlock", { timeout: 60_000 }, async () => {
+    for (let index = 0; index < LOOPS; index += 1) {
+      const packageA = await createPackage(left, ACTOR, {
+        patientId: PATIENT_A,
+        totalSessions: 2,
+        startsOn: "2027-06-01",
+        expiresOn: null,
+        priceCents: null,
+        notes: null,
+      });
+      const packageB = await createPackage(left, ACTOR, {
+        patientId: PATIENT_A,
+        totalSessions: 2,
+        startsOn: "2027-06-01",
+        expiresOn: null,
+        priceCents: null,
+        notes: null,
+      });
+      const firstId = await createAppointment(left, ACTOR, {
+        patientId: PATIENT_A,
+        packageId: packageA,
+        ...slot(index, 9),
+        modality: "in_person",
+        seriesId: null,
+        notes: null,
+      });
+      const secondId = await createAppointment(left, ACTOR, {
+        patientId: PATIENT_A,
+        packageId: packageB,
+        ...slot(index, 10),
+        modality: "in_person",
+        seriesId: null,
+        notes: null,
+      });
+      const results = await Promise.allSettled([
+        withoutDeadlock(() => setAppointmentPackage(left, ACTOR, firstId, packageB)),
+        withoutDeadlock(() => setAppointmentPackage(right, ACTOR, secondId, packageA)),
+      ]);
+      expect(
+        results.filter((result) => result.status === "fulfilled"),
+        `loop ${index}`,
+      ).toHaveLength(2);
+    }
+  });
 });

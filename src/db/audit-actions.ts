@@ -45,6 +45,7 @@ export const AUDIT_ACTIONS = [
   "clinic.appointment.status_changed",
   "clinic.appointment.rescheduled",
   "clinic.appointment.cancelled",
+  "clinic.appointment.package_changed",
   "clinic.package.created",
   "clinic.package.closed",
   "clinic.reminder.sent",

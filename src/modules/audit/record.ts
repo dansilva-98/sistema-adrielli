@@ -19,6 +19,7 @@ const metadataSchema = z
     from: z.enum(undoFromStatuses).optional(),
     to: z.literal("scheduled").optional(),
     undo: z.literal(true).optional(),
+    linked: z.boolean().optional(),
   })
   .strict();
 
@@ -39,6 +40,7 @@ type AuditMetadata = {
   from?: (typeof undoFromStatuses)[number];
   to?: "scheduled";
   undo?: true;
+  linked?: boolean;
 };
 
 export async function recordAudit(event: AuditEvent, tx?: AuditExecutor): Promise<void> {

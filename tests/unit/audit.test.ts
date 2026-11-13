@@ -40,4 +40,21 @@ describe("recordAudit", () => {
       }),
     ).rejects.toThrow("Metadado de auditoria recusado.");
   });
+
+  it("aceita linked e recusa dado pessoal junto", async () => {
+    await expect(
+      recordAudit({
+        action: "clinic.appointment.package_changed",
+        metadata: { linked: true },
+      }),
+    ).rejects.toThrow(
+      /Variável de ambiente inválida|Recusado: URLs|ECONNREFUSED|connect/i,
+    );
+    await expect(
+      recordAudit({
+        action: "clinic.appointment.package_changed",
+        metadata: { linked: false, email: "pessoa@example.com" },
+      }),
+    ).rejects.toThrow("Metadado de auditoria recusado.");
+  });
 });

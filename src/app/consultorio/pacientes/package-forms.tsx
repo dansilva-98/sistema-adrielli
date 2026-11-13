@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { linkedScheduledLabel } from "@/modules/clinic/agenda-view";
 import { idleClinicAction } from "@/modules/clinic/form-state";
 import {
   closePackageAction,
@@ -111,13 +112,16 @@ export function CreatePackageForm({
 export function ClosePackageButton({
   packageId,
   patientId,
+  scheduledCount,
 }: {
   packageId: string;
   patientId: string;
+  scheduledCount: number;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [state, action, pending] = useActionState(closePackageAction, idleClinicAction);
+  const linkedWarning = linkedScheduledLabel(scheduledCount);
 
   useEffect(() => {
     if (state.ok) router.refresh();
@@ -150,6 +154,7 @@ export function ClosePackageButton({
       <p className="text-sm">
         Encerrar este pacote? Não dá para ligar sessões novas a ele.
       </p>
+      {linkedWarning ? <p className="text-sm text-danger">{linkedWarning}</p> : null}
       <Notice ok={state.ok} message={state.message} />
       <Button
         type="submit"

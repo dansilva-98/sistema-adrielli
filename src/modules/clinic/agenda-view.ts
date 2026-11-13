@@ -81,6 +81,13 @@ export function packageOverflowLabel(count: number): string {
     : `${count} sessões ficam fora do pacote`;
 }
 
+export function linkedScheduledLabel(count: number): string | null {
+  if (count <= 0) return null;
+  return count === 1
+    ? "1 sessão marcada continua ligada a este pacote"
+    : `${count} sessões marcadas continuam ligadas a este pacote`;
+}
+
 export function seriesConfirmKey(input: {
   date: string;
   time: string;

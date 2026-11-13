@@ -113,7 +113,8 @@ async function audit(
     | "clinic.appointment.created"
     | "clinic.appointment.status_changed"
     | "clinic.appointment.rescheduled"
-    | "clinic.appointment.cancelled",
+    | "clinic.appointment.cancelled"
+    | "clinic.appointment.package_changed",
   entityId: string,
   metadata: Record<string, unknown> = {},
 ): Promise<void> {
@@ -720,17 +721,19 @@ export async function createAppointmentSeries(
   });
 }
 
-async function lockPackage(
+async function lockPackages(
   tx: postgres.TransactionSql,
-  packageId: string,
+  packageIds: string[],
 ): Promise<void> {
+  const unique = [...new Set(packageIds)];
   const rows = await tx<{ id: string }[]>`
     select id
     from clinic.packages
-    where id = ${packageId}::uuid
+    where id in ${tx(unique)}
+    order by id
     for update
   `;
-  if (!rows[0]) throw new ClinicRuleError("not-found");
+  if (rows.length !== unique.length) throw new ClinicRuleError("not-found");
 }
 
 export async function setAppointmentPackage(
@@ -750,20 +753,31 @@ export async function setAppointmentPackage(
     if (packageId === null && !current.package_id) {
       throw new ClinicRuleError("invalid-transition");
     }
+    const lockIds = [current.package_id, packageId].filter(
+      (id): id is string => id !== null,
+    );
+    await lockPackages(tx, lockIds);
     if (current.package_id) {
-      await lockPackage(tx, current.package_id);
       await tx`
         update clinic.appointments
         set package_id = null
         where id = ${appointmentId}::uuid
       `;
     }
-    if (packageId === null) return;
+    if (packageId === null) {
+      await audit(tx, actor, "clinic.appointment.package_changed", appointmentId, {
+        linked: false,
+      });
+      return;
+    }
     await assertPackageAcceptsSession(tx, packageId, current.patient_id);
     await tx`
       update clinic.appointments
       set package_id = ${packageId}::uuid
       where id = ${appointmentId}::uuid
     `;
+    await audit(tx, actor, "clinic.appointment.package_changed", appointmentId, {
+      linked: true,
+    });
   });
 }
