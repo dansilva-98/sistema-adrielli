@@ -44,15 +44,16 @@ export async function readAppointmentDetail(
   return getAppointmentDetail(sql, appointmentId);
 }
 
-export async function readPatientAgenda(patientId: string): Promise<{
+export async function readPatientAgenda(
+  patientId: string,
+  db: Database = sql,
+): Promise<{
   appointments: AppointmentRecord[];
   packages: PackageBalance[];
 }> {
   await assertRole(CONSULTORIO_ROLES);
-  const [appointments, packages] = await Promise.all([
-    listPatientAppointments(sql, patientId),
-    listPatientPackages(sql, patientId),
-  ]);
+  const appointments = await listPatientAppointments(db, patientId);
+  const packages = await listPatientPackages(db, patientId);
   return { appointments, packages };
 }
 

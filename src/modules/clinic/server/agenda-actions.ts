@@ -7,16 +7,22 @@ import { z, ZodError } from "zod";
 
 import { sql } from "@/db/client";
 import { reportServerError } from "@/lib/sentry-server";
-import { clinicErrorMessage } from "@/modules/clinic/clinic-errors";
 import {
   parseAgendaSettings,
   parseAppointmentForm,
   parseCancelReason,
+  parseCreatePackage,
   parseMakeupForm,
+  parseOptionalPriceCents,
   parseRescheduleForm,
   parseStatusChange,
 } from "@/modules/clinic/agenda-schema";
 import { updateAgendaSettings } from "@/modules/clinic/agenda-settings";
+import {
+  packageOverflowLabel,
+  seriesConfirmFlags,
+  seriesConfirmKey,
+} from "@/modules/clinic/agenda-view";
 import {
   cancelAppointment,
   changeAppointmentStatus,
@@ -27,11 +33,14 @@ import {
   previewAppointmentSeries,
   rescheduleAppointment,
   scheduleMakeup,
+  setAppointmentPackage,
   undoAppointmentStatus,
 } from "@/modules/clinic/appointments";
-import type { AgendaActionState } from "@/modules/clinic/form-state";
-import { idleAgendaAction } from "@/modules/clinic/form-state";
+import { clinicErrorMessage } from "@/modules/clinic/clinic-errors";
+import type { AgendaActionState, ClinicActionState } from "@/modules/clinic/form-state";
+import { idleAgendaAction, idleClinicAction } from "@/modules/clinic/form-state";
 import { formatClinicSlotLabel } from "@/modules/clinic/format";
+import { closePackage, createPackage } from "@/modules/clinic/packages";
 import { ClinicRuleError, type Actor } from "@/modules/clinic/patients";
 import { CONSULTORIO_ROLES } from "@/modules/identity/access";
 import {
@@ -54,30 +63,42 @@ async function failure(error: unknown): Promise<AgendaActionState> {
   if (error instanceof StaffAccessError) throw error;
   if (error instanceof ClinicRuleError) {
     return {
-      ok: false,
+      ...idleAgendaAction,
       code: error.code,
-      message: clinicErrorMessage(error.code),
-      conflicts: [],
-      slotKey: "",
+      message:
+        error.code === "package-overflow"
+          ? packageOverflowLabel(error.overflowCount)
+          : clinicErrorMessage(error.code),
+      overflowCount: error.overflowCount,
     };
+  }
+  if (error instanceof ZodError) {
+    return {
+      ...idleAgendaAction,
+      message: error.issues[0]?.message ?? "Confira os dados e tente novamente.",
+    };
+  }
+  await reportServerError(error);
+  return {
+    ...idleAgendaAction,
+    message: "Não foi possível concluir. Tente novamente.",
+  };
+}
+
+async function clinicFailure(error: unknown): Promise<ClinicActionState> {
+  if (error instanceof StaffAccessError) throw error;
+  if (error instanceof ClinicRuleError) {
+    return { ok: false, code: "", message: clinicErrorMessage(error.code) };
   }
   if (error instanceof ZodError) {
     return {
       ok: false,
       code: "",
       message: error.issues[0]?.message ?? "Confira os dados e tente novamente.",
-      conflicts: [],
-      slotKey: "",
     };
   }
   await reportServerError(error);
-  return {
-    ok: false,
-    code: "",
-    message: "Não foi possível concluir. Tente novamente.",
-    conflicts: [],
-    slotKey: "",
-  };
+  return { ok: false, code: "", message: "Não foi possível concluir. Tente novamente." };
 }
 
 async function currentActor(): Promise<Actor> {
@@ -98,6 +119,8 @@ export async function createAppointmentAction(
   formData: FormData,
 ): Promise<AgendaActionState> {
   const actor = await currentActor();
+  let slotKey = "";
+  let skipConflicts = false;
   try {
     const input = parseAppointmentForm({
       patientId: formText(formData.get("patientId")),
@@ -109,8 +132,24 @@ export async function createAppointmentAction(
       notes: formText(formData.get("notes")) || null,
       weeks: Number(formText(formData.get("weeks")) || "1"),
     });
-    const skipConflicts = formData.get("confirm") === "livres";
-    const slotKey = `${input.date}|${input.time}|${input.durationMinutes}|${input.weeks}`;
+    slotKey = seriesConfirmKey({
+      date: input.date,
+      time: input.time,
+      durationMinutes: input.durationMinutes,
+      weeks: input.weeks,
+      packageId: input.packageId,
+    });
+    const postedKey = formText(formData.get("confirmKey"));
+    const flags = seriesConfirmFlags({
+      postedKey,
+      slotKey,
+      confirmLivres: formData.get("confirm") === "livres",
+      confirmOverflow: formData.get("confirmOverflow") === "sim",
+    });
+    skipConflicts = flags.skipConflicts;
+    const unlinkedCount = flags.overflowConfirmed
+      ? Number(formText(formData.get("overflowCount")))
+      : 0;
     if (input.weeks === 1) {
       const slot = await clinicDateTime(
         sql,
@@ -141,7 +180,7 @@ export async function createAppointmentAction(
     const conflicts = preview.filter((slot) => slot.conflict);
     if (conflicts.length > 0 && !skipConflicts) {
       return {
-        ok: false,
+        ...idleAgendaAction,
         code: "series-conflict",
         message: clinicErrorMessage("series-conflict"),
         conflicts: conflicts.map((slot) => formatClinicSlotLabel(slot.startsAt)),
@@ -161,12 +200,86 @@ export async function createAppointmentAction(
         notes: input.notes,
         slots,
       },
-      { skipConflicts },
+      { skipConflicts, unlinkedCount },
     );
     refreshAgenda(input.patientId, ids[0]);
     redirect(`/consultorio/agenda/${ids[0]}`);
   } catch (error) {
     unstable_rethrow(error);
+    const failed = await failure(error);
+    if (failed.code === "package-overflow") {
+      return { ...failed, slotKey, allowSkip: skipConflicts };
+    }
+    if (failed.code === "series-conflict") {
+      return { ...failed, slotKey };
+    }
+    return failed;
+  }
+}
+
+export async function createPackageAction(
+  _state: ClinicActionState,
+  formData: FormData,
+): Promise<ClinicActionState> {
+  const actor = await currentActor();
+  try {
+    const patientId = z.uuid().parse(formText(formData.get("patientId")));
+    const expiresOn = optionalId(formText(formData.get("expiresOn")));
+    await createPackage(
+      sql,
+      actor,
+      parseCreatePackage({
+        patientId,
+        totalSessions: Number(formText(formData.get("totalSessions"))),
+        startsOn: formText(formData.get("startsOn")),
+        expiresOn,
+        priceCents: parseOptionalPriceCents(formText(formData.get("price"))),
+        notes: formText(formData.get("notes")) || null,
+      }),
+    );
+    refreshAgenda(patientId);
+    return { ...idleClinicAction, ok: true, message: "Pacote criado." };
+  } catch (error) {
+    return clinicFailure(error);
+  }
+}
+
+export async function closePackageAction(
+  _state: ClinicActionState,
+  formData: FormData,
+): Promise<ClinicActionState> {
+  const actor = await currentActor();
+  if (formData.get("confirm") !== "sim") {
+    return { ...idleClinicAction, message: "Confirme o encerramento." };
+  }
+  try {
+    const packageId = z.uuid().parse(formText(formData.get("packageId")));
+    const patientId = z.uuid().parse(formText(formData.get("patientId")));
+    await closePackage(sql, actor, packageId);
+    refreshAgenda(patientId);
+    return { ...idleClinicAction, ok: true, message: "Pacote encerrado." };
+  } catch (error) {
+    return clinicFailure(error);
+  }
+}
+
+export async function setAppointmentPackageAction(
+  _state: AgendaActionState,
+  formData: FormData,
+): Promise<AgendaActionState> {
+  const actor = await currentActor();
+  try {
+    const appointmentId = z.uuid().parse(formText(formData.get("appointmentId")));
+    const patientId = z.uuid().parse(formText(formData.get("patientId")));
+    const packageId = optionalId(formText(formData.get("packageId")));
+    await setAppointmentPackage(sql, actor, appointmentId, packageId);
+    refreshAgenda(patientId, appointmentId);
+    return {
+      ...idleAgendaAction,
+      ok: true,
+      message: packageId ? "Sessão ligada ao pacote." : "Sessão desligada do pacote.",
+    };
+  } catch (error) {
     return failure(error);
   }
 }

@@ -40,7 +40,7 @@ export default defineConfig({
         ...devices["iPhone 13"],
         baseURL: `http://localhost:${port}`,
       },
-      testMatch: /(patient-attachment|clinic-agenda)\.spec\.ts/,
+      testMatch: /(patient-attachment|clinic-agenda|clinic-packages)\.spec\.ts/,
     },
     {
       name: "capturas",

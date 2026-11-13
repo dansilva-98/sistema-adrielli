@@ -78,7 +78,7 @@ O teste `tests/e2e/staff-areas.spec.ts` (“CONTENT_ADMIN salva o topo e confirm
 
 ## Manutenção — public-read-timeout instável
 
-`tests/unit/public-read-timeout.test.ts` às vezes mede 1001–1034 ms contra o limite de 1000 ms. Fora do A1. Tratar num PR de manutenção.
+Corrigido na E8.3: o timeout da leitura pública usa timers falsos; o render da home vazia não é mais cronometrado.
 
 ## L3.3 — trilha vertical do Contato até 640 px
 
@@ -132,7 +132,15 @@ A decisão da spec permanece: o modelo guarda `online`, mas as telas da E8.2 só
 
 ## E8.2 — série semanal e pacote
 
-A série aceita 2 a 26 semanas. Campo vazio agenda só a sessão. Se algum horário conflitar, nada é gravado e a tela lista os conflitos. A confirmação “Criar só as livres” grava apenas os livres. Se o pacote não couber todas as livres, a série inteira é recusada (`package-exhausted`). Ligar só até o limite do pacote fica para a E8.3.
+A série aceita 2 a 26 semanas. Campo vazio agenda só a sessão. Se algum horário conflitar, nada é gravado e a tela lista os conflitos. A confirmação “Criar só as livres” grava apenas os livres e, no servidor, só vale se `confirmKey` for igual ao `slotKey` da entrada atual (data, hora, duração, semanas e pacote).
+
+## E8.3 — série e vagas do pacote
+
+Se as sessões livres passarem das vagas, a série liga só até o limite e cria o resto sem pacote, depois da confirmação “N sessões ficam fora do pacote”. Pacote selecionado sem vaga continua `package-exhausted` (não cria todas soltas). Reposição não liga nem desliga: herda o pacote da falta. Ligar e desligar sessão marcada não gera evento de auditoria: o CHECK da 0014 não tem essa ação.
+
+## Cliente sql — uma consulta por vez
+
+O cliente `postgres.js` de clínica usa `max: 1`. Não usar `Promise.all` (nem outra sobreposição) com esse cliente. `readPatientAgenda` e `readNewAppointmentForm` leem em sequência.
 
 ## E8.2 — semana, 14 dias e observações
 

@@ -143,6 +143,26 @@ export function parseCreatePackage(input: unknown): CreatePackageInput {
   return createPackageSchema.parse(input);
 }
 
+const optionalPriceSchema = z
+  .string()
+  .transform((value) => value.trim())
+  .refine(
+    (value) => value === "" || /^(\d+)(?:[,.](\d{1,2}))?$/.test(value),
+    "Informe um valor válido.",
+  )
+  .transform((value) => {
+    if (value === "") return null;
+    const match = /^(\d+)(?:[,.](\d{1,2}))?$/.exec(value);
+    if (!match) return null;
+    const reais = Number(match[1]);
+    const fraction = (match[2] ?? "").padEnd(2, "0");
+    return reais * 100 + Number(fraction);
+  });
+
+export function parseOptionalPriceCents(raw: string): number | null {
+  return optionalPriceSchema.parse(raw);
+}
+
 export function parseCreateAppointment(input: unknown): CreateAppointmentInput {
   return createAppointmentSchema.parse(input);
 }

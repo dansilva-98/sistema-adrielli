@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   POOLER_IDLE_TIMEOUT_SECONDS,
@@ -47,11 +47,15 @@ async function renderHome(content: {
 }
 
 describe("leitura pública com consulta parada", () => {
-  it("termina a página rápido e com o conteúdo vazio", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("interrompe a leitura no timeout com timers falsos", async () => {
+    vi.useFakeTimers();
     const reported: string[] = [];
     let abandoned = 0;
-    const started = Date.now();
-    const content = await loadPublicHome(
+    const pending = loadPublicHome(
       {
         site: hang,
         services: hang,
@@ -66,14 +70,10 @@ describe("leitura pública com consulta parada", () => {
         abandoned += 1;
       },
     );
-    const html = await renderHome(content);
-
-    expect(Date.now() - started).toBeLessThan(1_000);
-    expect(html).toContain("</html>");
-    expect(html).toContain("Adrielli Flores");
-    expect(html).not.toContain("Algo deu errado");
-    expect(html).not.toContain("Perguntas frequentes");
-    expect(html).not.toContain("Depoimentos");
+    await vi.advanceTimersByTimeAsync(39);
+    expect(abandoned).toBe(0);
+    await vi.advanceTimersByTimeAsync(1);
+    const content = await pending;
     expect(content.site.heroTitle).toBe("");
     expect(content.services).toEqual([]);
     expect(content.testimonials).toEqual([]);
@@ -85,6 +85,20 @@ describe("leitura pública com consulta parada", () => {
       "PublicReadTimeoutError",
     ]);
     expect(abandoned).toBe(4);
+  });
+
+  it("renderiza a home vazia sem cronometrar a importação", async () => {
+    const html = await renderHome({
+      site: EMPTY_PUBLIC_SITE,
+      services: [],
+      testimonials: [],
+      faq: [],
+    });
+    expect(html).toContain("</html>");
+    expect(html).toContain("Adrielli Flores");
+    expect(html).not.toContain("Algo deu errado");
+    expect(html).not.toContain("Perguntas frequentes");
+    expect(html).not.toContain("Depoimentos");
   });
 
   it("entrega o conteúdo quando a consulta responde", async () => {

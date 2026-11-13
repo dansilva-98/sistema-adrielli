@@ -41,6 +41,8 @@ export type AgendaActionState = {
   message: string;
   conflicts: string[];
   slotKey: string;
+  overflowCount: number;
+  allowSkip: boolean;
 };
 
 export const idleAgendaAction: AgendaActionState = {
@@ -49,4 +51,6 @@ export const idleAgendaAction: AgendaActionState = {
   message: "",
   conflicts: [],
   slotKey: "",
+  overflowCount: 0,
+  allowSkip: false,
 };

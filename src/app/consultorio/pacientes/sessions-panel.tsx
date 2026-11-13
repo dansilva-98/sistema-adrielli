@@ -13,11 +13,20 @@ import type { AppointmentRecord } from "@/modules/clinic/appointments";
 import { expiredPackageLabel, formatClinicSlotLabel } from "@/modules/clinic/format";
 import type { PackageBalance } from "@/modules/clinic/packages";
 
+import { ClosePackageButton, CreatePackageForm } from "./package-forms";
+
+function priceLabel(cents: number | null): string | null {
+  if (cents === null) return null;
+  return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
+}
+
 export function SessionsPanel({
+  patientId,
   appointments,
   packages,
   today,
 }: {
+  patientId: string;
   appointments: AppointmentRecord[];
   packages: PackageBalance[];
   today: string;
@@ -34,10 +43,16 @@ export function SessionsPanel({
           <ul className="flex flex-col gap-3">
             {packages.map((item) => {
               const expired = expiredPackageLabel(item.expiresOn, today);
-              const remaining = remainingSessionWarning(item.remaining);
+              const remaining = item.closedAt
+                ? null
+                : remainingSessionWarning(item.remaining);
               const pending = pendingMakeupsLabel(item.pendingMakeups);
+              const price = priceLabel(item.priceCents);
               return (
-                <li key={item.id} className="rounded-xl border border-border p-4">
+                <li
+                  key={item.id}
+                  className="flex flex-col gap-3 rounded-xl border border-border p-4"
+                >
                   <p className="font-medium">
                     Pacote de {item.totalSessions} ·{" "}
                     {packageUsageLabel(item.consumed, item.totalSessions)}
@@ -46,11 +61,21 @@ export function SessionsPanel({
                   {expired ? <p className="text-sm text-danger">{expired}</p> : null}
                   {remaining ? <p className="text-sm text-danger">{remaining}</p> : null}
                   {pending ? <p className="text-sm">{pending}</p> : null}
+                  {price ? <p className="text-sm text-muted">{price}</p> : null}
+                  {item.notes ? (
+                    <p className="whitespace-pre-wrap break-words text-sm">
+                      {item.notes}
+                    </p>
+                  ) : null}
+                  {item.closedAt ? null : (
+                    <ClosePackageButton packageId={item.id} patientId={patientId} />
+                  )}
                 </li>
               );
             })}
           </ul>
         )}
+        <CreatePackageForm patientId={patientId} today={today} />
       </section>
       <section className="flex flex-col gap-3">
         <h3 className="font-serif text-xl">Histórico</h3>

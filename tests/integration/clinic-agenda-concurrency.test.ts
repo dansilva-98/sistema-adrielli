@@ -18,7 +18,9 @@ import {
   cancelAppointment,
   changeAppointmentStatus,
   createAppointment,
+  createAppointmentSeries,
   scheduleMakeup,
+  setAppointmentPackage,
 } from "../../src/modules/clinic/appointments";
 import type { Actor } from "../../src/modules/clinic/patients";
 import { createPackage } from "../../src/modules/clinic/packages";
@@ -335,6 +337,104 @@ describe("concorrência da agenda (A1)", () => {
         expect((failed[0] as PromiseRejectedResult).reason).toMatchObject({
           name: "ClinicRuleError",
           code: "makeup-taken",
+        });
+      }
+    },
+  );
+
+  it(
+    "dois vínculos na última vaga: um grava e o outro recebe package-exhausted",
+    { timeout: 60_000 },
+    async () => {
+      for (let index = 0; index < LOOPS; index += 1) {
+        const packageId = await createPackage(left, ACTOR, {
+          patientId: PATIENT_A,
+          totalSessions: 1,
+          startsOn: "2027-06-01",
+          expiresOn: null,
+          priceCents: null,
+          notes: null,
+        });
+        const firstId = await createAppointment(left, ACTOR, {
+          patientId: PATIENT_A,
+          packageId: null,
+          ...slot(index, 7),
+          modality: "in_person",
+          seriesId: null,
+          notes: null,
+        });
+        const secondId = await createAppointment(left, ACTOR, {
+          patientId: PATIENT_A,
+          packageId: null,
+          ...slot(index, 8),
+          modality: "in_person",
+          seriesId: null,
+          notes: null,
+        });
+        const results = await Promise.allSettled([
+          withoutDeadlock(() => setAppointmentPackage(left, ACTOR, firstId, packageId)),
+          withoutDeadlock(() => setAppointmentPackage(right, ACTOR, secondId, packageId)),
+        ]);
+        const ok = results.filter((result) => result.status === "fulfilled");
+        const failed = results.filter((result) => result.status === "rejected");
+        expect(ok, `loop ${index}`).toHaveLength(1);
+        expect(failed, `loop ${index}`).toHaveLength(1);
+        expect((failed[0] as PromiseRejectedResult).reason).toMatchObject({
+          name: "ClinicRuleError",
+          code: "package-exhausted",
+        });
+      }
+    },
+  );
+
+  it(
+    "série e vínculo na última vaga: um grava e o outro recebe package-exhausted",
+    { timeout: 60_000 },
+    async () => {
+      for (let index = 0; index < LOOPS; index += 1) {
+        const packageId = await createPackage(left, ACTOR, {
+          patientId: PATIENT_A,
+          totalSessions: 1,
+          startsOn: "2027-06-01",
+          expiresOn: null,
+          priceCents: null,
+          notes: null,
+        });
+        const linkedId = await createAppointment(left, ACTOR, {
+          patientId: PATIENT_A,
+          packageId: null,
+          ...slot(index, 4),
+          modality: "in_person",
+          seriesId: null,
+          notes: null,
+        });
+        const seriesSlot = slot(index, 5);
+        const results = await Promise.allSettled([
+          withoutDeadlock(() =>
+            createAppointmentSeries(
+              left,
+              ACTOR,
+              {
+                patientId: PATIENT_A,
+                packageId,
+                ...seriesSlot,
+                modality: "in_person",
+                seriesId: null,
+                notes: null,
+                slots: [seriesSlot],
+              },
+              { skipConflicts: false },
+            ),
+          ),
+          withoutDeadlock(() => setAppointmentPackage(right, ACTOR, linkedId, packageId)),
+        ]);
+        const ok = results.filter((result) => result.status === "fulfilled");
+        const failed = results.filter((result) => result.status === "rejected");
+        expect(ok, `loop ${index}`).toHaveLength(1);
+        expect(failed, `loop ${index}`).toHaveLength(1);
+        expect((failed[0] as PromiseRejectedResult).reason).toMatchObject({
+          name: "ClinicRuleError",
+          code: "package-exhausted",
         });
       }
     },

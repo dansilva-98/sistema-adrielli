@@ -75,6 +75,35 @@ export function pendingMakeupsLabel(count: number): string | null {
   return count === 1 ? "1 reposição pendente" : `${count} reposições pendentes`;
 }
 
+export function packageOverflowLabel(count: number): string {
+  return count === 1
+    ? "1 sessão fica fora do pacote"
+    : `${count} sessões ficam fora do pacote`;
+}
+
+export function seriesConfirmKey(input: {
+  date: string;
+  time: string;
+  durationMinutes: number;
+  weeks: number;
+  packageId: string | null;
+}): string {
+  return `${input.date}|${input.time}|${input.durationMinutes}|${input.weeks}|${input.packageId ?? ""}`;
+}
+
+export function seriesConfirmFlags(input: {
+  postedKey: string;
+  slotKey: string;
+  confirmLivres: boolean;
+  confirmOverflow: boolean;
+}): { skipConflicts: boolean; overflowConfirmed: boolean } {
+  const matched = input.postedKey === input.slotKey;
+  return {
+    skipConflicts: matched && input.confirmLivres,
+    overflowConfirmed: matched && input.confirmOverflow,
+  };
+}
+
 export function appointmentOverlapsClinicDay(
   startsAt: Date | string,
   endsAt: Date | string,

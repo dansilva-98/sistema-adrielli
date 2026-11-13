@@ -30,16 +30,19 @@ export class ClinicRuleError extends Error {
     | "overlap"
     | "invalid-transition"
     | "package-exhausted"
+    | "package-overflow"
     | "package-patient-mismatch"
     | "makeup-not-allowed"
     | "makeup-taken"
     | "undo-not-allowed"
     | "series-conflict";
+  readonly overflowCount: number;
 
-  constructor(code: ClinicRuleError["code"]) {
+  constructor(code: ClinicRuleError["code"], overflowCount = 0) {
     super(code);
     this.name = "ClinicRuleError";
     this.code = code;
+    this.overflowCount = overflowCount;
   }
 }
 

@@ -27,6 +27,7 @@ import {
   previewAppointmentSeries,
   rescheduleAppointment,
   scheduleMakeup,
+  setAppointmentPackage,
   undoAppointmentStatus,
 } from "../../src/modules/clinic/appointments";
 import type { Actor } from "../../src/modules/clinic/patients";
@@ -705,5 +706,205 @@ describe("regras da agenda e do pacote", () => {
     expect(ids).toHaveLength(1);
     const created = await getAppointment(runtime, ids[0]!);
     expect(new Date(created.startsAt).getTime()).toBe(slots[1]!.startsAt.getTime());
+  });
+
+  it("série que passa do limite liga até as vagas e cria o resto sem pacote", async () => {
+    const packageId = await createPackage(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      totalSessions: 1,
+      startsOn: "2028-08-01",
+      expiresOn: null,
+      priceCents: null,
+      notes: null,
+    });
+    const slots = await clinicWeeklySlots(runtime, "2028-08-07", "10:00", 50, 3);
+    await expect(
+      createAppointmentSeries(
+        runtime,
+        ACTOR,
+        {
+          patientId: PATIENT_ID,
+          packageId,
+          startsAt: slots[0]!.startsAt,
+          endsAt: slots[0]!.endsAt,
+          modality: "in_person",
+          seriesId: null,
+          notes: null,
+          slots,
+        },
+        { skipConflicts: false },
+      ),
+    ).rejects.toMatchObject({
+      name: "ClinicRuleError",
+      code: "package-overflow",
+      overflowCount: 2,
+    });
+    const ids = await createAppointmentSeries(
+      runtime,
+      ACTOR,
+      {
+        patientId: PATIENT_ID,
+        packageId,
+        startsAt: slots[0]!.startsAt,
+        endsAt: slots[0]!.endsAt,
+        modality: "in_person",
+        seriesId: null,
+        notes: null,
+        slots,
+      },
+      { skipConflicts: false, unlinkedCount: 2 },
+    );
+    expect(ids).toHaveLength(3);
+    const created = [];
+    for (const id of ids) created.push(await getAppointment(runtime, id));
+    expect(created.map((item) => item.packageId)).toEqual([packageId, null, null]);
+    const balance = await getPackageBalance(runtime, packageId);
+    expect(balance.occupied).toBe(1);
+    expect(balance.remaining).toBe(0);
+  });
+
+  it("confirmação de overflow não pula horário com conflito", async () => {
+    const packageId = await createPackage(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      totalSessions: 1,
+      startsOn: "2028-11-01",
+      expiresOn: null,
+      priceCents: null,
+      notes: null,
+    });
+    const slots = await clinicWeeklySlots(runtime, "2028-11-06", "10:00", 50, 3);
+    await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      startsAt: slots[2]!.startsAt,
+      endsAt: slots[2]!.endsAt,
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await expect(
+      createAppointmentSeries(
+        runtime,
+        ACTOR,
+        {
+          patientId: PATIENT_ID,
+          packageId,
+          startsAt: slots[0]!.startsAt,
+          endsAt: slots[0]!.endsAt,
+          modality: "in_person",
+          seriesId: null,
+          notes: null,
+          slots,
+        },
+        { skipConflicts: false, unlinkedCount: 1 },
+      ),
+    ).rejects.toMatchObject({ name: "ClinicRuleError", code: "series-conflict" });
+  });
+
+  it("série com pacote sem vaga continua recusada", async () => {
+    const packageId = await createPackage(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      totalSessions: 1,
+      startsOn: "2028-09-01",
+      expiresOn: null,
+      priceCents: null,
+      notes: null,
+    });
+    await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId,
+      ...slot("2028-09-01", 12),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    const slots = await clinicWeeklySlots(runtime, "2028-09-04", "11:00", 50, 2);
+    await expect(
+      createAppointmentSeries(
+        runtime,
+        ACTOR,
+        {
+          patientId: PATIENT_ID,
+          packageId,
+          startsAt: slots[0]!.startsAt,
+          endsAt: slots[0]!.endsAt,
+          modality: "in_person",
+          seriesId: null,
+          notes: null,
+          slots,
+        },
+        { skipConflicts: false, unlinkedCount: 2 },
+      ),
+    ).rejects.toMatchObject({ name: "ClinicRuleError", code: "package-exhausted" });
+  });
+
+  it("liga e desliga sessão marcada, recusa reposição e pacote encerrado", async () => {
+    const packageId = await createPackage(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      totalSessions: 1,
+      startsOn: "2028-10-01",
+      expiresOn: null,
+      priceCents: null,
+      notes: null,
+    });
+    const appointmentId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      ...slot("2028-10-02", 12),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await setAppointmentPackage(runtime, ACTOR, appointmentId, packageId);
+    const linked = await getAppointment(runtime, appointmentId);
+    expect(linked.packageId).toBe(packageId);
+    await expect(
+      setAppointmentPackage(runtime, ACTOR, appointmentId, packageId),
+    ).resolves.toBeUndefined();
+    await setAppointmentPackage(runtime, ACTOR, appointmentId, null);
+    const unlinked = await getAppointment(runtime, appointmentId);
+    expect(unlinked.packageId).toBeNull();
+
+    const missedId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId,
+      ...slot("2028-10-03", 12),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await changeAppointmentStatus(runtime, ACTOR, missedId, "missed_notified");
+    const makeupId = await scheduleMakeup(runtime, ACTOR, missedId, {
+      ...slot("2028-10-10", 12),
+      modality: "in_person",
+      notes: null,
+    });
+    await expect(
+      setAppointmentPackage(runtime, ACTOR, makeupId, null),
+    ).rejects.toMatchObject({ name: "ClinicRuleError", code: "makeup-not-allowed" });
+
+    const closedId = await createPackage(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      totalSessions: 2,
+      startsOn: "2028-10-01",
+      expiresOn: null,
+      priceCents: null,
+      notes: null,
+    });
+    await closePackage(runtime, ACTOR, closedId);
+    const otherId = await createAppointment(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      packageId: null,
+      ...slot("2028-10-04", 12),
+      modality: "in_person",
+      seriesId: null,
+      notes: null,
+    });
+    await expect(
+      setAppointmentPackage(runtime, ACTOR, otherId, closedId),
+    ).rejects.toMatchObject({ name: "ClinicRuleError", code: "package-exhausted" });
+    await expect(
+      setAppointmentPackage(runtime, ACTOR, otherId, null),
+    ).rejects.toMatchObject({ name: "ClinicRuleError", code: "invalid-transition" });
   });
 });
