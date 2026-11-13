@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sentry = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ import {
   reportServerError,
   SENTRY_FLUSH_MS,
 } from "@/lib/sentry-server";
+import { readOrEmpty } from "@/modules/content/queries";
 
 const request = {
   path: "/consultorio/agenda",
@@ -53,6 +55,7 @@ describe("relato de erro no servidor", () => {
 
   afterEach(() => {
     delete (globalThis as unknown as Record<symbol, unknown>)[NEXT_REQUEST_CONTEXT];
+    vi.useRealTimers();
   });
 
   it("onRequestError captura e só termina depois do flush", async () => {
@@ -153,6 +156,68 @@ describe("relato de erro no servidor", () => {
       reportRequestError(new Error("rota falhou"), request, context),
     ).resolves.toBeUndefined();
     expect(sentry.flush).not.toHaveBeenCalled();
+  });
+
+  it("as leituras públicas registram o flush sem esperar", () => {
+    expect(readFileSync("src/modules/content/server/public.ts", "utf8")).toContain(
+      "reportServerError(error, { wait: false })",
+    );
+  });
+
+  it("readOrEmpty devolve o vazio sem esperar o flush", async () => {
+    vi.useFakeTimers();
+    const waitUntil = vi.fn();
+    const restore = installWaitUntil(waitUntil);
+    sentry.flush.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve(true), SENTRY_FLUSH_MS);
+        }),
+    );
+    try {
+      const started = Date.now();
+      const value = await readOrEmpty(
+        async () => {
+          throw new Error("banco indisponível");
+        },
+        [] as string[],
+        (error) => reportServerError(error, { wait: false }),
+      );
+      expect(Date.now() - started).toBe(0);
+      expect(value).toEqual([]);
+      expect(sentry.captureException).toHaveBeenCalledTimes(1);
+      expect(waitUntil).toHaveBeenCalledTimes(1);
+      const tracked = waitUntil.mock.calls[0]?.[0] as Promise<unknown>;
+      let flushed = false;
+      void tracked.then(() => {
+        flushed = true;
+      });
+      await Promise.resolve();
+      expect(flushed).toBe(false);
+      await vi.advanceTimersByTimeAsync(SENTRY_FLUSH_MS);
+      expect(flushed).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  it("no padrão o reportServerError só termina depois do flush", async () => {
+    vi.useFakeTimers();
+    sentry.flush.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve(true), SENTRY_FLUSH_MS);
+        }),
+    );
+    let finished = false;
+    const pending = reportServerError(new Error("ação falhou")).then(() => {
+      finished = true;
+    });
+    await Promise.resolve();
+    expect(finished).toBe(false);
+    await vi.advanceTimersByTimeAsync(SENTRY_FLUSH_MS);
+    await pending;
+    expect(finished).toBe(true);
   });
 
   it("não lança se o waitUntil do Next falhar", async () => {

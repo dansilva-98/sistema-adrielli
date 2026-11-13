@@ -29,8 +29,8 @@ import {
   withPublicReadTimeout,
 } from "@/modules/content/public-read";
 
-async function reportReadFailure(error: unknown) {
-  await reportServerError(error);
+function reportReadFailure(error: unknown) {
+  return reportServerError(error, { wait: false });
 }
 
 function timed<T>(load: () => Promise<T>): Promise<T> {

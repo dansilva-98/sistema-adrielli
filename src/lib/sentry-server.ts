@@ -20,23 +20,38 @@ function registerBackgroundFlush(task: Promise<unknown>): void {
   }
 }
 
-export async function flushSentry(): Promise<void> {
+function startFlush(): Promise<void> {
   try {
     const pending = Promise.resolve(Sentry.flush(SENTRY_FLUSH_MS)).then(
       () => undefined,
       () => undefined,
     );
     registerBackgroundFlush(pending);
-    await pending;
+    return pending;
+  } catch {
+    return Promise.resolve();
+  }
+}
+
+export async function flushSentry(): Promise<void> {
+  try {
+    await startFlush();
   } catch {
     return;
   }
 }
 
-export async function reportServerError(error: unknown): Promise<void> {
+export async function reportServerError(
+  error: unknown,
+  options: { wait?: boolean } = {},
+): Promise<void> {
   try {
     Sentry.captureException(error);
   } catch {
+    return;
+  }
+  if (options.wait === false) {
+    void startFlush();
     return;
   }
   await flushSentry();

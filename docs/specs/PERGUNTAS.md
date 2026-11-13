@@ -138,6 +138,10 @@ A série aceita 2 a 26 semanas. Campo vazio agenda só a sessão. Se algum horá
 
 A semana começa na segunda-feira. Os 14 dias contam a partir da data selecionada. `expires_on` não bloqueia; a tela avisa “Pacote vencido em dd/mm”. Observações da sessão são só exibição. Desfazer não aparece em `rescheduled`. A medição de staging continua em `/consultorio/pacientes`.
 
+## O1 — waitUntil interno do Next na Netlify
+
+`Symbol.for("@next/request-context")` não é API pública. O `@netlify/plugin-nextjs` 5.16.4 usa o mesmo símbolo em `dist/run/handlers/wait-until.cjs`. Ao atualizar o Next ou o plugin, repetir a prova do 500 no staging (header RSC inválido na home) e conferir o evento Node com stack do servidor e `route_type: render`.
+
 ## L3.3 — destaque do Sobre e trilha do Contato (staging 10/11)
 
 A primeira frase do Sobre usa `text-xl sm:text-2xl`. Se passar de 180 caracteres, aparece no tamanho do corpo, sem destaque. Na trilha estática do Contato, só a etapa 1 fica preenchida; as outras têm contorno dourado e fundo claro, na vertical e na horizontal.
