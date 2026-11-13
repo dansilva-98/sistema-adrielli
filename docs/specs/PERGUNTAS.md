@@ -152,7 +152,7 @@ A semana começa na segunda-feira. Os 14 dias contam a partir da data selecionad
 
 ## E8.4 — dois responsáveis na mesma sessão
 
-A rotina trava os responsáveis e as sessões na mesma transação, envia um e-mail para cada um que aceitou e só então marca `reminder_sent_at`. Se um responsável da sessão não puder ser travado, a sessão espera a próxima hora.
+Cada responsável que aceitou recebe o próprio e-mail, numa transação só dele: trava as sessões com `skip locked`, envia, grava o par em `clinic.appointment_reminders` e o `clinic.reminder.sent`, e faz o commit. A sessão só recebe `reminder_sent_at` quando todos os responsáveis que aceitaram têm o par. Se um envio falha, só a transação dele é desfeita; a próxima hora reenvia só quem falta. Se o Resend aceitar e o commit falhar, só aquele responsável pode receber de novo.
 
 ## E8.4 — hora do lembrete fora das 07h–21h
 

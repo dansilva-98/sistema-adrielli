@@ -99,4 +99,20 @@ describe("lembrete por e-mail", () => {
     expect(script).not.toMatch(/guardianEmail|message\.to|full_name|preferred_name/);
     expect(script).toContain("publicLogMessage");
   });
+
+  it("a migration grava o par sessão-responsável sem DELETE", () => {
+    const sql = readFileSync(
+      "src/db/migrations/0016_clinic_appointment_reminders.sql",
+      "utf8",
+    );
+    expect(sql).toContain('CREATE TABLE "clinic"."appointment_reminders"');
+    expect(sql).toContain('PRIMARY KEY("appointment_id","guardian_id")');
+    expect(sql).toContain("ON DELETE no action");
+    expect(sql).toContain(
+      'GRANT SELECT, INSERT ON TABLE "clinic"."appointment_reminders" TO app_runtime',
+    );
+    expect(sql).not.toMatch(/GRANT[^;]*DELETE/);
+    expect(sql).not.toMatch(/FOR DELETE/);
+    expect(sql).not.toMatch(/ON DELETE cascade/i);
+  });
 });

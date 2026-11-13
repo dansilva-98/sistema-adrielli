@@ -164,54 +164,64 @@ export async function sendAppointmentReminders(input: {
   const clock = await loadClock(input.sql, now);
   const initialQuota = await loadQuota(input.sql, clock);
   const candidates = await loadCandidates(input.sql, clock);
-  if (candidates.length === 0) {
+  const groups = groupByGuardian(candidates);
+  if (groups.length === 0) {
     return { ...empty, quota: initialQuota };
   }
 
-  try {
-    const outcome = await input.sql.begin(async (tx) =>
-      sendLockedBatch(tx, {
-        candidates,
-        clock,
-        settings,
-        from: input.from,
-        transport: input.transport,
-        apiKey: input.apiKey,
-        whatsappUrl: input.whatsappUrl,
-        sendEmail: input.sendEmail,
-        now,
-      }),
-    );
-    return {
-      ok: !outcome.quotaHit && outcome.failed === false,
-      skipped: false,
-      reason: outcome.quotaHit
-        ? "quota"
-        : outcome.failed
-          ? "send-failed"
-          : outcome.sentEmails === 0
-            ? "none"
-            : null,
-      sentEmails: outcome.sentEmails,
-      markedAppointments: outcome.appointmentIds.length,
-      quota: outcome.quota,
-      appointmentIds: outcome.appointmentIds,
-    };
-  } catch {
-    return {
-      ...empty,
-      ok: false,
-      reason: "send-failed",
-      quota: initialQuota,
-    };
+  const markedIds: string[] = [];
+  let sentEmails = 0;
+  let used = initialQuota;
+  let sendFailed = false;
+  let quotaHit = false;
+
+  for (const group of groups) {
+    used = await loadQuota(input.sql, clock);
+    if (used >= REMINDER_DAILY_LIMIT) {
+      quotaHit = true;
+      break;
+    }
+    const outcome = await sendGuardianReminders(input.sql, {
+      group,
+      settings,
+      from: input.from,
+      transport: input.transport,
+      apiKey: input.apiKey,
+      whatsappUrl: input.whatsappUrl,
+      sendEmail: input.sendEmail,
+      now,
+    });
+    if (outcome.status === "skipped") continue;
+    if (outcome.status === "failed") {
+      sendFailed = true;
+      continue;
+    }
+    sentEmails += 1;
+    used += 1;
+    markedIds.push(...outcome.markedIds);
   }
+
+  return {
+    ok: !sendFailed && !quotaHit,
+    skipped: false,
+    reason: quotaHit
+      ? "quota"
+      : sendFailed
+        ? "send-failed"
+        : sentEmails === 0
+          ? "none"
+          : null,
+    sentEmails,
+    markedAppointments: markedIds.length,
+    quota: used,
+    appointmentIds: markedIds,
+  };
 }
 
-async function sendLockedBatch(
-  tx: postgres.TransactionSql,
+async function sendGuardianReminders(
+  sql: postgres.Sql,
   input: {
-    candidates: ReminderCandidate[];
-    clock: ClockBounds;
+    group: ReminderCandidate[];
     settings: SettingsRow;
     from: string;
     transport: "memory" | "resend";
@@ -220,139 +230,105 @@ async function sendLockedBatch(
     sendEmail: ReminderSendEmail;
     now: Date;
   },
-): Promise<{
-  sentEmails: number;
-  appointmentIds: string[];
-  quota: number;
-  quotaHit: boolean;
-  failed: boolean;
-}> {
-  const guardianIds = [...new Set(input.candidates.map((row) => row.guardianId))].sort();
-  const lockedGuardians = await tx<{ id: string; email: string }[]>`
-    select id, email
-    from clinic.guardians
-    where id in ${tx(guardianIds)}
-      and receives_reminders = true
-      and email is not null
-      and btrim(email) <> ''
-    order by id
-    for no key update skip locked
-  `;
-  const lockedGuardianIds = new Set(lockedGuardians.map((row) => row.id));
-  const emailByGuardian = new Map(
-    lockedGuardians.map((row) => [row.id, row.email.trim()] as const),
-  );
-  const blockedAppointments = new Set(
-    input.candidates
-      .filter((row) => !lockedGuardianIds.has(row.guardianId))
-      .map((row) => row.appointmentId),
-  );
-  const appointmentIds = [
-    ...new Set(
-      input.candidates
-        .filter(
-          (row) =>
-            lockedGuardianIds.has(row.guardianId) &&
-            !blockedAppointments.has(row.appointmentId),
-        )
-        .map((row) => row.appointmentId),
-    ),
-  ].sort();
-  if (lockedGuardians.length === 0 || appointmentIds.length === 0) {
-    return {
-      sentEmails: 0,
-      appointmentIds: [],
-      quota: await loadQuota(tx, input.clock),
-      quotaHit: false,
-      failed: false,
-    };
-  }
+): Promise<
+  { status: "sent"; markedIds: string[] } | { status: "skipped" } | { status: "failed" }
+> {
+  const guardianId = input.group[0]?.guardianId;
+  const guardianEmail = input.group[0]?.guardianEmail;
+  if (!guardianId || !guardianEmail) return { status: "skipped" };
+  const candidateIds = [...new Set(input.group.map((row) => row.appointmentId))].sort();
 
-  const lockedSessions = await tx<LockedSession[]>`
-    select a.id, a.starts_at, p.full_name, p.preferred_name
-    from clinic.appointments a
-    join clinic.patients p on p.id = a.patient_id
-    where a.id in ${tx(appointmentIds)}
-      and a.status = 'scheduled'
-      and a.reminder_sent_at is null
-    order by a.id
-    for update of a skip locked
-  `;
-  const sessionById = new Map(lockedSessions.map((row) => [row.id, row]));
-  const pairs = input.candidates.filter(
-    (row) => lockedGuardianIds.has(row.guardianId) && sessionById.has(row.appointmentId),
-  );
-  const groups = groupByGuardian(pairs);
-  let quota = await loadQuota(tx, input.clock);
-  const sentGuardianIds = new Set<string>();
-  let quotaHit = false;
+  try {
+    return await sql.begin(async (tx) => {
+      const lockedSessions = await tx<LockedSession[]>`
+        select a.id, a.starts_at, p.full_name, p.preferred_name
+        from clinic.appointments a
+        join clinic.patients p on p.id = a.patient_id
+        where a.id in ${tx(candidateIds)}
+          and a.status = 'scheduled'
+        order by a.id
+        for update of a skip locked
+      `;
+      if (lockedSessions.length !== candidateIds.length) {
+        return { status: "skipped" as const };
+      }
 
-  for (const group of groups) {
-    if (quota >= REMINDER_DAILY_LIMIT) {
-      quotaHit = true;
-      break;
-    }
-    const guardianId = group[0]?.guardianId;
-    const email = guardianId ? emailByGuardian.get(guardianId) : undefined;
-    if (!guardianId || !email) continue;
-    const sessions = group
-      .map((row) => sessionById.get(row.appointmentId))
-      .filter((session): session is LockedSession => Boolean(session));
-    if (sessions.length === 0) continue;
-    await input.sendEmail({
-      message: {
-        to: email,
-        ...buildReminderEmail({
-          sessions: sessions.map((session) => ({
-            treatmentName: treatmentName(session.full_name, session.preferred_name),
-            startsAt: asDate(session.starts_at),
-          })),
-          locationName: input.settings.location_name,
-          locationAddress: input.settings.location_address,
-          whatsappUrl: input.whatsappUrl,
-        }),
-      },
-      from: input.from,
-      transport: input.transport,
-      apiKey: input.apiKey,
+      const alreadySent = await tx<{ appointment_id: string }[]>`
+        select appointment_id
+        from clinic.appointment_reminders
+        where guardian_id = ${guardianId}::uuid
+          and appointment_id in ${tx(candidateIds)}
+      `;
+      const sentSet = new Set(alreadySent.map((row) => row.appointment_id));
+      const due = lockedSessions.filter((session) => !sentSet.has(session.id));
+      if (due.length === 0) return { status: "skipped" as const };
+
+      await input.sendEmail({
+        message: {
+          to: guardianEmail,
+          ...buildReminderEmail({
+            sessions: due.map((session) => ({
+              treatmentName: treatmentName(session.full_name, session.preferred_name),
+              startsAt: asDate(session.starts_at),
+            })),
+            locationName: input.settings.location_name,
+            locationAddress: input.settings.location_address,
+            whatsappUrl: input.whatsappUrl,
+          }),
+        },
+        from: input.from,
+        transport: input.transport,
+        apiKey: input.apiKey,
+      });
+
+      for (const session of due) {
+        await tx`
+          insert into clinic.appointment_reminders (appointment_id, guardian_id, sent_at)
+          values (${session.id}::uuid, ${guardianId}::uuid, ${input.now})
+        `;
+      }
+      await recordAudit(
+        {
+          action: "clinic.reminder.sent",
+          entityType: "guardian",
+          entityId: guardianId,
+          metadata: {},
+        },
+        tx,
+      );
+      const marked = await tx<{ id: string }[]>`
+        update clinic.appointments as a
+        set reminder_sent_at = ${input.now}
+        where a.id in ${tx(due.map((session) => session.id))}
+          and a.reminder_sent_at is null
+          and exists (
+            select 1
+            from clinic.appointment_reminders as reminder
+            where reminder.appointment_id = a.id
+          )
+          and not exists (
+            select 1
+            from clinic.patient_guardians as link
+            join clinic.guardians as guardian on guardian.id = link.guardian_id
+            where link.patient_id = a.patient_id
+              and guardian.receives_reminders = true
+              and guardian.email is not null
+              and btrim(guardian.email) <> ''
+              and position('@' in guardian.email) > 1
+              and not exists (
+                select 1
+                from clinic.appointment_reminders as reminder
+                where reminder.appointment_id = a.id
+                  and reminder.guardian_id = guardian.id
+              )
+          )
+        returning a.id
+      `;
+      return { status: "sent" as const, markedIds: marked.map((row) => row.id) };
     });
-    await recordAudit(
-      {
-        action: "clinic.reminder.sent",
-        entityType: "guardian",
-        entityId: guardianId,
-        metadata: {},
-      },
-      tx,
-    );
-    sentGuardianIds.add(guardianId);
-    quota += 1;
+  } catch {
+    return { status: "failed" };
   }
-
-  const markedIds = lockedSessions
-    .map((session) => session.id)
-    .filter((appointmentId) => {
-      const guardians = pairs
-        .filter((row) => row.appointmentId === appointmentId)
-        .map((row) => row.guardianId);
-      return guardians.length > 0 && guardians.every((id) => sentGuardianIds.has(id));
-    });
-  if (markedIds.length > 0) {
-    await tx`
-      update clinic.appointments
-      set reminder_sent_at = ${input.now}
-      where id in ${tx(markedIds)}
-        and reminder_sent_at is null
-    `;
-  }
-
-  return {
-    sentEmails: sentGuardianIds.size,
-    appointmentIds: markedIds,
-    quota,
-    quotaHit: quotaHit && groups.length > sentGuardianIds.size,
-    failed: false,
-  };
 }
 
 async function loadSettings(sql: Database): Promise<SettingsRow | null> {
@@ -393,11 +369,10 @@ async function loadQuota(sql: Database, clock: ClockBounds): Promise<number> {
           and created_at < ${clock.day_end}
       ) as mfa,
       (
-        select count(*)::int
-        from audit.audit_log
-        where action = 'clinic.reminder.sent'
-          and occurred_at >= ${clock.day_start}
-          and occurred_at < ${clock.day_end}
+        select count(distinct guardian_id)::int
+        from clinic.appointment_reminders
+        where sent_at >= ${clock.day_start}
+          and sent_at < ${clock.day_end}
       ) as reminders
   `;
   return (rows[0]?.mfa ?? 0) + (rows[0]?.reminders ?? 0);
@@ -420,13 +395,18 @@ async function loadCandidates(
     join clinic.patient_guardians pg on pg.patient_id = a.patient_id
     join clinic.guardians g on g.id = pg.guardian_id
     where a.status = 'scheduled'
-      and a.reminder_sent_at is null
       and a.starts_at >= ${clock.range_start}
       and a.starts_at < ${clock.range_end}
       and g.receives_reminders = true
       and g.email is not null
       and btrim(g.email) <> ''
       and position('@' in g.email) > 1
+      and not exists (
+        select 1
+        from clinic.appointment_reminders as reminder
+        where reminder.appointment_id = a.id
+          and reminder.guardian_id = g.id
+      )
     order by g.id, a.starts_at, a.id
   `;
   return rows.map((row) => ({
