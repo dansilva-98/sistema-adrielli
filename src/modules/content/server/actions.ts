@@ -2,7 +2,8 @@
 
 import { updateTag } from "next/cache";
 import { headers } from "next/headers";
-import * as Sentry from "@sentry/nextjs";
+
+import { reportServerError } from "@/lib/sentry-server";
 
 import { sql } from "@/db/client";
 import { serverEnv } from "@/lib/env.server";
@@ -217,7 +218,7 @@ async function uploadSectionFile(
           : "Envie um JPEG, PNG ou WebP.";
       return { ok: false, state: invalid(message, "image", { image: message }) };
     }
-    Sentry.captureException(error);
+    await reportServerError(error);
     return {
       ok: false,
       state: invalid("Não foi possível guardar a imagem.", "image", {
@@ -366,7 +367,7 @@ export async function uploadSiteImageAction(
           : "Envie um JPEG, PNG ou WebP.",
       );
     }
-    Sentry.captureException(error);
+    await reportServerError(error);
     return invalid("Não foi possível guardar a imagem.");
   }
 }
@@ -436,7 +437,7 @@ async function uploadPlannedImage(
           : "Envie um JPEG, PNG ou WebP.";
       return { ok: false, state: invalid(message, "image", { image: message }) };
     }
-    Sentry.captureException(error);
+    await reportServerError(error);
     return {
       ok: false,
       state: invalid("Não foi possível guardar a imagem.", "image", {
@@ -514,7 +515,7 @@ function issuesState(
   return invalid(first?.message, typeof field === "string" ? field : undefined, fields);
 }
 
-function failure(error: unknown): ContentFormState {
+async function failure(error: unknown): Promise<ContentFormState> {
   if (error instanceof ContentWriteError && error.code === "conflict") {
     return { ok: false, message: CONTENT_CONFLICT_MESSAGE };
   }
@@ -540,7 +541,7 @@ function failure(error: unknown): ContentFormState {
       fields: { consentAt: CONTENT_WITHDRAW_MESSAGE },
     };
   }
-  Sentry.captureException(error);
+  await reportServerError(error);
   return invalid("Não foi possível salvar. Tente novamente.");
 }
 
@@ -549,7 +550,7 @@ async function forgetImages(paths: string[]) {
     try {
       await removeSiteObject(storage, path);
     } catch (error) {
-      Sentry.captureException(error);
+      await reportServerError(error);
     }
   }
 }

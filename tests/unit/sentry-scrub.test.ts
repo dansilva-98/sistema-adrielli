@@ -136,6 +136,23 @@ describe("scrubSentryEvent", () => {
     expect(serialized).not.toContain("2018-02-02");
   });
 
+  it("remove a query do caminho Next.js no contexto do servidor", () => {
+    const scrubbed = scrubSentryEvent({
+      contexts: {
+        nextjs: {
+          request_path:
+            "/consultorio/agenda/nova?paciente=00000000-0000-4000-8000-000000000000&data=2026-11-13",
+          router_path:
+            "/consultorio/agenda/nova/page?paciente=00000000-0000-4000-8000-000000000000",
+          route_type: "render",
+        },
+      },
+    });
+    expect(scrubbed.contexts.nextjs.request_path).toBe("/consultorio/agenda/nova");
+    expect(scrubbed.contexts.nextjs.router_path).toBe("/consultorio/agenda/nova/page");
+    expect(scrubbed.contexts.nextjs.route_type).toBe("render");
+  });
+
   it("mantém o nome do SDK e remove chaves compostas e o nome do paciente", () => {
     const scrubbed = scrubSentryEvent({
       sdk: { name: "sentry.javascript.node" },

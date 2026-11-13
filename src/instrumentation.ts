@@ -1,4 +1,3 @@
-import type { Instrumentation } from "next";
 import * as Sentry from "@sentry/nextjs";
 
 import { serverEnv } from "@/lib/env.server";
@@ -35,14 +34,4 @@ export async function register() {
   }
 }
 
-export const onRequestError: Instrumentation.onRequestError = async (
-  error,
-  request,
-  context,
-) => {
-  Sentry.captureRequestError(error, request, {
-    routerKind: context.routerKind,
-    routePath: context.routePath,
-    routeType: context.routeType,
-  });
-};
+export { onRequestError } from "@/lib/sentry-server";

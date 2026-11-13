@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import { reportServerError } from "@/lib/sentry-server";
 
 import { sql } from "@/db/client";
 import { clientEnv } from "@/lib/env-client";
@@ -12,8 +12,8 @@ export const instant = false;
 
 export default async function EditSitePage() {
   await requireStaff({ roles: ADMIN_ROLES });
-  const site = await loadEditableSite(sql).catch((error: unknown) => {
-    Sentry.captureException(error);
+  const site = await loadEditableSite(sql).catch(async (error: unknown) => {
+    await reportServerError(error);
     return null;
   });
   if (!site) return <p role="alert">Não foi possível carregar o conteúdo.</p>;

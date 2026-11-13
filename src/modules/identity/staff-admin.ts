@@ -111,7 +111,7 @@ export async function disableStaff(
     ip: string | null;
     blockAuth: (userId: string) => Promise<void>;
     unblockAuth: (userId: string) => Promise<void>;
-    report: (error: unknown) => void;
+    report: (error: unknown) => void | Promise<void>;
   },
 ): Promise<void> {
   if (input.actorId === input.targetId) throw new StaffAdminError("self");
@@ -154,7 +154,7 @@ export async function disableStaff(
     try {
       await input.unblockAuth(input.targetId);
     } catch (undoError) {
-      input.report(undoError);
+      await input.report(undoError);
     }
     throw error;
   }
@@ -168,7 +168,7 @@ export async function enableStaff(
     ip: string | null;
     unblockAuth: (userId: string) => Promise<void>;
     blockAuth: (userId: string) => Promise<void>;
-    report: (error: unknown) => void;
+    report: (error: unknown) => void | Promise<void>;
   },
 ): Promise<void> {
   await input.unblockAuth(input.targetId);
@@ -194,7 +194,7 @@ export async function enableStaff(
     try {
       await input.blockAuth(input.targetId);
     } catch (undoError) {
-      input.report(undoError);
+      await input.report(undoError);
     }
     throw error;
   }
@@ -273,7 +273,7 @@ export async function inviteStaffMember(
     ip: string | null;
     invite: (email: string) => Promise<{ id: string }>;
     cancelInvite: (userId: string) => Promise<void>;
-    report: (error: unknown) => void;
+    report: (error: unknown) => void | Promise<void>;
   },
 ): Promise<void> {
   const parsed = parseStaffInvite(input);
@@ -314,7 +314,7 @@ export async function inviteStaffMember(
     try {
       await input.cancelInvite(userId);
     } catch (cancelError) {
-      input.report(cancelError);
+      await input.report(cancelError);
     }
     throw error;
   }

@@ -1,12 +1,12 @@
 import "server-only";
 
-import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db/client";
 import { userRoles, users } from "@/db/schema";
 import type { AuditAction } from "@/db/audit-actions";
+import { reportServerError } from "@/lib/sentry-server";
 import { recordAudit, type AuditEvent } from "@/modules/audit/record";
 import { isStaffRole, type StaffRole } from "@/modules/identity/access";
 import type { StaffProfile } from "@/modules/identity/login";
@@ -29,7 +29,7 @@ export async function writeStaffAudit(input: AuditEvent): Promise<void> {
   try {
     await recordAudit(input);
   } catch (error) {
-    Sentry.captureException(error);
+    await reportServerError(error);
     if (!nonBlocking.has(input.action)) throw error;
   }
 }

@@ -128,14 +128,14 @@ export async function endStaffAccess(input: {
   signOut: () => Promise<void>;
   clearCookie: () => Promise<void>;
   audit: () => Promise<void>;
-  report: (error: unknown) => void;
+  report: (error: unknown) => void | Promise<void>;
 }): Promise<void> {
   await input.signOut();
   await input.clearCookie();
   try {
     await input.audit();
   } catch (error) {
-    input.report(error);
+    await input.report(error);
   }
 }
 

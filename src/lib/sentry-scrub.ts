@@ -108,12 +108,29 @@ function scrubRequest(request: Record<string, unknown>): void {
   }
 }
 
+function scrubNextjsContext(contexts: Record<string, unknown>): void {
+  const nextjs = contexts.nextjs;
+  if (!nextjs || typeof nextjs !== "object") return;
+  const record = nextjs as Record<string, unknown>;
+  for (const key of ["request_path", "router_path"]) {
+    if (typeof record[key] === "string") record[key] = stripUrl(record[key]);
+  }
+}
+
 export function scrubSentryEvent<T>(event: T): T {
   const cloned = structuredClone(event) as T;
-  if (cloned && typeof cloned === "object" && "request" in cloned) {
-    const request = (cloned as { request?: unknown }).request;
-    if (request && typeof request === "object") {
-      scrubRequest(request as Record<string, unknown>);
+  if (cloned && typeof cloned === "object") {
+    if ("request" in cloned) {
+      const request = (cloned as { request?: unknown }).request;
+      if (request && typeof request === "object") {
+        scrubRequest(request as Record<string, unknown>);
+      }
+    }
+    if ("contexts" in cloned) {
+      const contexts = (cloned as { contexts?: unknown }).contexts;
+      if (contexts && typeof contexts === "object") {
+        scrubNextjsContext(contexts as Record<string, unknown>);
+      }
     }
   }
   return scrubValue(cloned) as T;

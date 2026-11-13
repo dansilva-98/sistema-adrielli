@@ -2,7 +2,8 @@ import "server-only";
 
 import { cacheTag } from "next/cache";
 import { connection } from "next/server";
-import * as Sentry from "@sentry/nextjs";
+
+import { reportServerError } from "@/lib/sentry-server";
 
 import { abandonRuntimeConnection, sql } from "@/db/client";
 import {
@@ -29,7 +30,7 @@ import {
 } from "@/modules/content/public-read";
 
 function reportReadFailure(error: unknown) {
-  Sentry.captureException(error);
+  return reportServerError(error, { wait: false });
 }
 
 function timed<T>(load: () => Promise<T>): Promise<T> {

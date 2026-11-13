@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import * as Sentry from "@sentry/nextjs";
 import { ZodError } from "zod";
 
 import { parseClientEnv } from "@/lib/env";
 import { serverEnv } from "@/lib/env.server";
+import { reportServerError } from "@/lib/sentry-server";
 import { USER_ADMIN_ROLES, isStaffRole } from "@/modules/identity/access";
 import {
   cancelStaffInvite,
@@ -29,7 +29,13 @@ import {
 
 import type { StaffFormState } from "./staff-form";
 
-function failure(error: unknown): StaffFormState {
+async function actor(): Promise<{ userId: string; ip: string | null }> {
+  const access = await requireStaff({ roles: USER_ADMIN_ROLES });
+  const headerStore = await headers();
+  return { userId: access.userId, ip: clientIp(headerStore) };
+}
+
+async function failure(error: unknown): Promise<StaffFormState> {
   if (error instanceof StaffAdminError) {
     if (error.code === "self") return { message: "Você não pode desativar a si mesmo." };
     if (error.code === "last") {
@@ -40,14 +46,8 @@ function failure(error: unknown): StaffFormState {
   }
   if (error instanceof ZodError)
     return { message: "Confira os dados e tente novamente." };
-  Sentry.captureException(error);
+  await reportServerError(error);
   return { message: "Não foi possível concluir. Tente novamente." };
-}
-
-async function actor(): Promise<{ userId: string; ip: string | null }> {
-  const access = await requireStaff({ roles: USER_ADMIN_ROLES });
-  const headerStore = await headers();
-  return { userId: access.userId, ip: clientIp(headerStore) };
 }
 
 export async function inviteStaffAction(
@@ -76,7 +76,7 @@ export async function inviteStaffAction(
           serviceRoleKey: serverEnv.SUPABASE_SERVICE_ROLE_KEY,
           userId,
         }),
-      report: (error) => Sentry.captureException(error),
+      report: (error) => reportServerError(error),
     });
     revalidatePath("/admin/usuarios");
     return { message: "Convite enviado." };
@@ -124,7 +124,7 @@ export async function setStaffAccessAction(
       ip: current.ip,
       blockAuth: blockAuthUser,
       unblockAuth: unblockAuthUser,
-      report: (error: unknown) => Sentry.captureException(error),
+      report: (error: unknown) => reportServerError(error),
     };
     if (disable) await disableStaff(sql, shared);
     else await enableStaff(sql, shared);

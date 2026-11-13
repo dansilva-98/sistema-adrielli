@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
-import * as Sentry from "@sentry/nextjs";
 import { z, ZodError } from "zod";
 
 import { sql } from "@/db/client";
+import { reportServerError } from "@/lib/sentry-server";
 import { clinicErrorMessage } from "@/modules/clinic/clinic-errors";
 import {
   parseAgendaSettings,
@@ -50,7 +50,7 @@ function optionalId(value: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-function failure(error: unknown): AgendaActionState {
+async function failure(error: unknown): Promise<AgendaActionState> {
   if (error instanceof StaffAccessError) throw error;
   if (error instanceof ClinicRuleError) {
     return {
@@ -70,7 +70,7 @@ function failure(error: unknown): AgendaActionState {
       slotKey: "",
     };
   }
-  Sentry.captureException(error);
+  await reportServerError(error);
   return {
     ok: false,
     code: "",

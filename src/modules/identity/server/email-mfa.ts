@@ -1,11 +1,11 @@
 import "server-only";
 
-import * as Sentry from "@sentry/nextjs";
 import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { staffEmailMfaChallenges, users } from "@/db/schema";
 import { serverEnv } from "@/lib/env.server";
+import { reportServerError } from "@/lib/sentry-server";
 import {
   EMAIL_MFA_CLEANUP_MS,
   EMAIL_MFA_DEFAULT_FROM,
@@ -261,7 +261,7 @@ export async function sendStaffEmailMfaCode(input: {
       apiKey: serverEnv.RESEND_API_KEY,
     });
   } catch (error) {
-    Sentry.captureException(new Error("Falha ao enviar e-mail de MFA"));
+    await reportServerError(new Error("Falha ao enviar e-mail de MFA"));
     void error;
     return {
       ok: false,
