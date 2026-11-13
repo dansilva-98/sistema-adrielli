@@ -9,7 +9,7 @@ const STAFF_ID = "a1111111-1111-4111-8111-111111111111";
 const PATIENT_ID = "a2222222-2222-4222-8222-222222222222";
 const PATIENT_2_ID = "a2222222-2222-4222-8222-222222222223";
 const GUARDIAN_ID = "a3333333-3333-4333-8333-333333333333";
-const TABLES = ["settings", "packages", "appointments"] as const;
+const TABLES = ["settings", "packages", "appointments", "appointment_reminders"] as const;
 
 describe("tabelas da agenda", () => {
   let owner: ReturnType<typeof postgres>;
@@ -54,6 +54,12 @@ describe("tabelas da agenda", () => {
   });
 
   afterAll(async () => {
+    await owner`
+      delete from clinic.appointment_reminders
+      where appointment_id in (
+        select id from clinic.appointments where created_by = ${STAFF_ID}::uuid
+      )
+    `;
     await owner`delete from clinic.appointments where created_by = ${STAFF_ID}::uuid`;
     await owner`
       delete from clinic.packages
@@ -81,7 +87,7 @@ describe("tabelas da agenda", () => {
       select grantee
       from information_schema.role_table_grants
       where table_schema = 'clinic'
-        and table_name in ('settings', 'packages', 'appointments')
+        and table_name in ('settings', 'packages', 'appointments', 'appointment_reminders')
         and grantee in ('anon', 'authenticated', 'PUBLIC')
     `;
     expect(grants).toEqual([]);
@@ -102,6 +108,7 @@ describe("tabelas da agenda", () => {
       settings: ["SELECT", "UPDATE"],
       packages: ["INSERT", "SELECT", "UPDATE"],
       appointments: ["INSERT", "SELECT", "UPDATE"],
+      appointment_reminders: ["INSERT", "SELECT"],
     } as const;
     for (const table of TABLES) {
       const grants = await owner<{ privilege_type: string }[]>`

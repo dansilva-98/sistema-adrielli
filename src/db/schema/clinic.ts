@@ -276,3 +276,19 @@ export const appointments = clinic
     ],
   )
   .enableRLS();
+
+export const appointmentReminders = clinic
+  .table(
+    "appointment_reminders",
+    {
+      appointmentId: uuid("appointment_id")
+        .notNull()
+        .references(() => appointments.id),
+      guardianId: uuid("guardian_id")
+        .notNull()
+        .references(() => guardians.id),
+      sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+    },
+    (table) => [primaryKey({ columns: [table.appointmentId, table.guardianId] })],
+  )
+  .enableRLS();

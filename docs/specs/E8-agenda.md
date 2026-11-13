@@ -100,8 +100,8 @@ Desenhar primeiro para o celular.
 ### E8.4 — Lembrete por e-mail
 
 - **Rotina agendada no GitHub Actions duas vezes por dia**: no horário configurado e 3 horas depois, como segurança, porque o agendamento do GitHub pode atrasar ou pular.
-- Ela envia o lembrete das sessões `scheduled` do **dia seguinte** que ainda não têm `reminder_sent_at`.
-- **Idempotente:** marca `reminder_sent_at` na mesma transação em que registra o envio, e nunca envia duas vezes.
+- Ela envia o lembrete das sessões `scheduled` do **dia seguinte** cujo par (sessão, responsável) ainda não está em `clinic.appointment_reminders`.
+- **Idempotente:** grava o par na mesma transação em que envia. `reminder_sent_at` da sessão é preenchido quando todos os responsáveis que aceitaram têm o par. Nunca reenvia o par gravado.
 - Envio pela **API do Resend**, com uma chave nova **só de envio** (`RESEND_API_KEY`, no ambiente `production`), remetente `nao-responda@adrielliflores.com.br`.
 - **Conteúdo mínimo:**
   - nome de tratamento do paciente;
@@ -157,5 +157,5 @@ Um PR por tarefa (E8.1 a E8.5), conforme a seção 7 das regras. As rotinas agen
 
 - **E-mail:** reaproveitar o módulo do A1 (`sendStaffEmail` / `email-transport.ts`: Resend por `fetch`, tempo limite de 10 s, transporte `memory` só fora da produção), em vez de criar outro envio. Remetente `MFA_EMAIL_FROM`, ou um `REMINDER_EMAIL_FROM` com o mesmo domínio.
 - **Chave do Resend no GitHub Actions:** a rotina do E8.4 roda no GitHub Actions, não na Netlify. A `RESEND_API_KEY` precisa existir também como segredo do ambiente `production` do GitHub. A responsável do projeto cria uma chave separada, "github-lembretes", só de envio e só do domínio, para poder revogar uma sem afetar o login.
-- **Cota compartilhada:** o plano gratuito do Resend (100 e-mails por dia) é dividido entre os códigos de login e os lembretes. A rotina para e alerta acima de **80 envios no dia**, somando os dois, para nunca bloquear o login.
+- **Cota compartilhada:** o plano gratuito do Resend (100 e-mails por dia) é dividido entre os códigos de login e os lembretes. A rotina para e alerta acima de **80 envios no dia**, somando os códigos de login do dia e os responsáveis distintos com `sent_at` do dia em `clinic.appointment_reminders`, para nunca bloquear o login.
 - **Critério A8:** "sem MFA" significa sessão não confirmada, nem por TOTP conhecido nem por código de e-mail (regra do A1).
