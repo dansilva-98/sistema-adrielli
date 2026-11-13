@@ -126,6 +126,18 @@ Aprovado em 12/11/2026: ao desfazer uma sessão com `makeup_of_id`, a origem é 
 
 Aprovado em 12/11/2026: desfazer `cancelled` grava `cancel_reason = null`.
 
+## E8.2 — só presencial nesta etapa
+
+A decisão da spec permanece: o modelo guarda `online`, mas as telas da E8.2 só gravam `in_person`.
+
+## E8.2 — série semanal e pacote
+
+A série aceita 2 a 26 semanas. Campo vazio agenda só a sessão. Se algum horário conflitar, nada é gravado e a tela lista os conflitos. A confirmação “Criar só as livres” grava apenas os livres. Se o pacote não couber todas as livres, a série inteira é recusada (`package-exhausted`). Ligar só até o limite do pacote fica para a E8.3.
+
+## E8.2 — semana, 14 dias e observações
+
+A semana começa na segunda-feira. Os 14 dias contam a partir da data selecionada. `expires_on` não bloqueia; a tela avisa “Pacote vencido em dd/mm”. Observações da sessão são só exibição. Desfazer não aparece em `rescheduled`. A medição de staging continua em `/consultorio/pacientes`.
+
 ## L3.3 — destaque do Sobre e trilha do Contato (staging 10/11)
 
 A primeira frase do Sobre usa `text-xl sm:text-2xl`. Se passar de 180 caracteres, aparece no tamanho do corpo, sem destaque. Na trilha estática do Contato, só a etapa 1 fica preenchida; as outras têm contorno dourado e fundo claro, na vertical e na horizontal.

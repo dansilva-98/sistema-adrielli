@@ -43,6 +43,20 @@ export const UNDOABLE_STATUSES = [
 
 export type UndoableStatus = (typeof UNDOABLE_STATUSES)[number];
 
+export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
+  scheduled: "Marcada",
+  completed: "Realizada",
+  missed_notified: "Faltou (avisou)",
+  missed_unnotified: "Faltou (sem aviso)",
+  cancelled: "Cancelada",
+  rescheduled: "Remarcada",
+};
+
+export const APPOINTMENT_MODALITY_LABELS: Record<AppointmentModality, string> = {
+  in_person: "Presencial",
+  online: "Online",
+};
+
 const fromScheduled = new Set<string>(STATUS_CHANGES_FROM_SCHEDULED);
 const occupied = new Set<string>(PACKAGE_OCCUPIED_STATUSES);
 const consumed = new Set<string>(PACKAGE_CONSUMED_STATUSES);
@@ -74,4 +88,25 @@ export function canUndoAppointmentStatus(from: AppointmentStatus): boolean {
 
 export function sameClinicDay(left: Date, right: Date): boolean {
   return todayInClinic(left) === todayInClinic(right);
+}
+
+export function canShowUndo(
+  status: AppointmentStatus,
+  statusChangedAt: Date | string | null,
+  now = new Date(),
+  hasActiveMakeup = false,
+): boolean {
+  if (hasActiveMakeup && status === "missed_notified") return false;
+  if (!canUndoAppointmentStatus(status) || !statusChangedAt) return false;
+  const changed =
+    statusChangedAt instanceof Date ? statusChangedAt : new Date(statusChangedAt);
+  if (Number.isNaN(changed.getTime())) return false;
+  return sameClinicDay(changed, now);
+}
+
+export function canOfferMakeup(
+  status: AppointmentStatus,
+  hasActiveMakeup: boolean,
+): boolean {
+  return status === "missed_notified" && !hasActiveMakeup;
 }

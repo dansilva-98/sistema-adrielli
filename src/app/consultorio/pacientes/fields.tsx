@@ -5,6 +5,9 @@ import { RELATIONSHIPS } from "@/modules/clinic/format";
 
 export const controlClass = "h-11 text-base";
 
+export const selectClass =
+  "h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Label className="flex flex-col items-stretch gap-2 text-sm">
@@ -55,7 +58,7 @@ export function RelationshipSelect({
         name={name}
         value={value}
         required
-        className="h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        className={selectClass}
         onChange={(event) => onChange(event.target.value)}
       >
         <option value="">Selecione</option>

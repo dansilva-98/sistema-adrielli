@@ -81,4 +81,15 @@ test.describe("MFA da equipe no Supabase local", () => {
     await expect(page.getByRole("heading", { name: "Administração" })).toBeVisible();
     await expect(page.getByText("Application error")).toHaveCount(0);
   });
+
+  test("sem MFA não entra na agenda", async ({ page }) => {
+    test.setTimeout(90_000);
+    const email = `mfa-agenda-${crypto.randomUUID()}@example.com`;
+    created.push(await createStaff(email, "CLINIC_ADMIN"));
+    await signIn(page, email);
+    await expect(page).toHaveURL(/\/equipe\/mfa\/verificar$/);
+    await page.goto("/consultorio/agenda");
+    await expect(page).toHaveURL(/\/equipe\/mfa\/verificar$/);
+    await expect(page.getByRole("heading", { name: "Agenda" })).toHaveCount(0);
+  });
 });

@@ -26,6 +26,8 @@ describe("papel do consultório", () => {
     "src/modules/clinic/appointments.ts",
     "src/modules/clinic/server/actions.ts",
     "src/modules/clinic/server/read.ts",
+    "src/modules/clinic/server/agenda-actions.ts",
+    "src/modules/clinic/server/agenda-read.ts",
   ])("%s chama assertRole antes de ler ou gravar", (file) => {
     const source = readFileSync(file, "utf8");
     const bodies = functionBodies(source);

@@ -2,8 +2,13 @@
 
 import { useRouter } from "next/navigation";
 
-const sections = ["dados", "responsaveis", "anexos"] as const;
-type Section = (typeof sections)[number];
+const tabs = [
+  { id: "dados", label: "Dados" },
+  { id: "responsaveis", label: "Responsáveis" },
+  { id: "anexos", label: "Anexos" },
+  { id: "sessoes", label: "Sessões" },
+] as const;
+type Section = (typeof tabs)[number]["id"];
 
 function sectionHref(patientId: string, section: Section): string {
   const params = new URLSearchParams();
@@ -21,11 +26,6 @@ export function SectionNav({
   section: Section;
 }) {
   const router = useRouter();
-  const tabs: { id: Section; label: string }[] = [
-    { id: "dados", label: "Dados" },
-    { id: "responsaveis", label: "Responsáveis" },
-    { id: "anexos", label: "Anexos" },
-  ];
 
   function select(next: Section) {
     const href = sectionHref(patientId, next);
@@ -34,7 +34,7 @@ export function SectionNav({
   }
 
   return (
-    <nav aria-label="Ficha" className="grid grid-cols-3 gap-1">
+    <nav aria-label="Ficha" className="grid grid-cols-2 gap-1 sm:grid-cols-4">
       {tabs.map((tab) => {
         const current = tab.id === section;
         const href = sectionHref(patientId, tab.id);

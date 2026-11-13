@@ -65,6 +65,20 @@ export type AppointmentRecord = {
   createdBy: string;
 };
 
+export type AppointmentListItem = AppointmentRecord & {
+  patientName: string;
+};
+
+export type AppointmentDetail = AppointmentListItem & {
+  hasActiveMakeup: boolean;
+};
+
+export type SeriesSlotPreview = {
+  startsAt: Date;
+  endsAt: Date;
+  conflict: boolean;
+};
+
 function mapAppointment(row: AppointmentRow): AppointmentRecord {
   return {
     id: row.id,
@@ -457,5 +471,244 @@ export async function undoAppointmentStatus(
       to: "scheduled",
       undo: true,
     });
+  });
+}
+
+type NamedAppointmentRow = AppointmentRow & {
+  full_name: string;
+  preferred_name: string | null;
+};
+
+function mapNamedAppointment(row: NamedAppointmentRow): AppointmentListItem {
+  return {
+    ...mapAppointment(row),
+    patientName: row.preferred_name?.trim() || row.full_name,
+  };
+}
+
+async function slotConflicts(
+  db: Database,
+  startsAt: Date,
+  endsAt: Date,
+): Promise<boolean> {
+  const rows = await db<{ taken: boolean }[]>`
+    select exists (
+      select 1
+      from clinic.appointments
+      where status in ('scheduled', 'completed')
+        and starts_at < ${endsAt}
+        and ends_at > ${startsAt}
+    ) as taken
+  `;
+  return Boolean(rows[0]?.taken);
+}
+
+export async function clinicDateTime(
+  db: Database,
+  date: string,
+  time: string,
+  durationMinutes: number,
+): Promise<{ startsAt: Date; endsAt: Date }> {
+  await assertRole(CONSULTORIO_ROLES);
+  const rows = await db<{ starts_at: Date; ends_at: Date }[]>`
+    select
+      timezone(
+        'America/Sao_Paulo',
+        ${date}::date + ${time}::time
+      ) as starts_at,
+      timezone(
+        'America/Sao_Paulo',
+        ${date}::date + ${time}::time
+      ) + make_interval(mins => ${durationMinutes}) as ends_at
+  `;
+  const slot = rows[0];
+  if (!slot) throw new ClinicRuleError("not-found");
+  return { startsAt: slot.starts_at, endsAt: slot.ends_at };
+}
+
+export async function clinicWeeklySlots(
+  db: Database,
+  date: string,
+  time: string,
+  durationMinutes: number,
+  weeks: number,
+): Promise<{ startsAt: Date; endsAt: Date }[]> {
+  await assertRole(CONSULTORIO_ROLES);
+  const rows = await db<{ starts_at: Date; ends_at: Date }[]>`
+    select
+      timezone(
+        'America/Sao_Paulo',
+        (${date}::date + (week.n * 7)) + ${time}::time
+      ) as starts_at,
+      timezone(
+        'America/Sao_Paulo',
+        (${date}::date + (week.n * 7)) + ${time}::time
+      ) + make_interval(mins => ${durationMinutes}) as ends_at
+    from generate_series(0, ${weeks - 1}) as week(n)
+    order by week.n
+  `;
+  return rows.map((row) => ({ startsAt: row.starts_at, endsAt: row.ends_at }));
+}
+
+export async function clinicDayRange(
+  db: Database,
+  date: string,
+  days: number,
+): Promise<{ from: Date; to: Date }> {
+  await assertRole(CONSULTORIO_ROLES);
+  const rows = await db<{ range_from: Date; range_to: Date }[]>`
+    select
+      timezone('America/Sao_Paulo', ${date}::date::timestamp) as range_from,
+      timezone(
+        'America/Sao_Paulo',
+        (${date}::date + ${days}::int)::timestamp
+      ) as range_to
+  `;
+  const range = rows[0];
+  if (!range) throw new ClinicRuleError("not-found");
+  return { from: range.range_from, to: range.range_to };
+}
+
+export async function listAgendaAppointments(
+  db: Database,
+  range: { from: Date; to: Date },
+): Promise<AppointmentListItem[]> {
+  await assertRole(CONSULTORIO_ROLES);
+  const rows = await db<NamedAppointmentRow[]>`
+    select
+      a.id, a.patient_id, a.package_id, a.starts_at, a.ends_at, a.modality, a.series_id,
+      a.status, a.makeup_of_id, a.rescheduled_to_id, a.notes, a.cancel_reason,
+      a.status_changed_at, a.reminder_sent_at, a.created_at, a.updated_at, a.created_by,
+      p.full_name, p.preferred_name
+    from clinic.appointments a
+    join clinic.patients p on p.id = a.patient_id
+    where a.starts_at < ${range.to}
+      and a.ends_at > ${range.from}
+    order by a.starts_at, a.id
+  `;
+  return rows.map(mapNamedAppointment);
+}
+
+export async function listPatientAppointments(
+  db: Database,
+  patientId: string,
+): Promise<AppointmentRecord[]> {
+  await assertRole(CONSULTORIO_ROLES);
+  const rows = await db<AppointmentRow[]>`
+    select id, patient_id, package_id, starts_at, ends_at, modality, series_id, status,
+      makeup_of_id, rescheduled_to_id, notes, cancel_reason, status_changed_at,
+      reminder_sent_at, created_at, updated_at, created_by
+    from clinic.appointments
+    where patient_id = ${patientId}::uuid
+    order by starts_at desc, id
+  `;
+  return rows.map(mapAppointment);
+}
+
+export async function getAppointmentDetail(
+  db: Database,
+  appointmentId: string,
+): Promise<AppointmentDetail> {
+  await assertRole(CONSULTORIO_ROLES);
+  const rows = await db<(NamedAppointmentRow & { has_active_makeup: boolean })[]>`
+    select
+      a.id, a.patient_id, a.package_id, a.starts_at, a.ends_at, a.modality, a.series_id,
+      a.status, a.makeup_of_id, a.rescheduled_to_id, a.notes, a.cancel_reason,
+      a.status_changed_at, a.reminder_sent_at, a.created_at, a.updated_at, a.created_by,
+      p.full_name, p.preferred_name,
+      exists (
+        select 1
+        from clinic.appointments makeup
+        where makeup.makeup_of_id = a.id
+          and makeup.status not in ('cancelled', 'rescheduled')
+      ) as has_active_makeup
+    from clinic.appointments a
+    join clinic.patients p on p.id = a.patient_id
+    where a.id = ${appointmentId}::uuid
+  `;
+  if (!rows[0]) throw new ClinicRuleError("not-found");
+  return {
+    ...mapNamedAppointment(rows[0]),
+    hasActiveMakeup: Boolean(rows[0].has_active_makeup),
+  };
+}
+
+export async function previewAppointmentSeries(
+  db: Database,
+  slots: { startsAt: Date; endsAt: Date }[],
+): Promise<SeriesSlotPreview[]> {
+  await assertRole(CONSULTORIO_ROLES);
+  const preview: SeriesSlotPreview[] = [];
+  for (const slot of slots) {
+    preview.push({
+      ...slot,
+      conflict: await slotConflicts(db, slot.startsAt, slot.endsAt),
+    });
+  }
+  return preview;
+}
+
+export async function createAppointmentSeries(
+  db: postgres.Sql,
+  actor: Actor,
+  input: CreateAppointmentInput & { slots: { startsAt: Date; endsAt: Date }[] },
+  options: { skipConflicts: boolean },
+): Promise<string[]> {
+  await assertRole(CONSULTORIO_ROLES);
+  return runClinicTransaction(db, async (tx) => {
+    await assertPatientExists(tx, input.patientId);
+    const preview: SeriesSlotPreview[] = [];
+    for (const slot of input.slots) {
+      preview.push({
+        ...slot,
+        conflict: await slotConflicts(tx, slot.startsAt, slot.endsAt),
+      });
+    }
+    const free = preview.filter((slot) => !slot.conflict);
+    if (!options.skipConflicts && preview.some((slot) => slot.conflict)) {
+      throw new ClinicRuleError("series-conflict");
+    }
+    if (free.length === 0) throw new ClinicRuleError("series-conflict");
+    if (input.packageId) {
+      const pkg = await tx<
+        {
+          id: string;
+          patient_id: string;
+          total_sessions: number;
+          closed_at: Date | string | null;
+        }[]
+      >`
+        select id, patient_id, total_sessions, closed_at
+        from clinic.packages
+        where id = ${input.packageId}::uuid
+        for update
+      `;
+      const current = pkg[0];
+      if (!current) throw new ClinicRuleError("not-found");
+      if (current.patient_id !== input.patientId) {
+        throw new ClinicRuleError("package-patient-mismatch");
+      }
+      if (current.closed_at) throw new ClinicRuleError("package-exhausted");
+      const occupied = await occupiedForPackage(tx, input.packageId);
+      if (!packageHasSlot(current.total_sessions, occupied + free.length - 1)) {
+        throw new ClinicRuleError("package-exhausted");
+      }
+    }
+    const seriesId = crypto.randomUUID();
+    const ids: string[] = [];
+    for (const slot of free) {
+      const id = await insertAppointment(tx, actor, {
+        patientId: input.patientId,
+        packageId: input.packageId,
+        startsAt: slot.startsAt,
+        endsAt: slot.endsAt,
+        modality: input.modality,
+        seriesId,
+        notes: input.notes,
+      });
+      await audit(tx, actor, "clinic.appointment.created", id);
+      ids.push(id);
+    }
+    return ids;
   });
 }

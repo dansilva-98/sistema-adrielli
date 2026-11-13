@@ -118,7 +118,11 @@ export const agendaSettingsSchema = z.object({
     .positive("Informe uma duração maior que zero."),
   locationName: z.string().trim().max(200),
   locationAddress: z.string().trim().max(2000),
-  reminderSendHour: z.number().int().min(0).max(23, "Informe uma hora entre 0 e 23."),
+  reminderSendHour: z
+    .number()
+    .int("Informe uma hora entre 0 e 23.")
+    .min(0, "Informe uma hora entre 0 e 23.")
+    .max(23, "Informe uma hora entre 0 e 23."),
 });
 
 export const statusChangeSchema = z.enum(STATUS_CHANGES_FROM_SCHEDULED);
@@ -161,4 +165,54 @@ export function parseStatusChange(input: unknown): StatusChangeFromScheduled {
 
 export function parseCancelReason(input: unknown): string | null {
   return cancelReasonSchema.parse(input);
+}
+
+const timeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Informe um horário válido.");
+
+export const appointmentFormSchema = z.object({
+  patientId: uuid,
+  date: z.string().refine(isRealDate, "Data inválida."),
+  time: timeSchema,
+  durationMinutes: z.number().int().positive("Informe uma duração maior que zero."),
+  packageId: uuid.nullable(),
+  modality: z.enum(APPOINTMENT_MODALITIES),
+  notes: optionalNotes,
+  weeks: z
+    .number()
+    .int("Informe o número de semanas.")
+    .min(1, "Informe o número de semanas.")
+    .max(26, "Use no máximo 26 semanas."),
+});
+
+export type AppointmentFormInput = z.infer<typeof appointmentFormSchema>;
+
+export function parseAppointmentForm(input: unknown): AppointmentFormInput {
+  return appointmentFormSchema.parse(input);
+}
+
+export const rescheduleFormSchema = z.object({
+  date: z.string().refine(isRealDate, "Data inválida."),
+  time: timeSchema,
+  durationMinutes: z.number().int().positive("Informe uma duração maior que zero."),
+  notes: optionalNotes,
+});
+
+export function parseRescheduleForm(
+  input: unknown,
+): z.infer<typeof rescheduleFormSchema> {
+  return rescheduleFormSchema.parse(input);
+}
+
+export const makeupFormSchema = z.object({
+  date: z.string().refine(isRealDate, "Data inválida."),
+  time: timeSchema,
+  durationMinutes: z.number().int().positive("Informe uma duração maior que zero."),
+  modality: z.enum(APPOINTMENT_MODALITIES),
+  notes: optionalNotes,
+});
+
+export function parseMakeupForm(input: unknown): z.infer<typeof makeupFormSchema> {
+  return makeupFormSchema.parse(input);
 }
