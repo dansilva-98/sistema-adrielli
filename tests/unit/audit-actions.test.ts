@@ -110,9 +110,12 @@ describe("ações de auditoria", () => {
 
   it("inclui os eventos da agenda, btree_gist e a restrição de exclusão", () => {
     const sql = readFileSync("src/db/migrations/0014_clinic_agenda.sql", "utf8");
-    for (const action of AUDIT_ACTIONS) {
+    for (const action of AUDIT_ACTIONS.filter(
+      (action) => action !== "clinic.appointment.package_changed",
+    )) {
       expect(sql).toContain(`'${action}'`);
     }
+    expect(sql).not.toContain("'clinic.appointment.package_changed'");
     expect(sql).toContain("CREATE EXTENSION btree_gist WITH SCHEMA extensions");
     expect(sql).toContain("appointments_no_overlap");
     expect(sql).toContain("tstzrange");
@@ -127,5 +130,15 @@ describe("ações de auditoria", () => {
     );
     expect(sql.toLowerCase()).not.toContain('grant delete on table "clinic"."packages"');
     expect(sql.toLowerCase()).not.toContain('grant delete on table "clinic"."settings"');
+  });
+
+  it("acrescenta clinic.appointment.package_changed na migration nova", () => {
+    const sql = readFileSync("src/db/migrations/0015_audit_package_changed.sql", "utf8");
+    for (const action of AUDIT_ACTIONS) {
+      expect(sql).toContain(`'${action}'`);
+    }
+    expect(sql).toContain('DROP CONSTRAINT "audit_log_action_check"');
+    expect(sql).toContain('ADD CONSTRAINT "audit_log_action_check"');
+    expect(sql.toLowerCase()).not.toContain("on delete cascade");
   });
 });

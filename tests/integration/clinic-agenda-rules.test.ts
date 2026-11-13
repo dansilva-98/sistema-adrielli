@@ -864,6 +864,46 @@ describe("regras da agenda e do pacote", () => {
     await setAppointmentPackage(runtime, ACTOR, appointmentId, null);
     const unlinked = await getAppointment(runtime, appointmentId);
     expect(unlinked.packageId).toBeNull();
+    const linkAudit = await owner<
+      { entityType: string; metadata: { linked: boolean } }[]
+    >`
+      select entity_type as "entityType", metadata
+      from audit.audit_log
+      where entity_id = ${appointmentId}::uuid
+        and action = 'clinic.appointment.package_changed'
+      order by occurred_at, id
+    `;
+    expect(linkAudit).toEqual([
+      { entityType: "appointment", metadata: { linked: true } },
+      { entityType: "appointment", metadata: { linked: false } },
+    ]);
+
+    const swapPackageId = await createPackage(runtime, ACTOR, {
+      patientId: PATIENT_ID,
+      totalSessions: 1,
+      startsOn: "2028-10-01",
+      expiresOn: null,
+      priceCents: null,
+      notes: null,
+    });
+    await setAppointmentPackage(runtime, ACTOR, appointmentId, packageId);
+    await setAppointmentPackage(runtime, ACTOR, appointmentId, swapPackageId);
+    const swapped = await getAppointment(runtime, appointmentId);
+    expect(swapped.packageId).toBe(swapPackageId);
+    const swapAudit = await owner<{ metadata: { linked: boolean } }[]>`
+      select metadata
+      from audit.audit_log
+      where entity_id = ${appointmentId}::uuid
+        and action = 'clinic.appointment.package_changed'
+      order by occurred_at, id
+    `;
+    expect(swapAudit.map((row) => row.metadata)).toEqual([
+      { linked: true },
+      { linked: false },
+      { linked: true },
+      { linked: true },
+    ]);
+    await setAppointmentPackage(runtime, ACTOR, appointmentId, null);
 
     const missedId = await createAppointment(runtime, ACTOR, {
       patientId: PATIENT_ID,

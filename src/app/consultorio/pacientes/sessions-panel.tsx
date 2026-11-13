@@ -68,7 +68,11 @@ export function SessionsPanel({
                     </p>
                   ) : null}
                   {item.closedAt ? null : (
-                    <ClosePackageButton packageId={item.id} patientId={patientId} />
+                    <ClosePackageButton
+                      packageId={item.id}
+                      patientId={patientId}
+                      scheduledCount={item.scheduled}
+                    />
                   )}
                 </li>
               );

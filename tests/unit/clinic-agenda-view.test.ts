@@ -11,6 +11,7 @@ import {
   agendaHref,
   appointmentOverlapsClinicDay,
   clinicDateList,
+  linkedScheduledLabel,
   packageOverflowLabel,
   packageUsageLabel,
   parseAgendaView,
@@ -82,6 +83,13 @@ describe("visões e textos da agenda", () => {
     );
     expect(packageOverflowLabel(1)).toBe("1 sessão fica fora do pacote");
     expect(packageOverflowLabel(3)).toBe("3 sessões ficam fora do pacote");
+    expect(linkedScheduledLabel(0)).toBeNull();
+    expect(linkedScheduledLabel(1)).toBe(
+      "1 sessão marcada continua ligada a este pacote",
+    );
+    expect(linkedScheduledLabel(3)).toBe(
+      "3 sessões marcadas continuam ligadas a este pacote",
+    );
     expect(
       seriesConfirmKey({
         date: "2029-08-06",
