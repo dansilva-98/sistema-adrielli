@@ -91,6 +91,7 @@ export default async function PatientPage({
       ) : null}
       {section === "sessoes" && agenda ? (
         <SessionsPanel
+          patientId={patient.id}
           appointments={agenda.appointments}
           packages={agenda.packages}
           today={todayInClinic()}

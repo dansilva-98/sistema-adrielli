@@ -14,7 +14,10 @@ vi.mock("@/modules/identity/server/guard", () => ({
 }));
 
 import { TEST_DATABASE_NAME } from "../../src/db/seed";
-import { readNewAppointmentForm } from "../../src/modules/clinic/server/agenda-read";
+import {
+  readNewAppointmentForm,
+  readPatientAgenda,
+} from "../../src/modules/clinic/server/agenda-read";
 import type { Actor } from "../../src/modules/clinic/patients";
 
 const STAFF_ID = "e1111111-1111-4111-8111-111111111111";
@@ -103,6 +106,13 @@ describe("formulário de nova sessão", () => {
     const result = await readNewAppointmentForm(db, ACTOR, PATIENT_ID);
     expect(result.patient?.id).toBe(PATIENT_ID);
     expect(result.settings.defaultDurationMinutes).toBeGreaterThan(0);
+    expect(result.packages).toEqual([]);
+  });
+
+  it("lê a agenda do paciente sem abrir duas queries ao mesmo tempo", async () => {
+    const db = withoutPipeline(runtime);
+    const result = await readPatientAgenda(PATIENT_ID, db);
+    expect(result.appointments).toEqual([]);
     expect(result.packages).toEqual([]);
   });
 });

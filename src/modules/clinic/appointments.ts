@@ -19,7 +19,7 @@ import {
   type AppointmentStatus,
   type StatusChangeFromScheduled,
 } from "./appointment-status";
-import { packageHasSlot } from "./package-balance";
+import { packageHasSlot, remainingSessions } from "./package-balance";
 import { ClinicRuleError, type Actor } from "./patients";
 import { runClinicTransaction } from "./run-transaction";
 
@@ -652,7 +652,7 @@ export async function createAppointmentSeries(
   db: postgres.Sql,
   actor: Actor,
   input: CreateAppointmentInput & { slots: { startsAt: Date; endsAt: Date }[] },
-  options: { skipConflicts: boolean },
+  options: { skipConflicts: boolean; unlinkedCount?: number },
 ): Promise<string[]> {
   await assertRole(CONSULTORIO_ROLES);
   return runClinicTransaction(db, async (tx) => {
@@ -669,6 +669,7 @@ export async function createAppointmentSeries(
       throw new ClinicRuleError("series-conflict");
     }
     if (free.length === 0) throw new ClinicRuleError("series-conflict");
+    let remaining = 0;
     if (input.packageId) {
       const pkg = await tx<
         {
@@ -690,25 +691,79 @@ export async function createAppointmentSeries(
       }
       if (current.closed_at) throw new ClinicRuleError("package-exhausted");
       const occupied = await occupiedForPackage(tx, input.packageId);
-      if (!packageHasSlot(current.total_sessions, occupied + free.length - 1)) {
-        throw new ClinicRuleError("package-exhausted");
+      remaining = remainingSessions(current.total_sessions, occupied);
+      if (remaining <= 0) throw new ClinicRuleError("package-exhausted");
+      const overflow = Math.max(0, free.length - remaining);
+      if (overflow > 0 && overflow !== (options.unlinkedCount ?? 0)) {
+        throw new ClinicRuleError("package-overflow", overflow);
       }
     }
     const seriesId = crypto.randomUUID();
     const ids: string[] = [];
+    let linked = 0;
     for (const slot of free) {
+      const usePackage = Boolean(input.packageId) && linked < remaining;
       const id = await insertAppointment(tx, actor, {
         patientId: input.patientId,
-        packageId: input.packageId,
+        packageId: usePackage ? input.packageId : null,
         startsAt: slot.startsAt,
         endsAt: slot.endsAt,
         modality: input.modality,
         seriesId,
         notes: input.notes,
       });
+      if (usePackage) linked += 1;
       await audit(tx, actor, "clinic.appointment.created", id);
       ids.push(id);
     }
     return ids;
+  });
+}
+
+async function lockPackage(
+  tx: postgres.TransactionSql,
+  packageId: string,
+): Promise<void> {
+  const rows = await tx<{ id: string }[]>`
+    select id
+    from clinic.packages
+    where id = ${packageId}::uuid
+    for update
+  `;
+  if (!rows[0]) throw new ClinicRuleError("not-found");
+}
+
+export async function setAppointmentPackage(
+  db: postgres.Sql,
+  actor: Actor,
+  appointmentId: string,
+  packageId: string | null,
+): Promise<void> {
+  await assertRole(CONSULTORIO_ROLES);
+  await runClinicTransaction(db, async (tx) => {
+    const current = await loadAppointment(tx, appointmentId, true);
+    if (current.status !== "scheduled") {
+      throw new ClinicRuleError("invalid-transition");
+    }
+    if (current.makeup_of_id) throw new ClinicRuleError("makeup-not-allowed");
+    if (packageId !== null && current.package_id === packageId) return;
+    if (packageId === null && !current.package_id) {
+      throw new ClinicRuleError("invalid-transition");
+    }
+    if (current.package_id) {
+      await lockPackage(tx, current.package_id);
+      await tx`
+        update clinic.appointments
+        set package_id = null
+        where id = ${appointmentId}::uuid
+      `;
+    }
+    if (packageId === null) return;
+    await assertPackageAcceptsSession(tx, packageId, current.patient_id);
+    await tx`
+      update clinic.appointments
+      set package_id = ${packageId}::uuid
+      where id = ${appointmentId}::uuid
+    `;
   });
 }

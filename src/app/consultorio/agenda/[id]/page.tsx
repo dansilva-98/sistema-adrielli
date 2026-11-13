@@ -8,13 +8,17 @@ import {
   canOfferMakeup,
   canShowUndo,
 } from "@/modules/clinic/appointment-status";
-import { formatClinicSlotLabel } from "@/modules/clinic/format";
+import { formatClinicSlotLabel, todayInClinic } from "@/modules/clinic/format";
 import { ClinicRuleError } from "@/modules/clinic/patients";
-import { readAppointmentDetail } from "@/modules/clinic/server/agenda-read";
+import {
+  readAppointmentDetail,
+  readPatientPackages,
+} from "@/modules/clinic/server/agenda-read";
 import { CONSULTORIO_ROLES } from "@/modules/identity/access";
 import { requireStaff } from "@/modules/identity/server/guard";
 
 import { AppointmentDetailActions } from "./appointment-detail";
+import { AppointmentPackageForm } from "./appointment-package-form";
 
 export const instant = false;
 
@@ -43,6 +47,10 @@ export default async function AppointmentPage({
   );
   const scheduled = appointment.status === "scheduled";
   const offerMakeup = canOfferMakeup(appointment.status, appointment.hasActiveMakeup);
+  const packages =
+    scheduled && !appointment.makeupOfId
+      ? await readPatientPackages(appointment.patientId)
+      : [];
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
@@ -67,6 +75,15 @@ export default async function AppointmentPage({
         Ficha do paciente
       </Link>
       {appointment.makeupOfId ? <p className="text-sm">Reposição</p> : null}
+      {scheduled && !appointment.makeupOfId ? (
+        <AppointmentPackageForm
+          appointmentId={appointment.id}
+          patientId={appointment.patientId}
+          packageId={appointment.packageId}
+          packages={packages}
+          today={todayInClinic()}
+        />
+      ) : null}
       {appointment.notes ? (
         <p className="whitespace-pre-wrap break-words text-sm">{appointment.notes}</p>
       ) : null}

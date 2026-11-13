@@ -6,6 +6,8 @@ export function clinicErrorMessage(code: ClinicRuleError["code"]): string {
       return "Este horário já está ocupado.";
     case "package-exhausted":
       return "O pacote não tem mais vagas.";
+    case "package-overflow":
+      return "Há sessões que ficam fora do pacote.";
     case "undo-not-allowed":
       return "Não é possível desfazer esta alteração.";
     case "makeup-taken":

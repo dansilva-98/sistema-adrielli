@@ -11,11 +11,15 @@ import {
   agendaHref,
   appointmentOverlapsClinicDay,
   clinicDateList,
+  packageOverflowLabel,
   packageUsageLabel,
   parseAgendaView,
   remainingSessionWarning,
+  seriesConfirmFlags,
+  seriesConfirmKey,
   shiftAgendaDate,
 } from "@/modules/clinic/agenda-view";
+import { parseOptionalPriceCents } from "@/modules/clinic/agenda-schema";
 import { clinicErrorMessage } from "@/modules/clinic/clinic-errors";
 import {
   addClinicDays,
@@ -73,6 +77,47 @@ describe("visões e textos da agenda", () => {
     expect(clinicErrorMessage("series-conflict")).toBe(
       "Há horários com conflito. Nada foi criado.",
     );
+    expect(clinicErrorMessage("package-overflow")).toBe(
+      "Há sessões que ficam fora do pacote.",
+    );
+    expect(packageOverflowLabel(1)).toBe("1 sessão fica fora do pacote");
+    expect(packageOverflowLabel(3)).toBe("3 sessões ficam fora do pacote");
+    expect(
+      seriesConfirmKey({
+        date: "2029-08-06",
+        time: "15:00",
+        durationMinutes: 50,
+        weeks: 3,
+        packageId: "pkg-1",
+      }),
+    ).toBe("2029-08-06|15:00|50|3|pkg-1");
+    expect(
+      seriesConfirmFlags({
+        postedKey: "k",
+        slotKey: "k",
+        confirmLivres: false,
+        confirmOverflow: true,
+      }),
+    ).toEqual({ skipConflicts: false, overflowConfirmed: true });
+    expect(
+      seriesConfirmFlags({
+        postedKey: "k",
+        slotKey: "k",
+        confirmLivres: true,
+        confirmOverflow: true,
+      }),
+    ).toEqual({ skipConflicts: true, overflowConfirmed: true });
+    expect(
+      seriesConfirmFlags({
+        postedKey: "other",
+        slotKey: "k",
+        confirmLivres: true,
+        confirmOverflow: true,
+      }),
+    ).toEqual({ skipConflicts: false, overflowConfirmed: false });
+    expect(parseOptionalPriceCents("")).toBeNull();
+    expect(parseOptionalPriceCents("150")).toBe(15000);
+    expect(parseOptionalPriceCents("150,50")).toBe(15050);
   });
 
   it("mostra Desfazer só no mesmo dia em America/Sao_Paulo", () => {

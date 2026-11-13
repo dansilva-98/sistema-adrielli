@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { idleAgendaAction } from "@/modules/clinic/form-state";
 import { expiredPackageLabel } from "@/modules/clinic/format";
-import { packageUsageLabel } from "@/modules/clinic/agenda-view";
+import { packageUsageLabel, seriesConfirmKey } from "@/modules/clinic/agenda-view";
 import type { PackageBalance } from "@/modules/clinic/packages";
 import { createAppointmentAction } from "@/modules/clinic/server/agenda-actions";
 
@@ -41,13 +41,23 @@ export function AppointmentForm({
   const expired = selectedPackage
     ? expiredPackageLabel(selectedPackage.expiresOn, today)
     : null;
-  const currentKey = `${selectedDate}|${time}|${duration}|${weeks || "1"}`;
+  const currentKey = seriesConfirmKey({
+    date: selectedDate,
+    time,
+    durationMinutes: Number(duration || "0"),
+    weeks: Number(weeks || "1"),
+    packageId: packageId || null,
+  });
   const weekCount = Number(weeks || "1");
   const canSkipConflicts =
     state.code === "series-conflict" &&
     state.slotKey === currentKey &&
     state.conflicts.length > 0 &&
     state.conflicts.length < weekCount;
+  const canConfirmOverflow =
+    state.code === "package-overflow" &&
+    state.slotKey === currentKey &&
+    state.overflowCount > 0;
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -83,6 +93,7 @@ export function AppointmentForm({
           onChange={(event) => setDuration(event.target.value)}
         />
       </Field>
+      <input type="hidden" name="packageId" value={packageId} />
       <Field label="Pacote (opcional)">
         <select
           name="packageId"
@@ -127,7 +138,17 @@ export function AppointmentForm({
           onChange={(event) => setNotes(event.target.value)}
         />
       </Field>
+      <input type="hidden" name="confirmKey" value={currentKey} />
+      {canConfirmOverflow ? (
+        <input type="hidden" name="overflowCount" value={String(state.overflowCount)} />
+      ) : null}
+      {canConfirmOverflow && state.allowSkip ? (
+        <input type="hidden" name="confirm" value="livres" />
+      ) : null}
       <AgendaNotice state={state} />
+      {canConfirmOverflow ? (
+        <p className="text-sm text-danger">Confirme para criar as demais sem pacote.</p>
+      ) : null}
       <Button type="submit" className="h-11 w-full" disabled={pending}>
         Agendar
       </Button>
@@ -141,6 +162,18 @@ export function AppointmentForm({
           disabled={pending}
         >
           Criar só as livres
+        </Button>
+      ) : null}
+      {canConfirmOverflow ? (
+        <Button
+          type="submit"
+          name="confirmOverflow"
+          value="sim"
+          variant="outline"
+          className="h-11 w-full"
+          disabled={pending}
+        >
+          Confirmar sessões fora do pacote
         </Button>
       ) : null}
     </form>
