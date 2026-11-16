@@ -121,7 +121,7 @@ describe("calendário ICS", () => {
       'GRANT DELETE ON TABLE "clinic"."calendar_feed_requests" TO app_runtime',
     );
     expect(sql).toContain("FOR DELETE TO app_runtime");
-    expect(sql).toContain('"attempted_at" < now() - interval \'1 day\'');
+    expect(sql).toContain("\"attempted_at\" < now() - interval '1 day'");
     expect(sql).not.toMatch(/ON DELETE cascade/i);
     expect(sql).not.toMatch(/DROP /i);
   });
