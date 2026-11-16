@@ -32,7 +32,8 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: /(patient-attachment|clinic-agenda|public-captures)\.spec\.ts/,
+      testIgnore:
+        /(patient-attachment|clinic-agenda|clinic-calendar|public-captures)\.spec\.ts/,
     },
     {
       name: "iphone",
@@ -40,7 +41,8 @@ export default defineConfig({
         ...devices["iPhone 13"],
         baseURL: `http://localhost:${port}`,
       },
-      testMatch: /(patient-attachment|clinic-agenda|clinic-packages)\.spec\.ts/,
+      testMatch:
+        /(patient-attachment|clinic-agenda|clinic-packages|clinic-calendar)\.spec\.ts/,
     },
     {
       name: "capturas",

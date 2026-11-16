@@ -4,6 +4,7 @@ import { readAgendaSettings } from "@/modules/clinic/server/agenda-read";
 import { CONSULTORIO_ROLES } from "@/modules/identity/access";
 import { requireStaff } from "@/modules/identity/server/guard";
 
+import { CalendarFeedPanel } from "./calendar-feed-panel";
 import { AgendaSettingsForm } from "./settings-form";
 
 export const instant = false;
@@ -23,6 +24,7 @@ export default async function AgendaSettingsPage() {
       </Link>
       <h2 className="font-serif text-2xl">Configurações da agenda</h2>
       <AgendaSettingsForm settings={settings} />
+      <CalendarFeedPanel hasFeed={settings.hasCalendarFeed} />
     </section>
   );
 }

@@ -54,3 +54,15 @@ export const idleAgendaAction: AgendaActionState = {
   overflowCount: 0,
   allowSkip: false,
 };
+
+export type CalendarFeedActionState = {
+  ok: boolean;
+  message: string;
+  feedUrl: string;
+};
+
+export const idleCalendarFeedAction: CalendarFeedActionState = {
+  ok: false,
+  message: "",
+  feedUrl: "",
+};

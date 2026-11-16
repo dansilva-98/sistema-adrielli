@@ -106,6 +106,14 @@ export default async function AppointmentPage({
           Remarcar
         </Link>
       ) : null}
+      {scheduled ? (
+        <a
+          href={`/consultorio/agenda/${appointment.id}/calendario`}
+          className="inline-flex h-11 items-center justify-center rounded-lg border border-border text-sm font-medium"
+        >
+          Adicionar ao calendário
+        </a>
+      ) : null}
       {offerMakeup ? (
         <Link
           href={`/consultorio/agenda/${appointment.id}/reposicao`}
