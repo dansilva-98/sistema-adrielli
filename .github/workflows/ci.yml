@@ -104,7 +104,9 @@ jobs:
         run: |
           version=$(grep -m1 "'@playwright/test@" pnpm-lock.yaml | sed -E "s/.*@playwright\/test@([^']+).*/\1/")
           test -n "$version"
+          test -n "$ImageOS"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "ImageOS=$ImageOS" >> "$GITHUB_ENV"
       - name: Cache dos navegadores do Playwright
         uses: actions/cache@v4
         with:
