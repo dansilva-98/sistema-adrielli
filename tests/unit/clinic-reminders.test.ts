@@ -90,6 +90,12 @@ describe("lembrete por e-mail", () => {
       "node --experimental-strip-types scripts/send-reminders.ts",
     );
     expect(workflow).toContain(
+      "github.event_name == 'schedule' && vars.REMINDERS_ENABLED == 'true'",
+    );
+    expect(workflow).toContain(
+      "github.event_name == 'workflow_dispatch' && inputs.destino == 'production'",
+    );
+    expect(workflow).toContain(
       "github.event_name == 'workflow_dispatch' && inputs.destino == 'staging'",
     );
     expect(workflow).not.toContain("BACKUP_DATABASE_URL");

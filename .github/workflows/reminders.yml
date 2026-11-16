@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   production:
-    if: github.event_name == 'schedule' || inputs.destino != 'staging'
+    if: (github.event_name == 'schedule' && vars.REMINDERS_ENABLED == 'true') || (github.event_name == 'workflow_dispatch' && inputs.destino == 'production')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production

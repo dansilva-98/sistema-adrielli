@@ -166,6 +166,10 @@ O e-mail omite o bloco do local se os dois campos estão vazios. Sem número de 
 
 O ambiente `production` já tem a chave. O ambiente `staging` do GitHub ainda não. A execução real do A5 precisa desse secret (e do e-mail de teste que a responsável indicar).
 
+## E8.4 — cron só com REMINDERS_ENABLED
+
+O job de produção do `reminders.yml` não roda no cron até existir a variável de repositório `REMINDERS_ENABLED=true`. O disparo manual de produção continua sem ela. A `0016` entra no staging pelo deploy depois do merge, não à mão.
+
 ## L3.3 — destaque do Sobre e trilha do Contato (staging 10/11)
 
 A primeira frase do Sobre usa `text-xl sm:text-2xl`. Se passar de 180 caracteres, aparece no tamanho do corpo, sem destaque. Na trilha estática do Contato, só a etapa 1 fica preenchida; as outras têm contorno dourado e fundo claro, na vertical e na horizontal.
