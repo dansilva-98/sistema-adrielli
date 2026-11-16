@@ -13,6 +13,7 @@ export { content, faq, services, siteSettings, testimonials } from "./content";
 export { commerce } from "./commerce";
 export {
   appointmentModality,
+  appointmentReminders,
   appointmentStatus,
   appointments,
   attachmentCategory,
