@@ -82,14 +82,14 @@ async function countFeedAttempts(
   db: Database,
   keyHash: string,
   kind: FeedKind,
-  since: Date,
 ): Promise<number> {
+  const windowMs = CALENDAR_FEED_WINDOW_MS;
   const rows = await db<{ total: number }[]>`
     select count(*)::int as total
     from clinic.calendar_feed_requests
     where key_hash = ${keyHash}
       and kind = ${kind}
-      and attempted_at > ${since}
+      and attempted_at > now() - (${windowMs} * interval '1 millisecond')
   `;
   return Number(rows[0]?.total ?? 0);
 }
@@ -105,19 +105,12 @@ async function recordFeedAttempt(
   `;
 }
 
-async function feedIsOverLimit(
+async function feedKindIsOverLimit(
   db: Database,
-  keys: { tokenKey: string | null; ipKey: string | null },
+  keyHash: string,
+  kind: FeedKind,
 ): Promise<boolean> {
-  const since = new Date(Date.now() - CALENDAR_FEED_WINDOW_MS);
-  if (
-    keys.tokenKey &&
-    (await countFeedAttempts(db, keys.tokenKey, "TOKEN", since)) > CALENDAR_FEED_LIMIT
-  ) {
-    return true;
-  }
-  if (!keys.ipKey) return false;
-  return (await countFeedAttempts(db, keys.ipKey, "IP", since)) > CALENDAR_FEED_LIMIT;
+  return (await countFeedAttempts(db, keyHash, kind)) > CALENDAR_FEED_LIMIT;
 }
 
 function feedKeys(
@@ -237,10 +230,13 @@ export async function serveCalendarFeed(
 ): Promise<Response> {
   const token = parseCalendarFeedFile(input.file);
   const keys = feedKeys(token, input.ip);
-  if (keys.tokenKey) await recordFeedAttempt(db, keys.tokenKey, "TOKEN");
-  if (keys.ipKey) await recordFeedAttempt(db, keys.ipKey, "IP");
-  if (await feedIsOverLimit(db, keys)) return emptyResponse(429);
-  if (!token) return emptyResponse(404);
+  if (keys.ipKey) {
+    await recordFeedAttempt(db, keys.ipKey, "IP");
+    if (await feedKindIsOverLimit(db, keys.ipKey, "IP")) return emptyResponse(429);
+  }
+  if (!token || !keys.tokenKey) return emptyResponse(404);
+  await recordFeedAttempt(db, keys.tokenKey, "TOKEN");
+  if (await feedKindIsOverLimit(db, keys.tokenKey, "TOKEN")) return emptyResponse(429);
   const stored = await storedCalendarHash(db);
   if (!calendarTokenHashMatches(stored, token)) return emptyResponse(404);
   const events = (await listFeedAppointments(db)).map(mapEvent);

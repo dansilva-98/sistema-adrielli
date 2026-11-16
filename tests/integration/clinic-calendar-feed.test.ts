@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -20,6 +21,7 @@ import {
   serveAppointmentCalendar,
   serveCalendarFeed,
 } from "../../src/modules/clinic/calendar-feed";
+import { pruneCalendarFeedRequests } from "../../src/modules/clinic/calendar-feed-prune";
 import {
   calendarFeedPath,
   generateCalendarToken,
@@ -45,6 +47,7 @@ type SettingsSnapshot = {
 describe("feed ICS da agenda", () => {
   let owner: ReturnType<typeof postgres>;
   let runtime: ReturnType<typeof postgres>;
+  let feed: ReturnType<typeof postgres>;
   let snapshot: SettingsSnapshot | null = null;
   const startedAt = new Date();
 
@@ -57,6 +60,8 @@ describe("feed ICS da agenda", () => {
     ownerUrl.pathname = `/${TEST_DATABASE_NAME}`;
     owner = postgres(ownerUrl.toString(), { max: 1, prepare: false, connect_timeout: 5 });
     runtime = postgres(testUrl, { max: 1, prepare: false, connect_timeout: 5 });
+    feed = postgres(testUrl, { max: 1, prepare: false, connect_timeout: 5 });
+    void drizzle(feed);
     const rows = await owner<SettingsSnapshot[]>`
       select
         location_name,
@@ -126,11 +131,12 @@ describe("feed ICS da agenda", () => {
     await owner`delete from auth.users where id = ${STAFF_ID}::uuid`;
     await owner.end({ timeout: 5 });
     await runtime.end({ timeout: 5 });
+    await feed.end({ timeout: 5 });
   });
 
   it("aceita o token certo, 404 no trocado e só o nome com a inicial", async () => {
     const token = await rotateCalendarFeedToken(runtime, ACTOR);
-    const ok = await serveCalendarFeed(runtime, {
+    const ok = await serveCalendarFeed(feed, {
       file: `${token}.ics`,
       ip: "198.51.100.21",
     });
@@ -168,16 +174,16 @@ describe("feed ICS da agenda", () => {
     expect(body).not.toContain("CANCELADA");
 
     const missingFile = `${generateCalendarToken()}.ics`;
-    const missing = await serveCalendarFeed(runtime, {
+    const missing = await serveCalendarFeed(feed, {
       file: missingFile,
       ip: "198.51.100.22",
     });
     const next = await rotateCalendarFeedToken(runtime, ACTOR);
-    const rotated = await serveCalendarFeed(runtime, {
+    const rotated = await serveCalendarFeed(feed, {
       file: `${token}.ics`,
       ip: "198.51.100.23",
     });
-    const fresh = await serveCalendarFeed(runtime, {
+    const fresh = await serveCalendarFeed(feed, {
       file: `${next}.ics`,
       ip: "198.51.100.24",
     });
@@ -189,7 +195,7 @@ describe("feed ICS da agenda", () => {
     expect(rotated.headers.get("cache-control")).toBe("private, no-store");
     expect(calendarFeedPath(next)).toContain(next);
 
-    const malformed = await serveCalendarFeed(runtime, {
+    const malformed = await serveCalendarFeed(feed, {
       file: "abc.ics",
       ip: "198.51.100.25",
     });
@@ -201,11 +207,11 @@ describe("feed ICS da agenda", () => {
     const token = await rotateCalendarFeedToken(runtime, ACTOR);
     const ip = "198.51.100.30";
     for (let index = 0; index < CALENDAR_FEED_LIMIT; index += 1) {
-      const response = await serveCalendarFeed(runtime, { file: `${token}.ics`, ip });
+      const response = await serveCalendarFeed(feed, { file: `${token}.ics`, ip });
       expect(response.status, String(index)).toBe(200);
       await response.text();
     }
-    const limited = await serveCalendarFeed(runtime, { file: `${token}.ics`, ip });
+    const limited = await serveCalendarFeed(feed, { file: `${token}.ics`, ip });
     expect(limited.status).toBe(429);
     expect(limited.headers.get("cache-control")).toBe("private, no-store");
   });
@@ -232,6 +238,70 @@ describe("feed ICS da agenda", () => {
     `;
     const denied = await serveAppointmentCalendar(runtime, cancelled[0]!.id);
     expect(denied.status).toBe(404);
+  });
+
+  it("limita por IP antes de gravar TOKEN e devolve 429 no token inválido", async () => {
+    const ip = "203.0.113.80";
+    const before = await owner<{ n: number }[]>`
+      select count(*)::int as n
+      from clinic.calendar_feed_requests
+      where kind = 'TOKEN' and attempted_at >= ${startedAt}
+    `;
+    for (let index = 0; index < CALENDAR_FEED_LIMIT; index += 1) {
+      const response = await serveCalendarFeed(feed, { file: "abc.ics", ip });
+      expect(response.status, String(index)).toBe(404);
+    }
+    const limited = await serveCalendarFeed(feed, { file: "abc.ics", ip });
+    expect(limited.status).toBe(429);
+    const after = await owner<{ n: number }[]>`
+      select count(*)::int as n
+      from clinic.calendar_feed_requests
+      where kind = 'TOKEN' and attempted_at >= ${startedAt}
+    `;
+    expect(after[0]?.n).toBe(before[0]?.n);
+  });
+
+  it("app_runtime só apaga pedidos do calendário com mais de um dia", async () => {
+    const oldKey = `e8-cal-test-old-${crypto.randomUUID()}`;
+    const recentKey = `e8-cal-test-new-${crypto.randomUUID()}`;
+    try {
+      await owner`
+        insert into clinic.calendar_feed_requests (key_hash, kind, attempted_at)
+        values
+          (${oldKey}, 'IP', now() - interval '25 hours'),
+          (${recentKey}, 'IP', now() - interval '1 hour')
+      `;
+      await runtime`
+        delete from clinic.calendar_feed_requests
+        where key_hash = ${oldKey} or key_hash = ${recentKey}
+      `;
+      const afterRole = await owner<{ key_hash: string }[]>`
+        select key_hash
+        from clinic.calendar_feed_requests
+        where key_hash = ${oldKey} or key_hash = ${recentKey}
+        order by key_hash
+      `;
+      expect(afterRole.map((row) => row.key_hash)).toEqual([recentKey]);
+
+      await owner`
+        insert into clinic.calendar_feed_requests (key_hash, kind, attempted_at)
+        values (${oldKey}, 'IP', now() - interval '25 hours')
+      `;
+      const pruned = await pruneCalendarFeedRequests(runtime);
+      expect(pruned).toBeGreaterThanOrEqual(1);
+      const afterPrune = await owner<{ key_hash: string }[]>`
+        select key_hash
+        from clinic.calendar_feed_requests
+        where key_hash = ${oldKey} or key_hash = ${recentKey}
+        order by key_hash
+      `;
+      expect(afterPrune.map((row) => row.key_hash)).toEqual([recentKey]);
+    } finally {
+      await owner`
+        delete from clinic.calendar_feed_requests
+        where key_hash = ${oldKey} or key_hash = ${recentKey}
+      `;
+    }
   });
 
   async function insertWindowAppointments(): Promise<void> {

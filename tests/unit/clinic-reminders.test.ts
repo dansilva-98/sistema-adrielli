@@ -102,6 +102,8 @@ describe("lembrete por e-mail", () => {
     expect(workflow).not.toContain("MIGRATIONS_DATABASE_URL");
     expect(workflow).not.toContain("cancel-in-progress: true");
     expect(script).toContain("appointmentIds");
+    expect(script).toContain("pruneCalendarFeedRequests");
+    expect(script).toContain("prunedFeedRequests");
     expect(script).not.toMatch(/guardianEmail|message\.to|full_name|preferred_name/);
     expect(script).toContain("publicLogMessage");
   });

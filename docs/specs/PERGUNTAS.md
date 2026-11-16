@@ -174,9 +174,9 @@ O job de produção do `reminders.yml` não roda no cron até existir a variáve
 
 A spec pede limite por token e por IP, sem números. Ficou 20 requisições / 15 minutos por token e por IP, iguais ao limite de login por IP. O 429 é avaliado antes de conferir o hash, para não distinguir token válido de inválido.
 
-## E8.5 — tabela de limite sem limpeza
+## E8.5 — limpeza do limite do calendário
 
-`clinic.calendar_feed_requests` só recebe INSERT, como `identity.login_attempts`. Não há rotina de expurgo. A tabela cresce com o uso.
+O pedido de IP é gravado sempre; o de TOKEN só com formato válido. O job de lembretes apaga linhas com mais de 1 dia. A `0018` dá `DELETE` ao `app_runtime` só nessa tabela, com política `attempted_at < now() - interval '1 day'`.
 
 ## E8.5 — iCloud e o limite por IP
 

@@ -1,5 +1,6 @@
 import postgres from "postgres";
 
+import { pruneCalendarFeedRequests } from "../src/modules/clinic/calendar-feed-prune.ts";
 import { sendAppointmentReminders } from "../src/modules/clinic/reminders.ts";
 import {
   EMAIL_MFA_DEFAULT_FROM,
@@ -39,6 +40,12 @@ async function main(): Promise<void> {
   });
 
   try {
+    let prunedFeedRequests = 0;
+    try {
+      prunedFeedRequests = await pruneCalendarFeedRequests(sql);
+    } catch (error) {
+      console.error(publicLogMessage(error));
+    }
     const whatsappUrl = await loadWhatsappUrl(sql);
     const result = await sendAppointmentReminders({
       sql,
@@ -57,6 +64,7 @@ async function main(): Promise<void> {
         markedAppointments: result.markedAppointments,
         quota: result.quota,
         appointmentIds: result.appointmentIds,
+        prunedFeedRequests,
       }),
     );
     if (!result.ok) process.exitCode = 1;

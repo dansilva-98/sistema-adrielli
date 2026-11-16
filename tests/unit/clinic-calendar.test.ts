@@ -111,4 +111,18 @@ describe("calendário ICS", () => {
     expect(sql).not.toMatch(/ON DELETE cascade/i);
     expect(sql).not.toMatch(/DROP /i);
   });
+
+  it("a migration 0018 dá DELETE só em pedidos do calendário com mais de um dia", () => {
+    const sql = readFileSync(
+      "src/db/migrations/0018_clinic_calendar_feed_requests_prune.sql",
+      "utf8",
+    );
+    expect(sql).toContain(
+      'GRANT DELETE ON TABLE "clinic"."calendar_feed_requests" TO app_runtime',
+    );
+    expect(sql).toContain("FOR DELETE TO app_runtime");
+    expect(sql).toContain('"attempted_at" < now() - interval \'1 day\'');
+    expect(sql).not.toMatch(/ON DELETE cascade/i);
+    expect(sql).not.toMatch(/DROP /i);
+  });
 });

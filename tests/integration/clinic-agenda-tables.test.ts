@@ -112,13 +112,13 @@ describe("tabelas da agenda", () => {
     }
   });
 
-  it("dá ao app_runtime leitura e escrita sem exclusão", async () => {
+  it("dá ao app_runtime leitura e escrita, com DELETE só no limite do calendário", async () => {
     const expected = {
       settings: ["SELECT", "UPDATE"],
       packages: ["INSERT", "SELECT", "UPDATE"],
       appointments: ["INSERT", "SELECT", "UPDATE"],
       appointment_reminders: ["INSERT", "SELECT"],
-      calendar_feed_requests: ["INSERT", "SELECT"],
+      calendar_feed_requests: ["DELETE", "INSERT", "SELECT"],
     } as const;
     for (const table of TABLES) {
       const grants = await owner<{ privilege_type: string }[]>`
