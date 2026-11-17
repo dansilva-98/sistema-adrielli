@@ -186,6 +186,10 @@ export const settings = clinic
       locationName: text("location_name").notNull().default(""),
       locationAddress: text("location_address").notNull().default(""),
       reminderSendHour: integer("reminder_send_hour").notNull().default(9),
+      calendarFeedTokenHash: text("calendar_feed_token_hash"),
+      calendarFeedRotatedAt: timestamp("calendar_feed_rotated_at", {
+        withTimezone: true,
+      }),
       updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
       updatedBy: uuid("updated_by").references(() => users.id),
     },
@@ -198,6 +202,10 @@ export const settings = clinic
       check(
         "settings_reminder_send_hour",
         sql`${table.reminderSendHour} between 0 and 23`,
+      ),
+      check(
+        "settings_calendar_feed_token_hash",
+        sql`${table.calendarFeedTokenHash} is null or ${table.calendarFeedTokenHash} ~ '^[0-9a-f]{64}$'`,
       ),
     ],
   )
@@ -290,5 +298,26 @@ export const appointmentReminders = clinic
       sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
     },
     (table) => [primaryKey({ columns: [table.appointmentId, table.guardianId] })],
+  )
+  .enableRLS();
+
+export const calendarFeedRequests = clinic
+  .table(
+    "calendar_feed_requests",
+    {
+      id: uuid("id").primaryKey().defaultRandom(),
+      keyHash: text("key_hash").notNull(),
+      kind: text("kind").notNull(),
+      attemptedAt: timestamp("attempted_at", { withTimezone: true })
+        .notNull()
+        .defaultNow(),
+    },
+    (table) => [
+      index("calendar_feed_requests_key_attempted_at_idx").on(
+        table.keyHash,
+        table.attemptedAt,
+      ),
+      check("calendar_feed_requests_kind", sql`${table.kind} in ('TOKEN', 'IP')`),
+    ],
   )
   .enableRLS();

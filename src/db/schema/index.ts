@@ -17,6 +17,7 @@ export {
   appointmentStatus,
   appointments,
   attachmentCategory,
+  calendarFeedRequests,
   clinic,
   guardianRelationship,
   guardians,

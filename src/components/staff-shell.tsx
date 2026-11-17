@@ -53,7 +53,7 @@ export function StaffShell({
       </header>
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:flex-row">
         <StaffNav links={links} />
-        <div className="min-w-0 flex-1">{children}</div>
+        <main className="min-w-0 flex-1">{children}</main>
       </div>
     </div>
   );

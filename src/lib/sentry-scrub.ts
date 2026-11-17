@@ -40,12 +40,18 @@ export function isSensitiveKey(key: string): boolean {
   return words.some((word) => SENSITIVE_WORDS.has(word));
 }
 
+const CALENDAR_FEED_PATH = /\/api\/consultorio\/calendario\/[^/?#]+\.ics/gi;
+
+function stripCalendarFeedPath(value: string): string {
+  return value.replace(CALENDAR_FEED_PATH, "/api/consultorio/calendario/[redacted].ics");
+}
+
 function stripUrl(url: string): string {
   const query = url.indexOf("?");
   const hash = url.indexOf("#");
   const cuts = [query, hash].filter((index) => index >= 0);
-  if (cuts.length === 0) return url;
-  return url.slice(0, Math.min(...cuts));
+  const withoutQuery = cuts.length === 0 ? url : url.slice(0, Math.min(...cuts));
+  return stripCalendarFeedPath(withoutQuery);
 }
 
 function dropSensitiveQuery(value: string): string {
@@ -73,8 +79,10 @@ function scrubString(value: string): string {
     .replace(/postgres(?:ql)?:\/\/[^\s'"]+/gi, "[redacted]")
     .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted]");
-  return dropSensitiveQuery(
-    withoutSecrets.replace(/https?:\/\/[^\s'"]+/gi, (url) => stripUrl(url)),
+  return stripCalendarFeedPath(
+    dropSensitiveQuery(
+      withoutSecrets.replace(/https?:\/\/[^\s'"]+/gi, (url) => stripUrl(url)),
+    ),
   );
 }
 

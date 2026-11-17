@@ -170,6 +170,42 @@ O ambiente `production` já tem a chave. O ambiente `staging` do GitHub ainda n�
 
 O job de produção do `reminders.yml` não roda no cron até existir a variável de repositório `REMINDERS_ENABLED=true`. O disparo manual de produção continua sem ela. A `0016` entra no staging pelo deploy depois do merge, não à mão.
 
+## E8.5 — limite do calendário ICS
+
+A spec pede limite por token e por IP, sem números. Ficou 20 requisições / 15 minutos por token e por IP, iguais ao limite de login por IP. O 429 é avaliado antes de conferir o hash, para não distinguir token válido de inválido.
+
+## E8.5 — limpeza do limite do calendário
+
+O pedido de IP é gravado sempre; o de TOKEN só com formato válido. O job de lembretes apaga linhas com mais de 1 dia. A `0018` dá `DELETE` ao `app_runtime` só nessa tabela, com política `attempted_at < now() - interval '1 day'`.
+
+## E8.5 — iCloud e o limite por IP
+
+A assinatura do iPhone pode passar pelos servidores da Apple. Vários aparelhos atrás do mesmo NAT ou do iCloud podem partilhar o limite por IP. Trocar o link continua disponível.
+
+## E8.5 — sufixo do sobrenome
+
+A inicial é a primeira letra da última palavra de `full_name`. "Júnior", "Filho" e "Neto" viram J./F./N. Confirmar se esses sufixos devem ser ignorados.
+
+## E8.5 — paciente arquivado
+
+A spec pede sessões `scheduled` na janela, sem filtrar arquivo. Sessões marcadas de paciente arquivado entram no feed.
+
+## E8.5 — botão só na sessão marcada
+
+"Adicionar ao calendário" aparece só com status `scheduled`. Fora disso o download responde 404.
+
+## E8.5 — arquivo .ics na Netlify
+
+A rota é `GET /api/consultorio/calendario/<token>.ics` no App Router. Se o plugin da Netlify servir `.ics` como estático, a assinatura quebra.
+
+## E8.5 — VTIMEZONE fixo em −03
+
+O ICS usa `TZID=America/Sao_Paulo` com um `VTIMEZONE` STANDARD −03 desde 17/02/2019, quando o horário de verão acabou. Se o horário de verão voltar, esse bloco precisa ser atualizado.
+
+## Manutenção — Playwright no Ubuntu 26.04
+
+O CI do Playwright ficou em `ubuntu-24.04` e a chave do cache inclui `ImageOS`, porque o `ubuntu-latest` passou a 26.04 e o cache do WebKit do 24.04 quebrou. Voltar a `ubuntu-latest` quando o Playwright suportá-lo oficialmente.
+
 ## L3.3 — destaque do Sobre e trilha do Contato (staging 10/11)
 
 A primeira frase do Sobre usa `text-xl sm:text-2xl`. Se passar de 180 caracteres, aparece no tamanho do corpo, sem destaque. Na trilha estática do Contato, só a etapa 1 fica preenchida; as outras têm contorno dourado e fundo claro, na vertical e na horizontal.

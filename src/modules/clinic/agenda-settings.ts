@@ -15,6 +15,7 @@ export type AgendaSettings = {
   locationName: string;
   locationAddress: string;
   reminderSendHour: number;
+  hasCalendarFeed: boolean;
   updatedAt: Date | string;
   updatedBy: string | null;
 };
@@ -24,6 +25,7 @@ function mapSettings(row: {
   location_name: string;
   location_address: string;
   reminder_send_hour: number;
+  has_calendar_feed: boolean;
   updated_at: Date | string;
   updated_by: string | null;
 }): AgendaSettings {
@@ -32,6 +34,7 @@ function mapSettings(row: {
     locationName: row.location_name,
     locationAddress: row.location_address,
     reminderSendHour: row.reminder_send_hour,
+    hasCalendarFeed: Boolean(row.has_calendar_feed),
     updatedAt: row.updated_at,
     updatedBy: row.updated_by,
   };
@@ -45,6 +48,7 @@ export async function getAgendaSettings(db: Database): Promise<AgendaSettings> {
       location_name,
       location_address,
       reminder_send_hour,
+      calendar_feed_token_hash is not null as has_calendar_feed,
       updated_at,
       updated_by
     from clinic.settings
@@ -75,6 +79,7 @@ export async function updateAgendaSettings(
         location_name,
         location_address,
         reminder_send_hour,
+        calendar_feed_token_hash is not null as has_calendar_feed,
         updated_at,
         updated_by
     `;

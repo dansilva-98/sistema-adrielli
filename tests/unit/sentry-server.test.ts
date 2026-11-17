@@ -46,14 +46,24 @@ function installWaitUntil(waitUntil: (task: Promise<unknown>) => void) {
 }
 
 describe("relato de erro no servidor", () => {
+  const originalAppEnv = process.env.APP_ENV;
+  const originalDsn = process.env.SENTRY_DSN;
+  let consoleError: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     sentry.captureException.mockReset();
     sentry.captureRequestError.mockReset();
     sentry.flush.mockReset();
     sentry.flush.mockResolvedValue(true);
+    consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
+    consoleError.mockRestore();
+    if (originalAppEnv === undefined) delete process.env.APP_ENV;
+    else process.env.APP_ENV = originalAppEnv;
+    if (originalDsn === undefined) delete process.env.SENTRY_DSN;
+    else process.env.SENTRY_DSN = originalDsn;
     delete (globalThis as unknown as Record<symbol, unknown>)[NEXT_REQUEST_CONTEXT];
     vi.useRealTimers();
   });
@@ -218,6 +228,35 @@ describe("relato de erro no servidor", () => {
     await vi.advanceTimersByTimeAsync(SENTRY_FLUSH_MS);
     await pending;
     expect(finished).toBe(true);
+  });
+
+  it("escreve o erro limpo fora da produção ou sem DSN", async () => {
+    const token = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq";
+    const error = new Error(
+      `falha postgres://secret@host/db pessoa@example.com /api/consultorio/calendario/${token}.ics`,
+    );
+    process.env.APP_ENV = "staging";
+    process.env.SENTRY_DSN = "https://public@o0.ingest.sentry.io/0";
+    await reportServerError(error);
+    expect(consoleError).toHaveBeenCalled();
+    const logged = JSON.stringify(consoleError.mock.calls);
+    expect(logged).toContain("[redacted].ics");
+    expect(logged).not.toContain("postgres://");
+    expect(logged).not.toContain("pessoa@example.com");
+    expect(logged).not.toContain(token);
+
+    consoleError.mockClear();
+    process.env.APP_ENV = "production";
+    delete process.env.SENTRY_DSN;
+    await reportServerError(error);
+    expect(consoleError).toHaveBeenCalled();
+  });
+
+  it("não escreve no console em produção com DSN", async () => {
+    process.env.APP_ENV = "production";
+    process.env.SENTRY_DSN = "https://public@o0.ingest.sentry.io/0";
+    await reportServerError(new Error("ação falhou"));
+    expect(consoleError).not.toHaveBeenCalled();
   });
 
   it("não lança se o waitUntil do Next falhar", async () => {

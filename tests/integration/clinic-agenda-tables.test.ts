@@ -9,7 +9,13 @@ const STAFF_ID = "a1111111-1111-4111-8111-111111111111";
 const PATIENT_ID = "a2222222-2222-4222-8222-222222222222";
 const PATIENT_2_ID = "a2222222-2222-4222-8222-222222222223";
 const GUARDIAN_ID = "a3333333-3333-4333-8333-333333333333";
-const TABLES = ["settings", "packages", "appointments", "appointment_reminders"] as const;
+const TABLES = [
+  "settings",
+  "packages",
+  "appointments",
+  "appointment_reminders",
+  "calendar_feed_requests",
+] as const;
 
 describe("tabelas da agenda", () => {
   let owner: ReturnType<typeof postgres>;
@@ -87,7 +93,10 @@ describe("tabelas da agenda", () => {
       select grantee
       from information_schema.role_table_grants
       where table_schema = 'clinic'
-        and table_name in ('settings', 'packages', 'appointments', 'appointment_reminders')
+        and table_name in (
+          'settings', 'packages', 'appointments', 'appointment_reminders',
+          'calendar_feed_requests'
+        )
         and grantee in ('anon', 'authenticated', 'PUBLIC')
     `;
     expect(grants).toEqual([]);
@@ -103,12 +112,13 @@ describe("tabelas da agenda", () => {
     }
   });
 
-  it("dá ao app_runtime leitura e escrita sem exclusão", async () => {
+  it("dá ao app_runtime leitura e escrita, com DELETE só no limite do calendário", async () => {
     const expected = {
       settings: ["SELECT", "UPDATE"],
       packages: ["INSERT", "SELECT", "UPDATE"],
       appointments: ["INSERT", "SELECT", "UPDATE"],
       appointment_reminders: ["INSERT", "SELECT"],
+      calendar_feed_requests: ["DELETE", "INSERT", "SELECT"],
     } as const;
     for (const table of TABLES) {
       const grants = await owner<{ privilege_type: string }[]>`
@@ -144,6 +154,13 @@ describe("tabelas da agenda", () => {
         where id = 1
       `,
     ).rejects.toThrow(/settings_reminder_send_hour/);
+    await expect(
+      runtime`
+        update clinic.settings
+        set calendar_feed_token_hash = 'abc'
+        where id = 1
+      `,
+    ).rejects.toThrow(/settings_calendar_feed_token_hash/);
 
     const extension = await owner<{ nspname: string }[]>`
       select n.nspname

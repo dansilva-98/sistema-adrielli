@@ -36,4 +36,18 @@ describe("papel do consultório", () => {
       expect(body).toMatch(/assertRole\(CONSULTORIO_ROLES\)|await currentActor\(\)/);
     }
   });
+
+  it("o feed público não exige sessão, e gerar ou baixar a sessão exige papel", () => {
+    const source = readFileSync("src/modules/clinic/calendar-feed.ts", "utf8");
+    const bodies = Object.fromEntries(
+      functionBodies(source).map((body) => {
+        const name = /export async function ([A-Za-z0-9_]+)/.exec(body)?.[1] ?? "";
+        return [name, body];
+      }),
+    );
+    expect(bodies.serveCalendarFeed).not.toMatch(/assertRole|requireStaff|currentActor/);
+    expect(bodies.calendarFeedExists).toMatch(/assertRole\(CONSULTORIO_ROLES\)/);
+    expect(bodies.rotateCalendarFeedToken).toMatch(/assertRole\(CONSULTORIO_ROLES\)/);
+    expect(bodies.serveAppointmentCalendar).toMatch(/assertRole\(CONSULTORIO_ROLES\)/);
+  });
 });

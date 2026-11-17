@@ -6,6 +6,7 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { z, ZodError } from "zod";
 
 import { sql } from "@/db/client";
+import { parseClientEnv } from "@/lib/env";
 import { reportServerError } from "@/lib/sentry-server";
 import {
   parseAgendaSettings,
@@ -18,6 +19,11 @@ import {
   parseStatusChange,
 } from "@/modules/clinic/agenda-schema";
 import { updateAgendaSettings } from "@/modules/clinic/agenda-settings";
+import {
+  calendarFeedExists,
+  rotateCalendarFeedToken,
+} from "@/modules/clinic/calendar-feed";
+import { calendarFeedPath } from "@/modules/clinic/calendar-token";
 import {
   packageOverflowLabel,
   seriesConfirmFlags,
@@ -37,8 +43,16 @@ import {
   undoAppointmentStatus,
 } from "@/modules/clinic/appointments";
 import { clinicErrorMessage } from "@/modules/clinic/clinic-errors";
-import type { AgendaActionState, ClinicActionState } from "@/modules/clinic/form-state";
-import { idleAgendaAction, idleClinicAction } from "@/modules/clinic/form-state";
+import type {
+  AgendaActionState,
+  CalendarFeedActionState,
+  ClinicActionState,
+} from "@/modules/clinic/form-state";
+import {
+  idleAgendaAction,
+  idleCalendarFeedAction,
+  idleClinicAction,
+} from "@/modules/clinic/form-state";
 import { formatClinicSlotLabel } from "@/modules/clinic/format";
 import { closePackage, createPackage } from "@/modules/clinic/packages";
 import { ClinicRuleError, type Actor } from "@/modules/clinic/patients";
@@ -430,5 +444,35 @@ export async function updateAgendaSettingsAction(
     return { ...idleAgendaAction, ok: true, message: "Configurações salvas." };
   } catch (error) {
     return failure(error);
+  }
+}
+
+export async function rotateCalendarFeedAction(
+  _state: CalendarFeedActionState,
+  formData: FormData,
+): Promise<CalendarFeedActionState> {
+  const actor = await currentActor();
+  try {
+    if ((await calendarFeedExists(sql)) && formText(formData.get("confirm")) !== "sim") {
+      return {
+        ...idleCalendarFeedAction,
+        message: "Confirme para trocar o link.",
+      };
+    }
+    const token = await rotateCalendarFeedToken(sql, actor);
+    const site = parseClientEnv(process.env).NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+    revalidatePath("/consultorio/agenda/configuracoes");
+    return {
+      ok: true,
+      message: "Copie o link agora. Ele não aparece de novo.",
+      feedUrl: `${site}${calendarFeedPath(token)}`,
+    };
+  } catch (error) {
+    if (error instanceof StaffAccessError) throw error;
+    await reportServerError(error);
+    return {
+      ...idleCalendarFeedAction,
+      message: "Não foi possível concluir. Tente novamente.",
+    };
   }
 }

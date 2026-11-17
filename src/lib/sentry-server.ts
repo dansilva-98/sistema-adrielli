@@ -1,6 +1,8 @@
 import type { Instrumentation } from "next";
 import * as Sentry from "@sentry/nextjs";
 
+import { scrubSentryEvent } from "./sentry-scrub";
+
 export const SENTRY_FLUSH_MS = 2000;
 
 const NEXT_REQUEST_CONTEXT = Symbol.for("@next/request-context");
@@ -41,6 +43,20 @@ export async function flushSentry(): Promise<void> {
   }
 }
 
+function logScrubbedServerError(error: unknown): void {
+  try {
+    const dsn = process.env.SENTRY_DSN?.trim();
+    if (process.env.APP_ENV === "production" && dsn) return;
+    const payload =
+      error instanceof Error
+        ? { name: error.name, message: error.message, stack: error.stack }
+        : { message: String(error) };
+    console.error(scrubSentryEvent(payload));
+  } catch {
+    return;
+  }
+}
+
 export async function reportServerError(
   error: unknown,
   options: { wait?: boolean } = {},
@@ -48,8 +64,10 @@ export async function reportServerError(
   try {
     Sentry.captureException(error);
   } catch {
+    logScrubbedServerError(error);
     return;
   }
+  logScrubbedServerError(error);
   if (options.wait === false) {
     void startFlush();
     return;

@@ -201,4 +201,28 @@ describe("scrubSentryEvent", () => {
     expect(serialized).not.toContain("CODIGO-OTP");
     expect(serialized).not.toContain("SENHA-NOVA");
   });
+
+  it("remove o token do caminho do calendário ICS", () => {
+    const token = "abcdefghijklmnopqrstuvwxyz0123456789ABCDE";
+    const scrubbed = scrubSentryEvent({
+      request: {
+        url: `https://adrielliflores.example/api/consultorio/calendario/${token}.ics`,
+      },
+      transaction: `/api/consultorio/calendario/${token}.ics`,
+      contexts: {
+        nextjs: {
+          request_path: `/api/consultorio/calendario/${token}.ics`,
+        },
+      },
+    });
+    const serialized = JSON.stringify(scrubbed);
+    expect(serialized).not.toContain(token);
+    expect(scrubbed.request.url).toBe(
+      "https://adrielliflores.example/api/consultorio/calendario/[redacted].ics",
+    );
+    expect(scrubbed.transaction).toBe("/api/consultorio/calendario/[redacted].ics");
+    expect(scrubbed.contexts.nextjs.request_path).toBe(
+      "/api/consultorio/calendario/[redacted].ics",
+    );
+  });
 });
