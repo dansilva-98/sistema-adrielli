@@ -209,3 +209,7 @@ O CI do Playwright ficou em `ubuntu-24.04` e a chave do cache inclui `ImageOS`, 
 ## L3.3 — destaque do Sobre e trilha do Contato (staging 10/11)
 
 A primeira frase do Sobre usa `text-xl sm:text-2xl`. Se passar de 180 caracteres, aparece no tamanho do corpo, sem destaque. Na trilha estática do Contato, só a etapa 1 fica preenchida; as outras têm contorno dourado e fundo claro, na vertical e na horizontal.
+
+## E8.4 — rotinas agendadas sem aprovação manual
+
+Rotinas agendadas não podem usar ambiente com aprovação manual. O job de produção do `reminders.yml` usa o ambiente `lembretes` (sem revisores, só `main`), não o `production`.
