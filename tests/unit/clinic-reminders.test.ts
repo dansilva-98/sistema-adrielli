@@ -79,7 +79,9 @@ describe("lembrete por e-mail", () => {
     const script = readFileSync("scripts/send-reminders.ts", "utf8");
     expect(workflow).toContain('cron: "0 10-23,0 * * *"');
     expect(workflow).toContain("workflow_dispatch:");
-    expect(workflow).toContain("environment: production");
+    const productionJob = workflow.split(/\n {2}staging:\n/)[0];
+    expect(productionJob).toContain("environment: lembretes");
+    expect(productionJob).not.toContain("environment: production");
     expect(workflow).toContain("environment: staging");
     expect(workflow).toContain("secrets.PRODUCTION_DATABASE_URL");
     expect(workflow).toContain("secrets.STAGING_DATABASE_URL");
