@@ -77,7 +77,7 @@ describe("lembrete por e-mail", () => {
   it("o workflow usa o cron de Brasília, o banco de runtime e não o backup", () => {
     const workflow = readFileSync(".github/workflows/reminders.yml", "utf8");
     const script = readFileSync("scripts/send-reminders.ts", "utf8");
-    expect(workflow).toContain('cron: "0 10-23,0 * * *"');
+    expect(workflow).toContain('cron: "23 10-23,0 * * *"');
     expect(workflow).toContain("workflow_dispatch:");
     const [productionJob, stagingJob] = workflow.split(/\n {2}staging:\n/);
     expect(productionJob).toContain("environment: lembretes");

@@ -2,8 +2,8 @@ name: Lembretes da agenda
 
 on:
   schedule:
-    # 07h–21h em America/Sao_Paulo (UTC-3 o ano todo).
-    - cron: "0 10-23,0 * * *"
+    # 07h23–21h23 em America/Sao_Paulo (UTC-3 o ano todo); minuto 23 evita o pico do horário cheio.
+    - cron: "23 10-23,0 * * *"
   workflow_dispatch:
     inputs:
       destino:
