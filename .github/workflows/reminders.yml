@@ -21,6 +21,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   production:
@@ -29,8 +30,21 @@ jobs:
     timeout-minutes: 15
     environment: lembretes
     steps:
+      - name: Descobrir versão publicada
+        id: versao
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow production.yml --branch main --event workflow_dispatch --status success --limit 1 --json headSha --jq '.[0].headSha')
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::SHA publicado inválido"
+            exit 1
+          fi
+          echo "sha=$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
+          ref: ${{ steps.versao.outputs.sha }}
           persist-credentials: false
       - uses: pnpm/action-setup@v4
         with:

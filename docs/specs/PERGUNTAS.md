@@ -213,3 +213,7 @@ A primeira frase do Sobre usa `text-xl sm:text-2xl`. Se passar de 180 caracteres
 ## E8.4 — rotinas agendadas sem aprovação manual
 
 Rotinas agendadas não podem usar ambiente com aprovação manual. O job de produção do `reminders.yml` usa o ambiente `lembretes` (sem revisores, só `main`), não o `production`.
+
+## E8.4 — rotina de lembretes usa o SHA publicado
+
+A rotina de lembretes da produção usa o SHA do último Production verde; um PR que mude os lembretes só vale na produção depois de publicado.
