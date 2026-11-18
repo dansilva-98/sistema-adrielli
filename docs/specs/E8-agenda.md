@@ -159,3 +159,26 @@ Um PR por tarefa (E8.1 a E8.5), conforme a seção 7 das regras. As rotinas agen
 - **Chave do Resend no GitHub Actions:** a rotina do E8.4 roda no GitHub Actions, não na Netlify. A `RESEND_API_KEY` precisa existir também como segredo do ambiente `production` do GitHub. A responsável do projeto cria uma chave separada, "github-lembretes", só de envio e só do domínio, para poder revogar uma sem afetar o login.
 - **Cota compartilhada:** o plano gratuito do Resend (100 e-mails por dia) é dividido entre os códigos de login e os lembretes. A rotina para e alerta acima de **80 envios no dia**, somando os códigos de login do dia e os responsáveis distintos com `sent_at` do dia em `clinic.appointment_reminders`, para nunca bloquear o login.
 - **Critério A8:** "sem MFA" significa sessão não confirmada, nem por TOTP conhecido nem por código de e-mail (regra do A1).
+
+## Adendo de 18/11/2026 (rotina de lembretes roda a versão publicada)
+
+**Problema.** O job `production` do `reminders.yml` faz checkout da `main`, mas o banco da produção só recebe migrations quando o workflow Production é publicado. Entre um merge e a publicação, o código da rotina pode depender de uma tabela ou coluna que ainda não existe na produção. Em 17/11, a limpeza do feed (PR 96) rodou contra a produção sem a `0017`/`0018` e falhou (`relation "clinic.calendar_feed_requests" does not exist`). A limpeza aguentou a falha; um envio de lembretes não aguentaria.
+
+**Decisão.** O job `production` roda o código do **último deploy verde do workflow Production**, não a `main`.
+
+**Tarefa (PR pequeno, só CI e teste):**
+
+1. No `reminders.yml`, `permissions` passa a `contents: read` e `actions: read`.
+2. No job `production`, antes do checkout, um passo `id: versao` descobre o SHA:
+   - `gh run list --repo "$GITHUB_REPOSITORY" --workflow production.yml --branch main --event workflow_dispatch --status success --limit 1 --json headSha --jq '.[0].headSha'`, com `GH_TOKEN: ${{ github.token }}`;
+   - valida que o resultado tem exatamente 40 caracteres hexadecimais (`^[0-9a-f]{40}$`); **se não tiver, o job falha** (sem voltar para a `main`);
+   - escreve o SHA no log (não é segredo) e em `$GITHUB_OUTPUT`.
+3. O `actions/checkout@v4` do job `production` recebe `ref: ${{ steps.versao.outputs.sha }}`, mantendo `persist-credentials: false`.
+4. O arquivo do workflow continua vindo da `main` (é assim que o GitHub funciona); só o código do script e as dependências vêm do SHA publicado. Os passos depois do checkout não podem depender de arquivo que só existe na `main`.
+5. O job `staging` **não muda**: o staging é publicado a cada push na `main`.
+6. `PERGUNTAS.md`: "a rotina de lembretes da produção usa o SHA do último Production verde; um PR que mude os lembretes só vale na produção depois de publicado".
+
+**Testes:**
+
+- teste de texto em `tests/unit/clinic-reminders.test.ts`: o job `production` tem `actions: read`, consulta `production.yml` com `--status success` e `--branch main`, valida o SHA e passa `ref: ${{ steps.versao.outputs.sha }}` ao checkout; o job `staging` não tem `ref:`;
+- **execução real depois do merge:** `workflow_dispatch` com destino production; o log mostra o SHA da última publicação e o job termina verde.

@@ -98,7 +98,7 @@ jobs:
       - name: Varrer segredo no bundle
         run: pnpm check:bundle
       - name: Tempo limite do apt no CI
-        run: echo 'Acquire::Retries "5"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/99ci-timeouts
+        run: echo 'Acquire::Retries "5"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; DPkg::Lock::Timeout "120";' | sudo tee /etc/apt/apt.conf.d/99ci-timeouts
       - name: Versão do Playwright no lockfile
         id: playwright
         run: |
@@ -112,12 +112,15 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ env.ImageOS }}-playwright-${{ steps.playwright.outputs.version }}
+      - name: Instalar dependências do sistema do Playwright
+        timeout-minutes: 10
+        run: pnpm exec playwright install-deps chromium webkit
       - name: Instalar navegador do Playwright
         timeout-minutes: 15
         run: |
           set -euo pipefail
           for i in 1 2 3; do
-            timeout -k 10 300 pnpm exec playwright install --with-deps chromium webkit && break
+            timeout -k 10 300 pnpm exec playwright install chromium webkit && break
             echo "tentativa $i falhou"
             if [ "$i" -eq 3 ]; then
               exit 1

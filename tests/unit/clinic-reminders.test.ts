@@ -77,11 +77,24 @@ describe("lembrete por e-mail", () => {
   it("o workflow usa o cron de Brasília, o banco de runtime e não o backup", () => {
     const workflow = readFileSync(".github/workflows/reminders.yml", "utf8");
     const script = readFileSync("scripts/send-reminders.ts", "utf8");
-    expect(workflow).toContain('cron: "0 10-23,0 * * *"');
+    expect(workflow).toContain('cron: "23 10-23,0 * * *"');
     expect(workflow).toContain("workflow_dispatch:");
-    const productionJob = workflow.split(/\n {2}staging:\n/)[0];
+    const [productionJob, stagingJob] = workflow.split(/\n {2}staging:\n/);
     expect(productionJob).toContain("environment: lembretes");
     expect(productionJob).not.toContain("environment: production");
+    expect(productionJob).toContain("actions: read");
+    expect(productionJob).toContain(
+      "gh run list --repo \"$GITHUB_REPOSITORY\" --workflow production.yml --branch main --event workflow_dispatch --status success --limit 1 --json headSha --jq '.[0].headSha'",
+    );
+    expect(productionJob).toContain("GH_TOKEN: ${{ github.token }}");
+    expect(productionJob).toContain("^[0-9a-f]{40}$");
+    expect(productionJob).toContain("ref: ${{ steps.versao.outputs.sha }}");
+    expect(productionJob.indexOf("id: versao")).toBeLessThan(
+      productionJob.indexOf("uses: actions/checkout@v4"),
+    );
+    expect(productionJob).not.toContain("ref: main");
+    expect(stagingJob).toBeDefined();
+    expect(stagingJob).not.toContain("ref:");
     expect(workflow).toContain("environment: staging");
     expect(workflow).toContain("secrets.PRODUCTION_DATABASE_URL");
     expect(workflow).toContain("secrets.STAGING_DATABASE_URL");
