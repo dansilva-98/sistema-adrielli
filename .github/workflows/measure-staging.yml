@@ -24,6 +24,8 @@ jobs:
           cache: pnpm
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
+      - name: Esperar o lock do dpkg
+        run: echo 'DPkg::Lock::Timeout "300";' | sudo tee /etc/apt/apt.conf.d/99-lock-timeout
       - name: Instalar navegador do Playwright
         run: pnpm exec playwright install --with-deps chromium
       - name: Medir /admin e /consultorio autenticados
