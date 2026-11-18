@@ -24,15 +24,28 @@ export type ReminderCandidate = {
   startsAt: Date;
 };
 
+export const REMINDER_GUARDIAN_BUDGET_MS = 11_000;
+
+export type ReminderRunReason =
+  "before-send-hour" | "quota" | "send-failed" | "none" | "deadline" | null;
+
 export type ReminderRunResult = {
   ok: boolean;
   skipped: boolean;
-  reason: "before-send-hour" | "quota" | "send-failed" | "none" | null;
+  reason: ReminderRunReason;
   sentEmails: number;
   markedAppointments: number;
   quota: number;
   appointmentIds: string[];
 };
+
+export function canStartReminderGuardian(
+  nowMs: number,
+  deadlineAt: number | undefined,
+): boolean {
+  if (deadlineAt == null) return true;
+  return nowMs + REMINDER_GUARDIAN_BUDGET_MS <= deadlineAt;
+}
 
 type ClockBounds = {
   range_start: Date;
@@ -140,6 +153,8 @@ export function buildReminderEmail(input: {
 export async function sendAppointmentReminders(input: {
   sql: postgres.Sql;
   now?: Date;
+  nowMs?: () => number;
+  deadlineAt?: number;
   from: string;
   transport: "memory" | "resend";
   apiKey?: string;
@@ -147,6 +162,7 @@ export async function sendAppointmentReminders(input: {
   sendEmail: ReminderSendEmail;
 }): Promise<ReminderRunResult> {
   const now = input.now ?? new Date();
+  const nowMs = input.nowMs ?? Date.now;
   const empty: ReminderRunResult = {
     ok: true,
     skipped: false,
@@ -174,8 +190,13 @@ export async function sendAppointmentReminders(input: {
   let used = initialQuota;
   let sendFailed = false;
   let quotaHit = false;
+  let deadlineHit = false;
 
   for (const group of groups) {
+    if (!canStartReminderGuardian(nowMs(), input.deadlineAt)) {
+      deadlineHit = true;
+      break;
+    }
     used = await loadQuota(input.sql, clock);
     if (used >= REMINDER_DAILY_LIMIT) {
       quotaHit = true;
@@ -202,15 +223,17 @@ export async function sendAppointmentReminders(input: {
   }
 
   return {
-    ok: !sendFailed && !quotaHit,
-    skipped: false,
-    reason: quotaHit
-      ? "quota"
-      : sendFailed
-        ? "send-failed"
-        : sentEmails === 0
-          ? "none"
-          : null,
+    ok: !sendFailed && !quotaHit && !deadlineHit,
+    skipped: deadlineHit && sentEmails === 0,
+    reason: sendFailed
+      ? "send-failed"
+      : deadlineHit
+        ? "deadline"
+        : quotaHit
+          ? "quota"
+          : sentEmails === 0
+            ? "none"
+            : null,
     sentEmails,
     markedAppointments: markedIds.length,
     quota: used,
