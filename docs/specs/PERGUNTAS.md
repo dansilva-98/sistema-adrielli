@@ -217,3 +217,13 @@ Rotinas agendadas não podem usar ambiente com aprovação manual. O job de prod
 ## E8.4 — rotina de lembretes usa o SHA publicado
 
 A rotina de lembretes da produção usa o SHA do último Production verde; um PR que mude os lembretes só vale na produção depois de publicado.
+
+## E8.4 — cron na Netlify
+
+O cron passou da Actions para `netlify/functions/clinic-reminders.mts`. O `reminders.yml` fica só com disparo manual. A função só existe depois do próximo Production; merge e publicação no mesmo dia.
+
+A `REMINDERS_ENABLED` chega à Netlify pelo `netlify-env.mjs` no deploy de produção (`vars.REMINDERS_ENABLED`). A variável de repositório no GitHub não pode ser apagada: sem ela o passo de variáveis do Production falha. Desligar: gravar `false` e publicar de novo, ou mudar a variável na UI da Netlify.
+
+A função usa a `RESEND_API_KEY` do site (login). A chave `github-lembretes` fica só no `workflow_dispatch`.
+
+O Sentry da função vai por envelope HTTP (`src/lib/sentry-envelope.ts`), porque `@sentry/nextjs` só é inicializado no Next.
