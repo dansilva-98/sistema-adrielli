@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { privacyContent } from "@/modules/content/privacy";
+import { PRIVACY_PROCESSORS, privacyContent } from "@/modules/content/privacy";
+
+const FORBIDDEN_PROCESSORS = [
+  "Vercel",
+  "Cloudflare",
+  "Google Analytics",
+  "Twilio",
+  "Mixpanel",
+  "AWS",
+  "Stripe",
+  "Mailchimp",
+];
+
+function publicText(contactEmail: string | null): string {
+  return JSON.stringify(privacyContent(contactEmail));
+}
 
 describe("página de privacidade", () => {
   it("avisa quando o e-mail do CMS ainda não existe", () => {
@@ -10,6 +25,10 @@ describe("página de privacidade", () => {
       expect(content.contactEmail).toBeNull();
       expect(content.contactLine).toMatch(/ainda vai ser cadastrado/);
       expect(content.rightsExercise).toMatch(/quando ele estiver cadastrado/);
+      expect(content.clinicHeading).toBe("Atendimento no consultório");
+      expect(content.clinicItemsAfterProcessors.join(" ")).toMatch(
+        /quando ele estiver cadastrado/,
+      );
     }
   });
 
@@ -23,7 +42,7 @@ describe("página de privacidade", () => {
     expect(content.responsible).toBe(
       "A responsável por este site é Adrielli Flores, neuropsicopedagoga, pessoa física.",
     );
-    expect(JSON.stringify(content)).not.toMatch(/CPF|\d{3}\.\d{3}\.\d{3}-\d{2}/);
+    expect(JSON.stringify(content)).not.toMatch(/\d{3}\.\d{3}\.\d{3}-\d{2}/);
     expect(JSON.stringify(content)).not.toMatch(/rascunho/);
     expect(JSON.stringify(content)).not.toMatch(/não substitui orientação jurídica/);
     expect(content.noCollection).toMatch(/não tem formulário/);
@@ -47,7 +66,53 @@ describe("página de privacidade", () => {
         "revogação do consentimento",
       ]),
     );
-    expect(content.updated).toBe("Última atualização: 24 de outubro de 2026.");
+    expect(content.updated).toBe("Última atualização: 18 de novembro de 2026.");
     expect(JSON.stringify(content)).not.toMatch(/Ana Aprender/);
+  });
+
+  it("descreve o atendimento no consultório com e sem e-mail de contato", () => {
+    for (const email of [null, "dados@adrielli.example"]) {
+      const content = privacyContent(email);
+      const blob = JSON.stringify(content);
+      expect(content.clinicHeading).toBe("Atendimento no consultório");
+      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/Do paciente: nome/);
+      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/nome de tratamento/);
+      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/Do responsável/);
+      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(
+        /Documentos anexados/,
+      );
+      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/falta e reposição/);
+      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/pacotes/);
+      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/calendário/);
+      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(
+        /melhor interesse do paciente/,
+      );
+      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(
+        /abertura da ficha e o download de anexos/,
+      );
+      expect(content.clinicItemsAfterProcessors.join(" ")).toMatch(/lembrete por e-mail/);
+      expect(content.clinicItemsAfterProcessors.join(" ")).toMatch(/sem dado clínico/);
+      expect(content.clinicItemsAfterProcessors.join(" ")).toMatch(
+        /obrigações legais e para a defesa de direitos/,
+      );
+      expect(content.clinicItemsAfterProcessors.join(" ")).toMatch(/seção abaixo/);
+      expect(blob).not.toMatch(/clinic\.|identity\.|audit\./);
+      expect(blob).not.toMatch(/exclu\w* em \d+|apag\w* em \d+/i);
+      expect(blob).not.toMatch(/DATABASE_URL|SENTRY_DSN|RESEND_API_KEY/);
+    }
+  });
+
+  it("a lista de operadores no texto bate com PRIVACY_PROCESSORS", () => {
+    const content = privacyContent("dados@adrielli.example");
+    const notices = PRIVACY_PROCESSORS.map((processor) => processor.notice);
+    expect(content.clinicProcessors).toEqual(notices);
+    const blob = publicText("dados@adrielli.example");
+    for (const processor of PRIVACY_PROCESSORS) {
+      expect(blob).toContain(processor.name);
+      expect(blob).toContain(processor.notice);
+    }
+    for (const name of FORBIDDEN_PROCESSORS) {
+      expect(blob).not.toContain(name);
+    }
   });
 });
