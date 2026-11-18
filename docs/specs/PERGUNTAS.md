@@ -217,3 +217,17 @@ Rotinas agendadas não podem usar ambiente com aprovação manual. O job de prod
 ## E8.4 — rotina de lembretes usa o SHA publicado
 
 A rotina de lembretes da produção usa o SHA do último Production verde; um PR que mude os lembretes só vale na produção depois de publicado.
+
+## E12.3 — prazo das tabelas técnicas
+
+Toda tabela nova que cresce com dado pessoal declara o prazo na especificação.
+
+| Tabela                                | Prazo                                    |
+| ------------------------------------- | ---------------------------------------- |
+| `clinic.calendar_feed_requests`       | 1 dia                                    |
+| `identity.login_attempts`             | 30 dias                                  |
+| `identity.staff_email_mfa_challenges` | 1 dia, se já usado ou expirado           |
+| `audit.audit_log`                     | manter (junto com os dados de pacientes) |
+| `clinic.appointment_reminders`        | manter (histórico da sessão)             |
+
+A `0011` dava `DELETE` irrestrito dos desafios ao `app_runtime`. A `0019` troca essa política pela de linhas antigas, no mesmo padrão da `0018`.

@@ -119,6 +119,10 @@ describe("lembrete por e-mail", () => {
     expect(script).toContain("appointmentIds");
     expect(script).toContain("pruneCalendarFeedRequests");
     expect(script).toContain("prunedFeedRequests");
+    expect(script).toContain("pruneLoginAttempts");
+    expect(script).toContain("prunedLoginAttempts");
+    expect(script).toContain("pruneEmailMfaChallenges");
+    expect(script).toContain("prunedEmailChallenges");
     expect(script).not.toMatch(/guardianEmail|message\.to|full_name|preferred_name/);
     expect(script).toContain("publicLogMessage");
   });

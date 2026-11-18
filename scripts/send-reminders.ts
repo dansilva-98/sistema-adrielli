@@ -3,6 +3,10 @@ import postgres from "postgres";
 import { pruneCalendarFeedRequests } from "../src/modules/clinic/calendar-feed-prune.ts";
 import { sendAppointmentReminders } from "../src/modules/clinic/reminders.ts";
 import {
+  pruneEmailMfaChallenges,
+  pruneLoginAttempts,
+} from "../src/modules/identity/prune.ts";
+import {
   EMAIL_MFA_DEFAULT_FROM,
   memoryTransportEnabled,
 } from "../src/modules/identity/email-mfa.ts";
@@ -41,8 +45,20 @@ async function main(): Promise<void> {
 
   try {
     let prunedFeedRequests = 0;
+    let prunedLoginAttempts = 0;
+    let prunedEmailChallenges = 0;
     try {
       prunedFeedRequests = await pruneCalendarFeedRequests(sql);
+    } catch (error) {
+      console.error(publicLogMessage(error));
+    }
+    try {
+      prunedLoginAttempts = await pruneLoginAttempts(sql);
+    } catch (error) {
+      console.error(publicLogMessage(error));
+    }
+    try {
+      prunedEmailChallenges = await pruneEmailMfaChallenges(sql);
     } catch (error) {
       console.error(publicLogMessage(error));
     }
@@ -65,6 +81,8 @@ async function main(): Promise<void> {
         quota: result.quota,
         appointmentIds: result.appointmentIds,
         prunedFeedRequests,
+        prunedLoginAttempts,
+        prunedEmailChallenges,
       }),
     );
     if (!result.ok) process.exitCode = 1;
