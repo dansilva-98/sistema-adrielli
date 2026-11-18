@@ -11,11 +11,7 @@ import {
   REMINDER_GUARDIAN_BUDGET_MS,
   treatmentName,
 } from "@/modules/clinic/reminders";
-import {
-  deadlineReminderResult,
-  REMINDER_JOB_DEADLINE_MS,
-  runReminderJobWithDeadline,
-} from "@/modules/clinic/reminder-job";
+import { REMINDER_JOB_DEADLINE_MS } from "@/modules/clinic/reminder-job";
 
 const EIGHT_BRT = new Date("2026-11-14T11:00:00.000Z");
 
@@ -136,15 +132,24 @@ describe("lembrete por e-mail", () => {
     expect(job).toContain("prunedFeedRequests");
     expect(job).toContain("publicLogMessage");
     expect(fn).toContain('schedule: "23 10-23,0 * * *"');
-    expect(fn).toContain("runReminderJob");
     expect(fn).toContain("handleClinicReminders");
-    expect(fn).toContain("../../src/modules/clinic/reminder-job.ts");
+    expect(fn).toContain("export const config");
+    expect(fn).toContain("export default");
+    expect(fn).not.toContain("runReminderJob");
+    expect(fn).not.toContain("export {");
     expect(fn).not.toContain("@netlify/functions");
     expect(fn).not.toContain("@sentry/node");
     expect(fn).not.toContain("@sentry/nextjs");
+    expect(handler).toContain("runReminderJob");
+    expect(handler).toContain("./reminder-job.ts");
     expect(handler).toContain("remindersLockAllows");
     expect(handler).toContain("sendSentryEnvelope");
     expect(handler).toContain('result.reason !== "deadline"');
+    expect(handler).toContain("REMINDER_JOB_DEADLINE_MS");
+    expect(handler).not.toContain("Promise.race");
+    expect(handler).not.toContain("runReminderJobWithDeadline");
+    expect(job).not.toContain("Promise.race");
+    expect(job).not.toContain("runReminderJobWithDeadline");
     expect(job).toContain("./calendar-feed-prune.ts");
     expect(job).toContain("./reminders.ts");
     expect(job).toContain("../identity/email-mfa.ts");
@@ -187,39 +192,11 @@ describe("lembrete por e-mail", () => {
     expect(sql).not.toMatch(/ON DELETE cascade/i);
   });
 
-  it("não começa um responsável novo se faltam menos de 11 s", () => {
+  it("não começa um responsável novo depois de 12 s", () => {
     expect(REMINDER_GUARDIAN_BUDGET_MS).toBe(11_000);
-    expect(canStartReminderGuardian(0, 20_000)).toBe(true);
-    expect(canStartReminderGuardian(9_000, 20_000)).toBe(true);
-    expect(canStartReminderGuardian(9_001, 20_000)).toBe(false);
+    expect(REMINDER_JOB_DEADLINE_MS).toBe(23_000);
+    expect(canStartReminderGuardian(12_000, REMINDER_JOB_DEADLINE_MS)).toBe(true);
+    expect(canStartReminderGuardian(12_001, REMINDER_JOB_DEADLINE_MS)).toBe(false);
     expect(canStartReminderGuardian(0, undefined)).toBe(true);
-  });
-
-  it("o prazo de 20 s devolve reason deadline", async () => {
-    expect(REMINDER_JOB_DEADLINE_MS).toBe(20_000);
-    const result = await runReminderJobWithDeadline({
-      deadlineMs: REMINDER_JOB_DEADLINE_MS,
-      sleep: async () => undefined,
-      run: () => new Promise(() => {}),
-    });
-    expect(result).toEqual(deadlineReminderResult());
-    expect(result.reason).toBe("deadline");
-    expect(result.ok).toBe(false);
-    const finished = await runReminderJobWithDeadline({
-      deadlineMs: REMINDER_JOB_DEADLINE_MS,
-      sleep: () => new Promise(() => {}),
-      run: async () => ({
-        ok: true,
-        skipped: false,
-        reason: null,
-        sentEmails: 1,
-        markedAppointments: 1,
-        quota: 1,
-        appointmentIds: ["a"],
-        prunedFeedRequests: 0,
-      }),
-    });
-    expect(finished.reason).toBeNull();
-    expect(finished.sentEmails).toBe(1);
   });
 });

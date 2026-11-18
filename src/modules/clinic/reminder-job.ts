@@ -9,7 +9,7 @@ import {
 import { EMAIL_MFA_DEFAULT_FROM, memoryTransportEnabled } from "../identity/email-mfa.ts";
 import { sendStaffEmail } from "../identity/email-transport.ts";
 
-export const REMINDER_JOB_DEADLINE_MS = 20_000;
+export const REMINDER_JOB_DEADLINE_MS = 23_000;
 
 export type ReminderJobReason = ReminderRunResult["reason"] | "disabled";
 
@@ -41,35 +41,12 @@ export function disabledReminderResult(): ReminderJobResult {
   };
 }
 
-export function deadlineReminderResult(): ReminderJobResult {
-  return {
-    ok: false,
-    skipped: true,
-    reason: "deadline",
-    ...emptyJob,
-  };
-}
-
 export function publicLogMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "Falha ao enviar lembretes.";
   if (/@/.test(message) || /re_/i.test(message) || /postgres(ql)?:\/\//i.test(message)) {
     return "Falha ao enviar lembretes.";
   }
   return message;
-}
-
-export async function runReminderJobWithDeadline(input: {
-  run: () => Promise<ReminderJobResult>;
-  deadlineMs?: number;
-  sleep?: (ms: number) => Promise<void>;
-}): Promise<ReminderJobResult> {
-  const deadlineMs = input.deadlineMs ?? REMINDER_JOB_DEADLINE_MS;
-  const sleep =
-    input.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-  return Promise.race([
-    input.run(),
-    sleep(deadlineMs).then(() => deadlineReminderResult()),
-  ]);
 }
 
 export async function runReminderJob(input: {

@@ -5,7 +5,6 @@ import {
   REMINDER_JOB_DEADLINE_MS,
   remindersLockAllows,
   runReminderJob,
-  runReminderJobWithDeadline,
   type ReminderJobResult,
 } from "./reminder-job.ts";
 
@@ -14,7 +13,6 @@ export async function handleClinicReminders(
   deps: {
     runJob?: typeof runReminderJob;
     sendSentry?: typeof sendSentryEnvelope;
-    sleep?: (ms: number) => Promise<void>;
     log?: (message: string) => void;
     logError?: (message: string) => void;
   } = {},
@@ -27,15 +25,10 @@ export async function handleClinicReminders(
   const log = deps.log ?? (() => undefined);
   const logError = deps.logError ?? (() => undefined);
   try {
-    const result = await runReminderJobWithDeadline({
+    const result = await runJob({
+      env,
       deadlineMs: REMINDER_JOB_DEADLINE_MS,
-      sleep: deps.sleep,
-      run: () =>
-        runJob({
-          env,
-          deadlineMs: REMINDER_JOB_DEADLINE_MS,
-          onError: logError,
-        }),
+      onError: logError,
     });
     log(JSON.stringify(publicJobLog(result)));
     if (!result.ok && result.reason !== "deadline") {

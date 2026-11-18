@@ -85,6 +85,16 @@ describe("função agendada de lembretes", () => {
     expect((payload?.error as Error).message).toBe("Cota diária de lembretes atingida.");
   });
 
+  it("passa o prazo cooperativo de 23 s ao job, sem corrida", async () => {
+    const runJob = vi.fn(async () => okResult);
+    await handleClinicReminders(
+      { APP_ENV: "production", REMINDERS_ENABLED: "true" },
+      { runJob },
+    );
+    expect(runJob).toHaveBeenCalledTimes(1);
+    expect(runJob).toHaveBeenCalledWith(expect.objectContaining({ deadlineMs: 23_000 }));
+  });
+
   it("não envia o Sentry no prazo", async () => {
     const sendSentry = vi.fn<typeof sendSentryEnvelope>(async () => undefined);
     const runJob = vi.fn(async () => ({
