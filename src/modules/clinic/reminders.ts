@@ -1,6 +1,6 @@
 import type postgres from "postgres";
 
-import { recordAudit } from "../audit/record.ts";
+import { recordAuditTx } from "../audit/record-sql.ts";
 import type { StaffEmailMessage } from "../identity/email-transport.ts";
 import { formatClinicClock, formatClinicDate, todayInClinic } from "./format.ts";
 
@@ -310,7 +310,7 @@ async function sendGuardianReminders(
           values (${session.id}::uuid, ${guardianId}::uuid, ${input.now})
         `;
       }
-      await recordAudit(
+      await recordAuditTx(
         {
           action: "clinic.reminder.sent",
           entityType: "guardian",
