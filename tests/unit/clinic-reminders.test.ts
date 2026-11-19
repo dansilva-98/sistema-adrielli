@@ -83,6 +83,7 @@ describe("lembrete por e-mail", () => {
     const job = readFileSync("src/modules/clinic/reminder-job.ts", "utf8");
     const fn = readFileSync("netlify/functions/clinic-reminders.mts", "utf8");
     const handler = readFileSync("src/modules/clinic/reminder-function.ts", "utf8");
+    const reminders = readFileSync("src/modules/clinic/reminders.ts", "utf8");
     const toml = readFileSync("netlify.toml", "utf8");
     const staging = readFileSync(".github/workflows/staging.yml", "utf8");
     const production = readFileSync(".github/workflows/production.yml", "utf8");
@@ -152,6 +153,9 @@ describe("lembrete por e-mail", () => {
     expect(job).not.toContain("runReminderJobWithDeadline");
     expect(job).toContain("./calendar-feed-prune.ts");
     expect(job).toContain("./reminders.ts");
+    expect(reminders).toContain("../audit/record-sql.ts");
+    expect(reminders).not.toMatch(/audit\/record["']/);
+    expect(reminders).not.toMatch(/audit\/record\.ts/);
     expect(job).toContain("../identity/email-mfa.ts");
     expect(job).toContain("../identity/email-transport.ts");
     expect(handler).not.toContain("@sentry/nextjs");
