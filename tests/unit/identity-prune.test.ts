@@ -32,4 +32,12 @@ describe("limpeza de identity", () => {
     expect(sql).not.toMatch(/ON DELETE cascade/i);
     expect(sql).not.toMatch(/DROP TABLE/i);
   });
+
+  it("prune.ts só importa postgres, nada do Next", () => {
+    const prune = readFileSync("src/modules/identity/prune.ts", "utf8");
+    expect(prune).toContain('import type postgres from "postgres"');
+    expect(prune).not.toContain("server-only");
+    expect(prune).not.toMatch(/from ["']next/);
+    expect(prune).not.toContain("db/client");
+  });
 });

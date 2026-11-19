@@ -16,6 +16,7 @@ const keys = [
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "NEXT_PUBLIC_SENTRY_DSN",
   "NEXT_PUBLIC_SITE_URL",
+  ...(process.env.APP_ENV === "production" ? ["REMINDERS_ENABLED"] : []),
 ];
 
 let failed = false;
