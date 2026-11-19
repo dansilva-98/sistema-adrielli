@@ -71,7 +71,7 @@ const RIGHTS = [
 const CLINIC_DATA_CATEGORIES = [
   "Do paciente: nome, nome de tratamento, data de nascimento, CPF, escola, série, origem do encaminhamento, anotações e endereço.",
   "Do responsável: nome, parentesco, telefone, e-mail, CPF, se aceita receber lembrete, o vínculo com o paciente e quem é o responsável principal.",
-  "Documentos anexados: nome do arquivo, a descrição e o tipo (relatório clínico, relatório escolar, avaliação, documento pessoal ou outro), pela profissional.",
+  "Documentos anexados pela profissional: o arquivo, com nome, descrição e tipo (relatório clínico, relatório escolar, avaliação, documento pessoal ou outro).",
   "Das sessões: data, hora, modalidade (presencial ou online), situação (incluindo falta e reposição), anotações, motivo de cancelamento e se o lembrete foi enviado.",
   "Dos pacotes: quantidade de sessões, data de início, validade, valor e anotações.",
 ];

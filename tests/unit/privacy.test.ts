@@ -78,7 +78,7 @@ describe("página de privacidade", () => {
       expect(content.clinicDataCategories).toEqual([
         expect.stringMatching(/^Do paciente: nome/),
         expect.stringMatching(/^Do responsável:/),
-        expect.stringMatching(/^Documentos anexados:/),
+        "Documentos anexados pela profissional: o arquivo, com nome, descrição e tipo (relatório clínico, relatório escolar, avaliação, documento pessoal ou outro).",
         expect.stringMatching(/^Das sessões:/),
         expect.stringMatching(/^Dos pacotes:/),
       ]);
