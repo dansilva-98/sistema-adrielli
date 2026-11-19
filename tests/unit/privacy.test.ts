@@ -66,7 +66,7 @@ describe("página de privacidade", () => {
         "revogação do consentimento",
       ]),
     );
-    expect(content.updated).toBe("Última atualização: 18 de novembro de 2026.");
+    expect(content.updated).toBe("Última atualização: 19 de novembro de 2026.");
     expect(JSON.stringify(content)).not.toMatch(/Ana Aprender/);
   });
 
@@ -75,14 +75,15 @@ describe("página de privacidade", () => {
       const content = privacyContent(email);
       const blob = JSON.stringify(content);
       expect(content.clinicHeading).toBe("Atendimento no consultório");
-      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/Do paciente: nome/);
-      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/nome de tratamento/);
-      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/Do responsável/);
-      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(
-        /Documentos anexados/,
-      );
-      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/falta e reposição/);
-      expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/pacotes/);
+      expect(content.clinicDataCategories).toEqual([
+        expect.stringMatching(/^Do paciente: nome/),
+        expect.stringMatching(/^Do responsável:/),
+        expect.stringMatching(/^Documentos anexados:/),
+        expect.stringMatching(/^Das sessões:/),
+        expect.stringMatching(/^Dos pacotes:/),
+      ]);
+      expect(content.clinicDataCategories.join(" ")).toMatch(/nome de tratamento/);
+      expect(content.clinicDataCategories.join(" ")).toMatch(/falta e reposição/);
       expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(/calendário/);
       expect(content.clinicItemsBeforeProcessors.join(" ")).toMatch(
         /melhor interesse do paciente/,
@@ -114,5 +115,12 @@ describe("página de privacidade", () => {
     for (const name of FORBIDDEN_PROCESSORS) {
       expect(blob).not.toContain(name);
     }
+    expect(blob).toContain(
+      "GitHub: faz a cópia de segurança e o disparo manual dos lembretes, fora do Brasil.",
+    );
+    expect(blob).toContain(
+      "Netlify: processa as páginas da área interna e roda a rotina de lembretes, fora do Brasil.",
+    );
+    expect(blob).not.toContain("executa as rotinas de lembrete e de backup");
   });
 });

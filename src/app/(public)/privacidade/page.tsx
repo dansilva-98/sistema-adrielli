@@ -57,6 +57,9 @@ async function PrivacidadeContent() {
       <section className="flex flex-col gap-2">
         <h2 className="font-serif text-2xl">{content.clinicHeading}</h2>
         <ul className="list-disc pl-5">
+          {content.clinicDataCategories.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
           {content.clinicItemsBeforeProcessors.map((item) => (
             <li key={item}>{item}</li>
           ))}

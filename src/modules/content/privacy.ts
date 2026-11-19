@@ -1,4 +1,4 @@
-export const PRIVACY_UPDATED_ON = "18 de novembro de 2026";
+export const PRIVACY_UPDATED_ON = "19 de novembro de 2026";
 
 export const PRIVACY_PROCESSORS = [
   {
@@ -7,7 +7,8 @@ export const PRIVACY_PROCESSORS = [
   },
   {
     name: "Netlify",
-    notice: "Netlify: processa as páginas da área interna, fora do Brasil.",
+    notice:
+      "Netlify: processa as páginas da área interna e roda a rotina de lembretes, fora do Brasil.",
   },
   {
     name: "Resend",
@@ -19,7 +20,8 @@ export const PRIVACY_PROCESSORS = [
   },
   {
     name: "GitHub",
-    notice: "GitHub: executa as rotinas de lembrete e de backup, fora do Brasil.",
+    notice:
+      "GitHub: faz a cópia de segurança e o disparo manual dos lembretes, fora do Brasil.",
   },
   {
     name: "Google Drive",
@@ -43,6 +45,7 @@ export type PrivacyContent = {
   technicalLogs: string;
   accessLogs: string;
   clinicHeading: string;
+  clinicDataCategories: string[];
   clinicItemsBeforeProcessors: string[];
   clinicProcessorsLead: string;
   clinicProcessors: string[];
@@ -65,8 +68,15 @@ const RIGHTS = [
   "revogação do consentimento",
 ];
 
+const CLINIC_DATA_CATEGORIES = [
+  "Do paciente: nome, nome de tratamento, data de nascimento, CPF, escola, série, origem do encaminhamento, anotações e endereço.",
+  "Do responsável: nome, parentesco, telefone, e-mail, CPF, se aceita receber lembrete, o vínculo com o paciente e quem é o responsável principal.",
+  "Documentos anexados: nome do arquivo, a descrição e o tipo (relatório clínico, relatório escolar, avaliação, documento pessoal ou outro), pela profissional.",
+  "Das sessões: data, hora, modalidade (presencial ou online), situação (incluindo falta e reposição), anotações, motivo de cancelamento e se o lembrete foi enviado.",
+  "Dos pacotes: quantidade de sessões, data de início, validade, valor e anotações.",
+];
+
 const CLINIC_ITEMS_BEFORE = [
-  "Do paciente: nome, nome de tratamento, data de nascimento, CPF, escola, série, origem do encaminhamento, anotações e endereço. Do responsável: nome, parentesco, telefone, e-mail, CPF, se aceita receber lembrete, o vínculo com o paciente e quem é o responsável principal. Documentos anexados pela profissional, com o nome do arquivo, a descrição e o tipo (relatório clínico, relatório escolar, avaliação, documento pessoal ou outro). Das sessões: data, hora, modalidade (presencial ou online), situação (incluindo falta e reposição), anotações, motivo de cancelamento e se o lembrete foi enviado. Dos pacotes: quantidade de sessões, data de início, validade, valor e anotações.",
   "Esses dados servem para organizar o atendimento, a agenda e os pacotes, e para enviar o lembrete da sessão a quem aceitou recebê-lo.",
   "Os dados de crianças e adolescentes são tratados no melhor interesse do paciente, com a ciência de pelo menos um dos responsáveis, registrada no termo de ciência entregue pela profissional.",
   "Quem acessa é só a equipe com acesso ao consultório — hoje, a profissional — com login e segundo fator. A abertura da ficha e o download de anexos ficam registrados, além das alterações.",
@@ -98,6 +108,7 @@ export function privacyContent(contactEmail: string | null | undefined): Privacy
     accessLogs:
       "A Netlify, que entrega o site, e a Supabase, que guarda o acesso da equipe, registram o endereço IP, a data e a hora e o navegador de quem acessa. Esses servidores podem ficar fora do Brasil. Na área da equipe, o endereço IP também é usado para limitar tentativas de login.",
     clinicHeading: "Atendimento no consultório",
+    clinicDataCategories: CLINIC_DATA_CATEGORIES,
     clinicItemsBeforeProcessors: CLINIC_ITEMS_BEFORE,
     clinicProcessorsLead: "Onde ficam e com quem são compartilhados:",
     clinicProcessors: PRIVACY_PROCESSORS.map((processor) => processor.notice),
