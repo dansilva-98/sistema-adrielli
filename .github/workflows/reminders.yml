@@ -1,9 +1,6 @@
 name: Lembretes da agenda
 
 on:
-  schedule:
-    # 07h23–21h23 em America/Sao_Paulo (UTC-3 o ano todo); minuto 23 evita o pico do horário cheio.
-    - cron: "23 10-23,0 * * *"
   workflow_dispatch:
     inputs:
       destino:
@@ -16,7 +13,7 @@ on:
           - staging
 
 concurrency:
-  group: reminders-${{ github.event_name == 'workflow_dispatch' && inputs.destino || 'production' }}
+  group: reminders-${{ inputs.destino }}
   cancel-in-progress: false
 
 permissions:
@@ -25,7 +22,7 @@ permissions:
 
 jobs:
   production:
-    if: (github.event_name == 'schedule' && vars.REMINDERS_ENABLED == 'true') || (github.event_name == 'workflow_dispatch' && inputs.destino == 'production')
+    if: github.event_name == 'workflow_dispatch' && inputs.destino == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: lembretes

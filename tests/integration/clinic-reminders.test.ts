@@ -4,8 +4,10 @@ import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { TEST_DATABASE_NAME } from "../../src/db/seed";
+import { REMINDER_JOB_DEADLINE_MS } from "../../src/modules/clinic/reminder-job";
 import {
   REMINDER_DAILY_LIMIT,
+  REMINDER_GUARDIAN_BUDGET_MS,
   sendAppointmentReminders,
 } from "../../src/modules/clinic/reminders";
 
@@ -446,6 +448,47 @@ describe("rotina de lembretes", () => {
     expect(await reminderPairs(runtime)).toHaveLength(2);
   });
 
+  it("envio de 10 s no limite termina, grava o par e só então devolve deadline", async () => {
+    const first = crypto.randomUUID();
+    const second = crypto.randomUUID();
+    await insertAppointment(runtime, first, PATIENT_ID, TOMORROW_EIGHT, null);
+    await insertAppointment(runtime, second, THIRD_PATIENT_ID, TOMORROW_TEN, null);
+    let clockMs = REMINDER_JOB_DEADLINE_MS - REMINDER_GUARDIAN_BUDGET_MS;
+    const inbox: string[] = [];
+    const firstRun = await runReminders(
+      runtime,
+      async ({ message }) => {
+        inbox.push(message.to);
+        clockMs += 10_000;
+      },
+      {
+        nowMs: () => clockMs,
+        deadlineAt: REMINDER_JOB_DEADLINE_MS,
+      },
+    );
+    expect(firstRun.ok).toBe(false);
+    expect(firstRun.reason).toBe("deadline");
+    expect(firstRun.sentEmails).toBe(1);
+    expect(inbox).toEqual([GUARDIAN_EMAIL]);
+    expect(await reminderPairs(runtime)).toEqual([
+      { appointment_id: first, guardian_id: GUARDIAN_ID },
+    ]);
+    expect(await sentAt(runtime, first)).not.toBeNull();
+    expect(await sentAt(runtime, second)).toBeNull();
+
+    inbox.length = 0;
+    const secondRun = await runReminders(runtime, async ({ message }) => {
+      inbox.push(message.to);
+    });
+    expect(secondRun.ok).toBe(true);
+    expect(secondRun.sentEmails).toBe(1);
+    expect(inbox).toEqual([THIRD_GUARDIAN_EMAIL]);
+    expect(await reminderPairs(runtime)).toEqual([
+      { appointment_id: first, guardian_id: GUARDIAN_ID },
+      { appointment_id: second, guardian_id: THIRD_GUARDIAN_ID },
+    ]);
+  });
+
   it("app_runtime grava o par e não pode apagar", async () => {
     const appointmentId = crypto.randomUUID();
     await insertAppointment(runtime, appointmentId, PATIENT_ID, TOMORROW_EIGHT, null);
@@ -467,10 +510,13 @@ async function runReminders(
   sendEmail: (input: {
     message: { to: string; subject: string; text: string; html: string };
   }) => Promise<void>,
+  options: { nowMs?: () => number; deadlineAt?: number } = {},
 ) {
   return sendAppointmentReminders({
     sql,
     now: NOW,
+    nowMs: options.nowMs,
+    deadlineAt: options.deadlineAt,
     from: FROM,
     transport: "memory",
     whatsappUrl: "https://wa.me/5511999999999",

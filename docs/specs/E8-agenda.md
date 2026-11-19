@@ -182,3 +182,29 @@ Um PR por tarefa (E8.1 a E8.5), conforme a seção 7 das regras. As rotinas agen
 
 - teste de texto em `tests/unit/clinic-reminders.test.ts`: o job `production` tem `actions: read`, consulta `production.yml` com `--status success` e `--branch main`, valida o SHA e passa `ref: ${{ steps.versao.outputs.sha }}` ao checkout; o job `staging` não tem `ref:`;
 - **execução real depois do merge:** `workflow_dispatch` com destino production; o log mostra o SHA da última publicação e o job termina verde.
+
+## Adendo de 18/11/2026, tarde (cron na Netlify)
+
+**Problema.** O cron do GitHub Actions no minuto 23 UTC pulou horas seguidas. A rotina precisa rodar no horário de Brasília, na versão já publicada.
+
+**Decisão.** O cron passa para uma função agendada da Netlify. O `reminders.yml` fica só com `workflow_dispatch` (produção no SHA publicado, staging na `main`).
+
+**Tarefa (PR de código):**
+
+1. Núcleo compartilhado `runReminderJob` em `src/modules/clinic/reminder-job.ts`. O script do GitHub e a função da Netlify só chamam esse núcleo.
+2. Prazo cooperativo na função (`deadlineMs: 23_000`, `reason: "deadline"`). Só começa um responsável novo se faltarem pelo menos 11 s (o Resend tem 10 s), então ninguém novo começa depois de 12 s do início. Um responsável em andamento nunca é interrompido. Sem `Promise.race`.
+3. `netlify/functions/clinic-reminders.mts` com `schedule: "23 10-23,0 * * *"`, trava `REMINDERS_ENABLED === "true"` e `APP_ENV === "production"`, e envio ao Sentry na falha (envelope HTTP, sem `@sentry/nextjs` na função).
+4. `reminders.yml` sem `schedule`.
+5. `REMINDERS_ENABLED` é publicada no site da Netlify só pelo `production.yml` (`netlify-env.mjs`), a partir da variável de repositório do GitHub. Essa variável **não pode ser apagada**: sem ela o passo de variáveis do Production falha. Desligar: gravar `false` e publicar de novo, ou alterar na UI da Netlify.
+6. A função usa a `RESEND_API_KEY` já cadastrada no site (a do login). A chave `github-lembretes` continua só no disparo manual do GitHub.
+7. Merge e publicação no mesmo dia: entre o merge e o próximo Production não há cron.
+
+**Testes:**
+
+- texto da função: cron, trava, Sentry na falha, sem `@netlify/functions` nem `@sentry/node`, só `default` e `config`;
+- texto do yml: sem `schedule`/`cron`, com `workflow_dispatch`, SHA publicado no job `production`, staging sem `ref:`;
+- script e handler importam o mesmo `reminder-job.ts`;
+- prazo: não começa responsável novo depois de 12 s; um envio de 10 s no limite permitido termina, grava o par e só então devolve `deadline`; a segunda execução não reenvia para esse responsável; sem `Promise.race`;
+- trava: sem `REMINDERS_ENABLED` ou fora de produção, o job não é chamado;
+- Sentry: envelope uma vez na falha, sem e-mail nem URL de banco; prazo não dispara Sentry;
+- `REMINDERS_ENABLED` só no `production.yml`.
