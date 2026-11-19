@@ -1,0 +1,66 @@
+name: Playwright cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - pnpm-lock.yaml
+      - .github/workflows/ci.yml
+      - .github/workflows/playwright-cache.yml
+  workflow_dispatch:
+
+concurrency:
+  group: playwright-cache
+  cancel-in-progress: true
+
+jobs:
+  seed:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Tempo limite do apt no CI
+        run: |
+          mkdir -p /home/runner/apt-archives/partial
+          printf '%s\n' \
+            'Acquire::Retries "5";' \
+            'Acquire::http::Timeout "30";' \
+            'Acquire::https::Timeout "30";' \
+            'DPkg::Lock::Timeout "120";' \
+            'Dir::Cache::archives "/home/runner/apt-archives";' \
+            'Binary::apt::APT::Keep-Downloaded-Packages "true";' \
+            | sudo tee /etc/apt/apt.conf.d/99ci-timeouts
+      - name: Versão do Playwright no lockfile
+        id: playwright
+        run: |
+          version=$(grep -m1 "'@playwright/test@" pnpm-lock.yaml | sed -E "s/.*@playwright\/test@([^']+).*/\1/")
+          test -n "$version"
+          test -n "$ImageOS"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "ImageOS=$ImageOS" >> "$GITHUB_ENV"
+      - name: Cache dos navegadores do Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ env.ImageOS }}-playwright-chromium-webkit-${{ steps.playwright.outputs.version }}
+      - name: Cache dos pacotes apt do Playwright
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/apt-archives/*.deb
+          key: ${{ runner.os }}-${{ env.ImageOS }}-playwright-deps-chromium-webkit-${{ steps.playwright.outputs.version }}
+      - name: Instalar dependências do sistema do Playwright
+        timeout-minutes: 10
+        run: pnpm exec playwright install-deps chromium webkit
+      - name: Instalar navegador do Playwright
+        timeout-minutes: 15
+        run: pnpm exec playwright install chromium webkit
