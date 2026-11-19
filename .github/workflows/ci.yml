@@ -117,12 +117,12 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "ImageOS=$ImageOS" >> "$GITHUB_ENV"
       - name: Cache dos navegadores do Playwright
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ env.ImageOS }}-playwright-chromium-webkit-${{ steps.playwright.outputs.version }}
       - name: Cache dos pacotes apt do Playwright
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: /home/runner/apt-archives/*.deb
           key: ${{ runner.os }}-${{ env.ImageOS }}-playwright-deps-chromium-webkit-${{ steps.playwright.outputs.version }}
