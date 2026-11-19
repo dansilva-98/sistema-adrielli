@@ -227,3 +227,17 @@ A `REMINDERS_ENABLED` chega à Netlify pelo `netlify-env.mjs` no deploy de produ
 A função usa a `RESEND_API_KEY` do site (login). A chave `github-lembretes` fica só no `workflow_dispatch`.
 
 O Sentry da função vai por envelope HTTP (`src/lib/sentry-envelope.ts`), porque `@sentry/nextjs` só é inicializado no Next.
+
+## E12.3 — prazo das tabelas técnicas
+
+Toda tabela nova que cresce com dado pessoal declara o prazo na especificação.
+
+| Tabela                                | Prazo                                    |
+| ------------------------------------- | ---------------------------------------- |
+| `clinic.calendar_feed_requests`       | 1 dia                                    |
+| `identity.login_attempts`             | 30 dias                                  |
+| `identity.staff_email_mfa_challenges` | 1 dia, se já usado ou expirado           |
+| `audit.audit_log`                     | manter (junto com os dados de pacientes) |
+| `clinic.appointment_reminders`        | manter (histórico da sessão)             |
+
+A `0011` dava `DELETE` irrestrito dos desafios ao `app_runtime`. A `0019` troca essa política pela de linhas antigas, no mesmo padrão da `0018`.

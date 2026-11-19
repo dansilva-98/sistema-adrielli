@@ -56,6 +56,8 @@ export async function handleClinicReminders(
         quota: 0,
         appointmentIds: [],
         prunedFeedRequests: 0,
+        prunedLoginAttempts: 0,
+        prunedEmailChallenges: 0,
       }),
       500,
     );
@@ -90,6 +92,8 @@ function publicJobLog(result: ReminderJobResult): ReminderJobResult {
     quota: result.quota,
     appointmentIds: result.appointmentIds,
     prunedFeedRequests: result.prunedFeedRequests,
+    prunedLoginAttempts: result.prunedLoginAttempts,
+    prunedEmailChallenges: result.prunedEmailChallenges,
   };
 }
 

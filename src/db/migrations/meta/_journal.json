@@ -134,6 +134,13 @@
       "when": 1794901200000,
       "tag": "0018_clinic_calendar_feed_requests_prune",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795000000000,
+      "tag": "0019_identity_prune_old_rows",
+      "breakpoints": true
     }
   ]
 }

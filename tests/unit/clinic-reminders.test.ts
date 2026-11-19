@@ -131,6 +131,11 @@ describe("lembrete por e-mail", () => {
     expect(script).not.toContain("postgres(");
     expect(job).toContain("pruneCalendarFeedRequests");
     expect(job).toContain("prunedFeedRequests");
+    expect(job).toContain("pruneLoginAttempts");
+    expect(job).toContain("prunedLoginAttempts");
+    expect(job).toContain("pruneEmailMfaChallenges");
+    expect(job).toContain("prunedEmailChallenges");
+    expect(job).toContain("../identity/prune.ts");
     expect(job).toContain("publicLogMessage");
     expect(fn).toContain('schedule: "23 10-23,0 * * *"');
     expect(fn).toContain("handleClinicReminders");
@@ -177,6 +182,8 @@ describe("lembrete por e-mail", () => {
     expect(envScript).toContain(
       'process.env.APP_ENV === "production" ? ["REMINDERS_ENABLED"]',
     );
+    expect(handler).toContain("prunedLoginAttempts");
+    expect(handler).toContain("prunedEmailChallenges");
     expect(script).not.toMatch(/guardianEmail|message\.to|full_name|preferred_name/);
   });
 

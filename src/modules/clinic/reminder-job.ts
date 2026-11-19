@@ -8,6 +8,7 @@ import {
 } from "./reminders.ts";
 import { EMAIL_MFA_DEFAULT_FROM, memoryTransportEnabled } from "../identity/email-mfa.ts";
 import { sendStaffEmail } from "../identity/email-transport.ts";
+import { pruneEmailMfaChallenges, pruneLoginAttempts } from "../identity/prune.ts";
 
 export const REMINDER_JOB_DEADLINE_MS = 23_000;
 
@@ -16,6 +17,8 @@ export type ReminderJobReason = ReminderRunResult["reason"] | "disabled";
 export type ReminderJobResult = Omit<ReminderRunResult, "reason"> & {
   reason: ReminderJobReason;
   prunedFeedRequests: number;
+  prunedLoginAttempts: number;
+  prunedEmailChallenges: number;
 };
 
 type JobEnv = Record<string, string | undefined>;
@@ -26,6 +29,8 @@ const emptyJob = {
   quota: 0,
   appointmentIds: [] as string[],
   prunedFeedRequests: 0,
+  prunedLoginAttempts: 0,
+  prunedEmailChallenges: 0,
 };
 
 export function remindersLockAllows(env: JobEnv): boolean {
@@ -97,6 +102,18 @@ export async function runReminderJob(input: {
     } catch (error) {
       input.onError?.(publicLogMessage(error));
     }
+    let prunedLoginAttempts = 0;
+    try {
+      prunedLoginAttempts = await pruneLoginAttempts(sql);
+    } catch (error) {
+      input.onError?.(publicLogMessage(error));
+    }
+    let prunedEmailChallenges = 0;
+    try {
+      prunedEmailChallenges = await pruneEmailMfaChallenges(sql);
+    } catch (error) {
+      input.onError?.(publicLogMessage(error));
+    }
     const whatsappUrl = await loadWhatsappUrl(sql);
     const result = await sendAppointmentReminders({
       sql,
@@ -109,7 +126,7 @@ export async function runReminderJob(input: {
       whatsappUrl,
       sendEmail: input.sendEmail ?? sendStaffEmail,
     });
-    return { ...result, prunedFeedRequests };
+    return { ...result, prunedFeedRequests, prunedLoginAttempts, prunedEmailChallenges };
   } finally {
     await sql.end({ timeout: 5 });
   }

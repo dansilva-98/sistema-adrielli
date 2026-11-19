@@ -13,6 +13,8 @@ const okResult: ReminderJobResult = {
   quota: 0,
   appointmentIds: [],
   prunedFeedRequests: 0,
+  prunedLoginAttempts: 0,
+  prunedEmailChallenges: 0,
 };
 
 describe("função agendada de lembretes", () => {
@@ -93,6 +95,28 @@ describe("função agendada de lembretes", () => {
     );
     expect(runJob).toHaveBeenCalledTimes(1);
     expect(runJob).toHaveBeenCalledWith(expect.objectContaining({ deadlineMs: 23_000 }));
+  });
+
+  it("loga as contagens de limpeza no resultado público", async () => {
+    const log = vi.fn();
+    const runJob = vi.fn(async () => ({
+      ...okResult,
+      prunedLoginAttempts: 2,
+      prunedEmailChallenges: 1,
+    }));
+    const response = await handleClinicReminders(
+      { APP_ENV: "production", REMINDERS_ENABLED: "true" },
+      { runJob, log },
+    );
+    expect(await response.json()).toMatchObject({
+      prunedFeedRequests: 0,
+      prunedLoginAttempts: 2,
+      prunedEmailChallenges: 1,
+    });
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('"prunedLoginAttempts":2'));
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('"prunedEmailChallenges":1'),
+    );
   });
 
   it("não envia o Sentry no prazo", async () => {

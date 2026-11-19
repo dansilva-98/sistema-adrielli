@@ -91,6 +91,7 @@ describe("desafios de MFA por e-mail", () => {
   }): Promise<string> {
     const id = input.id ?? crypto.randomUUID();
     const hmac = emailMfaHmac(input.code, secret());
+    const createdAt = input.createdAt ?? new Date();
     await runtime`
       insert into identity.staff_email_mfa_challenges (
         id, user_id, session_id, code_hmac, attempts, expires_at, consumed_at, closed_at, created_at
@@ -100,10 +101,10 @@ describe("desafios de MFA por e-mail", () => {
         ${input.sessionId}::uuid,
         ${hmac},
         ${input.attempts ?? 0},
-        ${input.expiresAt ?? new Date(Date.now() + 10 * 60 * 1000)},
+        ${input.expiresAt ?? new Date(createdAt.getTime() + 10 * 60 * 1000)},
         ${input.consumedAt ?? null},
         ${input.closedAt ?? null},
-        ${input.createdAt ?? new Date()}
+        ${createdAt}
       )
     `;
     return id;
@@ -152,7 +153,7 @@ describe("desafios de MFA por e-mail", () => {
       (await confirmStaffEmailMfaCode({ userId, sessionId, code: "222222", ip: null }))
         .ok,
     ).toBe(false);
-    await runtime`delete from identity.staff_email_mfa_challenges where id = ${expiredId}::uuid`;
+    await owner`delete from identity.staff_email_mfa_challenges where id = ${expiredId}::uuid`;
 
     const lockedId = await insertChallenge({
       userId,
@@ -165,7 +166,7 @@ describe("desafios de MFA por e-mail", () => {
       (await confirmStaffEmailMfaCode({ userId, sessionId, code: "333333", ip: null }))
         .ok,
     ).toBe(false);
-    await runtime`delete from identity.staff_email_mfa_challenges where id = ${lockedId}::uuid`;
+    await owner`delete from identity.staff_email_mfa_challenges where id = ${lockedId}::uuid`;
 
     const usedId = await insertChallenge({
       userId,
@@ -177,7 +178,7 @@ describe("desafios de MFA por e-mail", () => {
       (await confirmStaffEmailMfaCode({ userId, sessionId, code: "444444", ip: null }))
         .ok,
     ).toBe(false);
-    await runtime`delete from identity.staff_email_mfa_challenges where id = ${usedId}::uuid`;
+    await owner`delete from identity.staff_email_mfa_challenges where id = ${usedId}::uuid`;
   });
 
   it("encerra o desafio anterior ao enviar um novo e limpa os de 24 h", async () => {
