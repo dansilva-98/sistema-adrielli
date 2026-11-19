@@ -24,8 +24,41 @@ jobs:
           cache: pnpm
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
+      - name: Tempo limite do apt no CI
+        run: |
+          mkdir -p /home/runner/apt-archives/partial
+          printf '%s\n' \
+            'Acquire::Retries "5";' \
+            'Acquire::http::Timeout "30";' \
+            'Acquire::https::Timeout "30";' \
+            'DPkg::Lock::Timeout "120";' \
+            'Dir::Cache::archives "/home/runner/apt-archives";' \
+            'Binary::apt::APT::Keep-Downloaded-Packages "true";' \
+            | sudo tee /etc/apt/apt.conf.d/99ci-timeouts
+      - name: Versão do Playwright no lockfile
+        id: playwright
+        run: |
+          version=$(grep -m1 "'@playwright/test@" pnpm-lock.yaml | sed -E "s/.*@playwright\/test@([^']+).*/\1/")
+          test -n "$version"
+          test -n "$ImageOS"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "ImageOS=$ImageOS" >> "$GITHUB_ENV"
+      - name: Cache dos navegadores do Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ env.ImageOS }}-playwright-chromium-${{ steps.playwright.outputs.version }}
+      - name: Cache dos pacotes apt do Playwright
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/apt-archives/*.deb
+          key: ${{ runner.os }}-${{ env.ImageOS }}-playwright-deps-chromium-${{ steps.playwright.outputs.version }}
+      - name: Instalar dependências do sistema do Playwright
+        timeout-minutes: 10
+        run: pnpm exec playwright install-deps chromium
       - name: Instalar navegador do Playwright
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 15
+        run: pnpm exec playwright install chromium
       - name: Medir /admin e /consultorio autenticados
         run: node scripts/measure-staging.mjs
         env:
