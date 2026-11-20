@@ -151,6 +151,30 @@ for (const item of PAGES) {
   });
 }
 
+for (const width of [390, 1280] as const) {
+  test(`/privacidade em ${width}px com axe e títulos em ordem`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    const response = await page.goto("/privacidade");
+    expect(response?.status()).toBe(200);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Privacidade" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Atendimento no consultório" }),
+    ).toBeVisible();
+    const levels = await page
+      .locator("h1, h2, h3, h4, h5, h6")
+      .evaluateAll((nodes) => nodes.map((node) => Number(node.tagName.slice(1))));
+    expect(levels[0]).toBe(1);
+    expect(levels.slice(1).every((level) => level === 2)).toBe(true);
+    expect(await overflowX(page)).toBeLessThanOrEqual(1);
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
+  });
+}
+
 test("axe com dois serviços em 360 e 1280 px", async ({ page }) => {
   test.setTimeout(180_000);
   const email = `paginas-servicos-${crypto.randomUUID()}@example.com`;

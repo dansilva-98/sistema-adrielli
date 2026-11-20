@@ -55,6 +55,28 @@ async function PrivacidadeContent() {
         <p>{content.accessLogs}</p>
       </section>
       <section className="flex flex-col gap-2">
+        <h2 className="font-serif text-2xl">{content.clinicHeading}</h2>
+        <ul className="list-disc pl-5">
+          {content.clinicDataCategories.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+          {content.clinicItemsBeforeProcessors.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+          <li>
+            {content.clinicProcessorsLead}
+            <ul className="list-disc pl-5">
+              {content.clinicProcessors.map((processor) => (
+                <li key={processor}>{processor}</li>
+              ))}
+            </ul>
+          </li>
+          {content.clinicItemsAfterProcessors.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </section>
+      <section className="flex flex-col gap-2">
         <h2 className="font-serif text-2xl">Direitos de quem é titular</h2>
         <p>{content.rightsIntro}</p>
         <ul className="list-disc pl-5">
